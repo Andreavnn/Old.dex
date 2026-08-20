@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import { battleScenarioEntries, nonReaderRuleSourcePaths, ruleSections, slugify } from '../data/rules'
 import { ruleReaderPath } from '../data/ruleRepository'
@@ -8,7 +8,6 @@ import { fetchRuleIndexHierarchy, type RuleIndexGroup } from '../services/ruleCo
 import { reportAppError } from '../services/appErrors'
 
 const route = useRoute()
-const router = useRouter()
 const loading = ref(true)
 const group = ref<RuleIndexGroup | null>(null)
 const errorMessage = ref('')

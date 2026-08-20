@@ -23,7 +23,6 @@ import {
   weaponSelectionCost,
   weaponIsEquipped as domainWeaponIsEquipped,
   weaponIsOptionalChoice as domainWeaponIsOptionalChoice,
-  weaponIsUniversalHandWeapon as domainUniversalHandWeapon,
 } from '../domain/loadout'
 import { applyMagicalMaelstromSelections, magicalMaelstromWizardLevel, wizardLevelFromName, wizardLevelGroupId } from '../domain/wizard'
 import { magicItemPointLimit as resolveMagicItemPointLimit } from '../domain/magicItems'
@@ -283,7 +282,6 @@ function magicWeaponDisplay(entry: { item: MagicItem; count: number }) {
   return { id: `magic-${entry.item.id}`, name: ownerPrefix + (entry.count > 1 ? `${entry.item.name} ×${entry.count}` : entry.item.name), kind: detail.kind || 'melee', range: detail.range || (detail.kind === 'missile' ? 'See rule' : 'Combat'), strength: detail.strength || 'See rule', ap: detail.ap || 'See rule', rules: detail.rules?.length ? detail.rules : [], points: entry.item.points * entry.count, default: true, locked: true, path: `/magic-item/${entry.item.slug}`, hasUniqueRule: true } satisfies PrototypeWeapon
 }
 function weaponOwnerAvailable(weapon: PrototypeWeapon) { return !weapon.requiresSelection || selectionHas(weapon.requiresSelection) }
-function weaponIsUniversalHandWeapon(weapon: PrototypeWeapon) { return prototypeUnit.value ? domainUniversalHandWeapon(prototypeUnit.value, weapon) : false }
 function weaponIsEquipped(weapon: PrototypeWeapon) { return prototypeUnit.value ? domainWeaponIsEquipped(prototypeUnit.value, weapon, selectedWeaponIds.value, weaponCounts.value) : false }
 function weaponIsOptionalChoice(weapon: PrototypeWeapon) { return prototypeUnit.value ? domainWeaponIsOptionalChoice(prototypeUnit.value, weapon) : false }
 const baseMeleeWeapons = computed(() => prototypeUnit.value?.weapons.filter((weapon) => weapon.kind === 'melee' && weaponOwnerAvailable(weapon) && weaponIsEquipped(weapon)) || [])
@@ -784,7 +782,7 @@ function saveCurrentRosterConfiguration() {
     options: rosterOptionLabels.value,
     includedEquipment: includedRosterLabels.value,
     optionalSelections: optionalRosterLabels.value,
-    specialRules: [...activeSpecialRules.value, ...magicItemRuleCards.value].map((rule) => ({ label: rule.name, path: rule.path || rule.keywords[0]?.path || '/special-rules/what-are-special-rules' })),
+    specialRules: activeSpecialRules.value.map((rule) => ({ label: rule.name, path: rule.path || rule.keywords[0]?.path || '/special-rules/what-are-special-rules' })),
     keywords: unitKeywordLinks.value,
     weaponIds: [...selectedWeaponIds.value],
     equipmentIds: [...selectedEquipmentIds.value],
