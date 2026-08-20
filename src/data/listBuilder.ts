@@ -51,7 +51,7 @@ export const compositionOptions: Array<{ value: CompositionOptionId; label: stri
   { value: 'allow-allies', label: 'Allow Allied Units' },
   { value: 'allow-mercenaries', label: 'Allow Mercenary Units' },
   { value: 'allow-custom-units', label: 'Allow Custom Units' },
-  { value: 'over-under', label: 'Over - Under' },
+  { value: 'over-under', label: 'Over / Under' },
   { value: 'monster-mash', label: 'Monster Mash' },
 ]
 

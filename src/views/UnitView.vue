@@ -129,9 +129,16 @@ const magicPickerExpanded = ref(new Set<string>())
 function selectionHas(id: string) { return selectedEquipmentIds.value.has(id) || selectedWeaponIds.value.has(id) }
 function isWizardParentOption(option: PrototypeEquipmentOption) { return /^Wizard$/i.test(String(option.name || '').trim()) }
 function isWizardLevelOption(option: PrototypeEquipmentOption) { return wizardLevelFromName(option.name) > 0 }
+function isLoreEquipmentOption(option: PrototypeEquipmentOption) { return /^(?:The\s+)?Lore\s+of\b/i.test(String(option.name || '').trim()) }
+function isWizardMagicEquipmentOption(option: PrototypeEquipmentOption) { return isLoreEquipmentOption(option) || /\b(?:spell|prayer|wizard)\b/i.test(String(option.name || '').trim()) }
+function formatHandWeaponCountLabel(value: string) {
+  const text = String(value || '').trim()
+  const match = text.match(/^Hand weapons?\s*(?:[×x]\s*)?\(?\s*(\d+)\s*\)?$/i)
+  return match ? `${Number(match[1])} – (Hand Weapon)` : text
+}
 function displayOptionName(option: PrototypeEquipmentOption) {
   const level = wizardLevelFromName(option.name)
-  return level ? `Wizard Level ${level}` : option.name
+  return level ? `Wizard Level ${level}` : formatHandWeaponCountLabel(option.name)
 }
 
 function rosterRowHasGeneral(row: { options?: string[] }) {
@@ -336,8 +343,11 @@ function specialRulePath(name: string) {
   return clean ? `/special-rules/${clean}` : '/special-rules'
 }
 function weaponRuleLabels(weapon: PrototypeWeapon) {
+  // Prefer the authoritative link supplied by the weapon/profile source. This
+  // avoids rendering a second generic special-rules link for the same label.
+  const linkedLabels = new Set((weapon.ruleLinks || []).map((row) => row.label.trim().toLowerCase()))
   const rows = [
-    ...(weapon.rules || []).filter(Boolean).map((label) => ({ label, path: specialRulePath(label) })),
+    ...(weapon.rules || []).filter(Boolean).filter((label) => !linkedLabels.has(label.trim().toLowerCase())).map((label) => ({ label, path: specialRulePath(label) })),
     ...(weapon.ruleLinks || []),
   ]
   // A weapon-specific rule should identify the weapon itself rather than use a
@@ -410,17 +420,19 @@ const equipmentGroups = computed(() => {
     { key: 'role', title: 'Command & Role', options: options.filter((option) => option.kind === 'role') },
     { key: 'mount', title: 'Mount', options: options.filter((option) => option.kind === 'mount') },
     { key: 'mount-option', title: 'Mount Options', options: options.filter((option) => option.kind === 'mount-option') },
-    { key: 'special', title: 'Special Rules & Upgrades', options: options.filter((option) => option.kind === 'special' && !isWizardLevelOption(option)) },
+    { key: 'special', title: 'Special Rules & Upgrades', options: options.filter((option) => option.kind === 'special' && !isWizardLevelOption(option) && !isWizardMagicEquipmentOption(option)) },
   ].filter((group) => group.options.length)
 })
-const loreChoices = computed(() => [...new Set((prototypeUnit.value?.lores || []).map((lore) => String(lore).trim()).filter(Boolean))])
+const loreEquipmentOptions = computed(() => availableEquipmentOptions.value.filter(isLoreEquipmentOption))
+const wizardMagicEquipmentOptions = computed(() => availableEquipmentOptions.value.filter((option) => isWizardMagicEquipmentOption(option) && !isLoreEquipmentOption(option) && !isWizardLevelOption(option)))
+const loreChoices = computed(() => [...new Set((prototypeUnit.value?.lores || []).map((lore) => String(lore).trim()).filter(Boolean))].filter((lore) => !loreEquipmentOptions.value.some((option) => formatLoreName(option.name) === formatLoreName(lore))))
 const isPrayerCaster = computed(() => {
   const unit = prototypeUnit.value
   if (!unit) return false
   const source = [unit.name, ...unit.specialRules.map((rule) => rule.name), ...loreChoices.value].join(' ')
   return /\b(?:priest|prayer|prayers|blessing|blessings)\b/i.test(source)
 })
-const showWizardLoreGroup = computed(() => wizardLevelOptions.value.length > 0 || loreChoices.value.length > 0)
+const showWizardLoreGroup = computed(() => wizardLevelOptions.value.length > 0 || loreEquipmentOptions.value.length > 0 || wizardMagicEquipmentOptions.value.length > 0 || loreChoices.value.length > 0)
 const loreSelectionEnabled = computed(() => isWizard.value || isPrayerCaster.value)
 function toggleLore(lore: string, selected: boolean) {
   if (isReadOnly.value || !loreSelectionEnabled.value) return
@@ -440,7 +452,8 @@ function formatLoreName(value: string) {
   }).join(' ')
 }
 function loreRulePath(_lore: string) { return '/the-lores-of-magic' }
-const selectedLoreRules = computed<PrototypeUnit['specialRules']>(() => [...selectedLores.value].map((lore) => {
+const activeLoreNames = computed(() => [...new Set([...selectedLores.value, ...selectedEquipment.value.filter(isLoreEquipmentOption).map((option) => option.name)])])
+const selectedLoreRules = computed<PrototypeUnit['specialRules']>(() => activeLoreNames.value.map((lore) => {
   const displayLore = formatLoreName(lore)
   const prayer = /prayer/i.test(lore) || isPrayerCaster.value && !isWizard.value
   return {
@@ -498,7 +511,8 @@ function equipmentDisplayName(option: PrototypeEquipmentOption) {
 }
 function formattedWeaponName(weapon: PrototypeWeapon) {
   const count = isPerModelWeaponSelection(weapon) ? (weaponCounts.value.get(weapon.id) || 0) : 0
-  return count > 0 && count !== modelCount.value ? `${weapon.name} ×${count}` : weapon.name
+  if (/^Hand weapons?$/i.test(weapon.name.trim()) && count > 0 && count !== modelCount.value) return `${count} – (Hand Weapon)`
+  return formatHandWeaponCountLabel(count > 0 && count !== modelCount.value ? `${weapon.name} ×${count}` : weapon.name)
 }
 function weaponOwnerOption(weapon: PrototypeWeapon) {
   if (!weapon.requiresSelection) return undefined
@@ -785,6 +799,10 @@ function setEquipmentSelected(option: PrototypeEquipmentOption, selected: boolea
   if (isReadOnly.value || mundaneEquipmentSuperseded(option)) return
   const currentlySelected = selectedEquipmentIds.value.has(option.id)
   if (equipmentOptionEffectivelyLocked(option) && !selected) return
+  if (!selected && isLoreEquipmentOption(option) && option.exclusiveGroup) {
+    const hasAlternative = (prototypeUnit.value?.equipmentOptions || []).some((candidate) => candidate.id !== option.id && candidate.exclusiveGroup === option.exclusiveGroup && selectedEquipmentIds.value.has(candidate.id))
+    if (!hasAlternative) return
+  }
   if (isPerModelEquipmentSelection(option)) {
     if (selected && !currentlySelected) adjustEquipmentCount(option, Math.max(1, option.minimum || 1))
     else if (!selected && currentlySelected) adjustEquipmentCount(option, -equipmentCount(option))
@@ -1002,7 +1020,7 @@ function saveCurrentRosterConfiguration() {
     magicPools: activeMagicPools.value.map((pool) => ({ ownerId: pool.id, ownerLabel: pool.label, maxPoints: pool.maxPoints })),
     weaponCounts: Object.fromEntries(weaponCounts.value),
     equipmentCounts: Object.fromEntries(equipmentCounts.value),
-    loreSelections: [...selectedLores.value],
+    loreSelections: activeLoreNames.value,
   })
 }
 let rosterSaveQueued = false
@@ -1066,9 +1084,9 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
       </section>
 
       <div class="warscroll-section-stack static-unit-stack">
-        <section v-if="meleeWeapons.length" class="unit-card-section static-unit-section weapons-panel"><h2>Melee Weapons</h2><div class="weapon-table-wrap warscroll-table-wrap"><table class="weapon-table old-world-weapon-table"><thead><tr><th>Name</th><th>Range</th><th>Strength</th><th>AP</th><th>Special Rules</th></tr></thead><tbody><tr v-for="row in meleeWeapons" :key="`${row.source}-${row.weapon.id}`"><td><span>{{ row.weapon.name }}</span><small v-if="row.weapon.note" class="weapon-note">{{ row.weapon.note }}</small></td><td>{{ row.weapon.range }}</td><td>{{ row.weapon.strength }}</td><td class="weapon-ap-cell">{{ weaponApDisplay(row) }}</td><td><div v-if="weaponRuleLabels(row.weapon).length" class="weapon-rule-labels"><RouterLink v-for="link in weaponRuleLabels(row.weapon)" :key="`${link.label}-${link.path}`" :to="`/rules/read${link.path}`" class="weapon-rule-label">{{ link.label }}</RouterLink></div><span v-else>—</span></td></tr></tbody></table></div></section>
+        <section v-if="meleeWeapons.length" class="unit-card-section static-unit-section weapons-panel"><h2>Melee Weapons</h2><div class="weapon-table-wrap warscroll-table-wrap"><table class="weapon-table old-world-weapon-table"><thead><tr><th>Name</th><th>Range</th><th>Strength</th><th>AP</th><th>Special Rules</th></tr></thead><tbody><tr v-for="row in meleeWeapons" :key="`${row.source}-${row.weapon.id}`"><td><span>{{ formatHandWeaponCountLabel(row.weapon.name) }}</span><small v-if="row.weapon.note" class="weapon-note">{{ row.weapon.note }}</small></td><td>{{ row.weapon.range }}</td><td>{{ row.weapon.strength }}</td><td class="weapon-ap-cell">{{ weaponApDisplay(row) }}</td><td><div v-if="weaponRuleLabels(row.weapon).length" class="weapon-rule-labels"><RouterLink v-for="link in weaponRuleLabels(row.weapon)" :key="`${link.label}-${link.path}`" :to="`/rules/read${link.path}`" class="weapon-rule-label">{{ link.label }}</RouterLink></div><span v-else>—</span></td></tr></tbody></table></div></section>
 
-        <section v-if="rangedWeapons.length" class="unit-card-section static-unit-section weapons-panel"><h2>Range Weapons</h2><div class="weapon-table-wrap warscroll-table-wrap"><table class="weapon-table old-world-weapon-table"><thead><tr><th>Name</th><th>Range</th><th>Strength</th><th>AP</th><th>Special Rules</th></tr></thead><tbody><tr v-for="row in rangedWeapons" :key="`${row.source}-${row.weapon.id}`"><td><span>{{ row.weapon.name }}</span><small v-if="row.weapon.note" class="weapon-note">{{ row.weapon.note }}</small></td><td>{{ row.weapon.range }}</td><td>{{ row.weapon.strength }}</td><td class="weapon-ap-cell">{{ weaponApDisplay(row) }}</td><td><div v-if="weaponRuleLabels(row.weapon).length" class="weapon-rule-labels"><RouterLink v-for="link in weaponRuleLabels(row.weapon)" :key="`${link.label}-${link.path}`" :to="`/rules/read${link.path}`" class="weapon-rule-label">{{ link.label }}</RouterLink></div><span v-else>—</span></td></tr></tbody></table></div></section>
+        <section v-if="rangedWeapons.length" class="unit-card-section static-unit-section weapons-panel"><h2>Range Weapons</h2><div class="weapon-table-wrap warscroll-table-wrap"><table class="weapon-table old-world-weapon-table"><thead><tr><th>Name</th><th>Range</th><th>Strength</th><th>AP</th><th>Special Rules</th></tr></thead><tbody><tr v-for="row in rangedWeapons" :key="`${row.source}-${row.weapon.id}`"><td><span>{{ formatHandWeaponCountLabel(row.weapon.name) }}</span><small v-if="row.weapon.note" class="weapon-note">{{ row.weapon.note }}</small></td><td>{{ row.weapon.range }}</td><td>{{ row.weapon.strength }}</td><td class="weapon-ap-cell">{{ weaponApDisplay(row) }}</td><td><div v-if="weaponRuleLabels(row.weapon).length" class="weapon-rule-labels"><RouterLink v-for="link in weaponRuleLabels(row.weapon)" :key="`${link.label}-${link.path}`" :to="`/rules/read${link.path}`" class="weapon-rule-label">{{ link.label }}</RouterLink></div><span v-else>—</span></td></tr></tbody></table></div></section>
 
         <section v-if="optionalWeaponOptions.length || equipmentGroups.length || showWizardLoreGroup" class="unit-card-section static-unit-section equipment-panel">
           <h2>Equipment & Options</h2>
@@ -1078,7 +1096,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
               <div class="prototype-option-grid equipment-option-grid weapon-option-grid">
                 <template v-for="weapon in optionalWeaponOptions" :key="weapon.id">
                   <div v-if="isPerModelWeaponSelection(weapon)" class="weapon-equipment-option count-option-card" :class="{ selected: weaponOptionSelected(weapon), unavailable: weaponUnavailable(weapon) }">
-                    <span class="option-name">{{ weapon.name }}</span>
+                    <span class="option-name">{{ formatHandWeaponCountLabel(weapon.name) }}</span>
                     <small v-if="weapon.note" class="option-effect">{{ weapon.note }}</small>
                     <strong v-if="weapon.points > 0" class="option-cost">{{ optionCost(weapon.points) }} / model</strong>
                     <span class="equipment-quantity-controls option-stepper weapon-option-quantity">
@@ -1090,7 +1108,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
                   </div>
                   <label v-else :class="{ selected: selectedWeaponIds.has(weapon.id), superseded: mundaneWeaponSuperseded(weapon), unavailable: weaponUnavailable(weapon) }">
                     <input type="checkbox" :checked="selectedWeaponIds.has(weapon.id)" :disabled="isReadOnly || mundaneWeaponSuperseded(weapon) || weaponUnavailable(weapon)" @change="handleWeaponCheckbox({ source: 'base', weapon }, $event)" />
-                    <span class="option-name">{{ weapon.name }}</span>
+                    <span class="option-name">{{ formatHandWeaponCountLabel(weapon.name) }}</span>
                     <small v-if="weapon.note" class="option-effect">{{ weapon.note }}</small>
                     <strong v-if="weapon.points > 0" class="option-cost">{{ optionCost(weapon.points) }}<small v-if="weapon.costMode === 'per-model' || weapon.perModel"> / model</small></strong>
                   </label>
@@ -1122,13 +1140,28 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
               </div>
             </section>
             <section v-if="showWizardLoreGroup" class="equipment-option-group wizard-lore-group">
-              <div class="equipment-group-heading"><h3>Wizard &amp; Spell Lores</h3><span v-if="magicalMaelstromEnabled && isWizard" class="rule-kind-pill magical-maelstrom-pill">Magical Maelstrom</span></div>
+              <div class="equipment-group-heading"><h3>Wizards &amp; Magic</h3><span v-if="magicalMaelstromEnabled && isWizard" class="rule-kind-pill magical-maelstrom-pill">Magical Maelstrom</span></div>
               <div v-if="wizardLevelOptions.length" class="prototype-option-grid equipment-option-grid wizard-level-grid">
                 <label v-for="option in wizardLevelOptions" :key="option.id" :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option) }">
                   <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionEffectivelyLocked(option) || (magicalMaelstromEnabled && isWizardLevelOption(option))" @change="handleEquipmentCheckbox(option, $event)" />
                   <span class="option-name">{{ displayOptionName(option) }}</span>
                   <small v-if="option.note" class="option-effect">{{ option.note }}</small>
                   <strong v-if="option.points > 0 || magicalMaelstromEnabled" class="option-cost">{{ magicalMaelstromEnabled ? 'Free' : optionCost(option.points) }}</strong>
+                </label>
+              </div>
+              <div v-if="wizardMagicEquipmentOptions.length" class="prototype-option-grid equipment-option-grid wizard-magic-option-grid">
+                <label v-for="option in wizardMagicEquipmentOptions" :key="option.id" :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option) }">
+                  <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionEffectivelyLocked(option)" @change="handleEquipmentCheckbox(option, $event)" />
+                  <span class="option-name">{{ displayOptionName(option) }}</span>
+                  <small v-if="option.note" class="option-effect">{{ option.note }}</small>
+                  <strong v-if="option.points > 0" class="option-cost">{{ optionCost(option.points) }}</strong>
+                </label>
+              </div>
+              <div v-if="loreEquipmentOptions.length" class="prototype-option-grid equipment-option-grid lore-source-option-grid">
+                <label v-for="option in loreEquipmentOptions" :key="option.id" :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option) }">
+                  <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionEffectivelyLocked(option)" @change="handleEquipmentCheckbox(option, $event)" />
+                  <span class="option-name">{{ formatLoreName(option.name) }}</span>
+                  <strong v-if="option.points > 0" class="option-cost">{{ optionCost(option.points) }}</strong>
                 </label>
               </div>
               <div v-if="loreChoices.length" class="lore-choice-grid" :class="{ unavailable: !loreSelectionEnabled }">

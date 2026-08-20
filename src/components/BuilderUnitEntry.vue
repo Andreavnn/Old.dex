@@ -19,6 +19,8 @@ function cleanDisplayOption(value: string) {
   let clean = String(value || '').trim()
   const wizard = clean.match(/(?:Level\s*(\d+)\s*Wizard|Wizard\s*Level\s*(\d+))/i)
   if (wizard) clean = `Wizard Level ${Number(wizard[1] || wizard[2])}`
+  const handWeapon = clean.match(/^Hand weapons?\s*(?:[×x]\s*)?\(?\s*(\d+)\s*\)?$/i)
+  if (handWeapon) clean = `${Number(handWeapon[1])} – (Hand Weapon)`
   if (/\b(?:armour|armor|shield|stubborn|veteran)\b/i.test(clean)) return clean.replace(/\s*[×x]\s*\d+\s*$/i, '')
   return clean
 }

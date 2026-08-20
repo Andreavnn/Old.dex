@@ -2517,3 +2517,108 @@ html[data-background]:not([data-background="none"]) .brand-stack{padding:9px 15p
 .game-roster-source-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2)}
 .inline-empty-note{padding:12px;border:1px dashed var(--line-dark);border-radius:9px;color:var(--ink-soft);background:var(--paper-2)}
 @media(max-width:560px){.game-roster-source-row{align-items:stretch;flex-direction:column}.game-roster-source-row .secondary-button{width:100%;justify-content:center}}
+
+/* Alpha 0.59 — roster overview/export, match tools, magic-picker usability and visual polish. */
+/* Image-backed copy remains theme-aware, but allows more of the selected art to show through. */
+html[data-background]:not([data-background="none"]) .page-title-block,
+html[data-background]:not([data-background="none"]) .hero-copy,
+html[data-background]:not([data-background="none"]) .unit-heading,
+html[data-background]:not([data-background="none"]) .brand-stack{
+  background:color-mix(in srgb,var(--paper) 82%,transparent);
+  border-color:color-mix(in srgb,var(--line) 72%,transparent);
+  backdrop-filter:blur(7px);
+  -webkit-backdrop-filter:blur(7px);
+}
+
+/* Background settings are part of the settings card, not a separately ruled panel. */
+.background-settings-panel{border-top:0!important;border-bottom:0!important}
+.background-option-list{border-top:0!important}
+
+/* Games uses the same content measure as the rest of Old.dex. */
+.games-page,.game-create-page,.game-match-page{width:min(760px,calc(100% - 28px))}
+.games-section-tools{display:flex;align-items:center;gap:7px;margin-left:auto}
+.section-count{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 8px;border:1px solid var(--line);border-radius:999px;background:var(--paper);font-size:calc(9px + var(--font-offset));font-weight:850;font-variant-numeric:tabular-nums}
+.games-filter-control select{height:32px;max-width:180px;padding:0 28px 0 9px;border:1px solid var(--line-dark);border-radius:8px;background:var(--paper);color:var(--ink);font-weight:750}
+.games-search-toggle{display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid var(--line-dark);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer}
+.games-search-toggle svg,.games-inline-search svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8}
+.games-search-toggle.active{background:var(--ink);color:var(--paper)}
+.games-inline-search{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;margin:10px 14px;padding:0 10px;border:1px solid var(--line-dark);border-radius:9px;background:var(--paper)}
+.games-inline-search input{min-width:0;height:38px;border:0;outline:0;background:transparent;color:var(--ink)}
+.games-truncated-note{padding:9px 14px;border-top:1px solid var(--line);background:var(--paper-2);color:var(--ink-soft);font-size:calc(8.5px + var(--font-offset));text-align:center}
+@media(max-width:560px){.games-section-heading{align-items:flex-start;flex-direction:column}.games-section-tools{width:100%;margin-left:0}.games-filter-control{flex:1}.games-filter-control select{width:100%;max-width:none}}
+
+/* Match setup uses independent roster selectors for both sides. */
+.game-create-form{display:grid;gap:13px;max-width:720px}
+.game-roster-card{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--paper-2)}
+.game-roster-card .game-roster-source-row{margin:0;background:var(--paper)}
+.scenario-info-window{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:11px;padding:12px;border:1px solid color-mix(in srgb,var(--accent) 42%,var(--line));border-radius:10px;background:color-mix(in srgb,var(--accent-wash) 30%,var(--paper))}
+.scenario-info-window p{margin:4px 0 0;color:var(--ink-soft);line-height:1.45}
+.game-create-actions{display:grid;grid-template-columns:1fr 1.35fr;gap:10px}
+.game-create-cancel{display:flex;align-items:center;justify-content:center;width:100%;color:var(--danger)!important;text-align:center}
+.game-first-turn-window{margin:12px 16px 0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2)}
+.game-first-turn-window p{margin:4px 0 10px;color:var(--ink-soft)}
+.game-first-turn-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.game-first-turn-actions .active{border-color:var(--accent);background:var(--accent-wash);color:var(--ink)}
+@media(max-width:540px){.game-create-actions,.game-first-turn-actions{grid-template-columns:1fr}}
+
+/* The roster points display can hold four-digit actual and target totals without clipping. */
+.builder-points-orb{width:176px;min-width:176px;min-height:92px;padding-inline:13px}
+.builder-points-line{display:flex;align-items:baseline;justify-content:center;gap:5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.builder-points-orb .builder-points-line strong{font-size:calc(25px + var(--font-offset))}
+.builder-points-orb .builder-points-line span{font-size:calc(14px + var(--font-offset));font-weight:800}
+.builder-points-orb small{white-space:nowrap}
+@media(max-width:620px){.builder-points-orb{width:100%;min-width:0}.builder-points-line{justify-content:flex-start}}
+
+/* Model-count values are deliberately centred between the increment controls. */
+.unit-size-controls input,.option-stepper strong,.equipment-quantity-controls strong,.weapon-count-controls strong{text-align:center;font-variant-numeric:tabular-nums}
+.option-stepper strong,.equipment-quantity-controls strong,.weapon-count-controls strong{display:inline-flex;align-items:center;justify-content:center;min-width:30px}
+
+/* Select Units: keep the action pair contained and remove the divider that crossed the Add control. */
+.unit-picker-row{overflow:hidden!important}
+.unit-picker-points{border-left:1px solid var(--line)}
+.unit-picker-actions{display:grid!important;grid-template-columns:1fr 1fr!important;grid-template-rows:1fr!important;width:82px!important;min-width:82px!important;border-left:0!important;overflow:hidden}
+.unit-picker-actions .builder-mini-action{height:100%;min-height:56px!important;padding:0!important;border-top:0!important;border-bottom:0!important;border-radius:0!important}
+.unit-picker-actions .builder-mini-action+.builder-mini-action{border-top:0!important;border-left:1px solid var(--line)!important}
+.unit-picker-actions .icon-only-action svg{position:relative;z-index:1}
+@media(max-width:620px){.unit-picker-actions{width:64px!important;min-width:64px!important}.unit-picker-actions .builder-mini-action{min-height:60px!important}}
+
+/* Magical item selection: fixed columns, clickable rows and independently scrolling content. */
+.magic-picker-backdrop{z-index:1200;pointer-events:auto}
+.magic-picker-panel{pointer-events:auto;isolation:isolate}
+.magic-picker-tabs button,.magic-picker-item,.magic-picker-item-main,.magic-picker-item-main input,.magic-picker-finish-bar button{pointer-events:auto}
+.magic-picker-list{display:flex!important;flex-direction:column;gap:8px;min-height:180px;overflow-y:auto!important}
+.magic-picker-item{flex:0 0 auto;min-height:54px}
+.magic-picker-item-main{display:grid!important;grid-template-columns:22px minmax(0,1fr) max-content 24px!important;align-items:center!important;column-gap:10px!important;min-height:54px;padding:9px 11px!important}
+.magic-picker-item-main>input{width:17px;height:17px;margin:0}
+.magic-picker-item-main>span:first-of-type{display:grid!important;grid-template-columns:1fr;gap:2px;min-width:0;overflow:hidden}
+.magic-picker-item-main>span:first-of-type strong,.magic-picker-item-main>span:first-of-type small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.magic-picker-description{position:relative;z-index:1}
+.magic-picker-finish-bar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px}
+@media(max-width:520px){.magic-picker-item-main{grid-template-columns:20px minmax(0,1fr) max-content 20px!important}.magic-picker-finish-bar{grid-template-columns:1fr 1fr}.magic-picker-finish-bar>span{grid-column:1/-1}}
+
+/* Saved roster state is visible without overwhelming the card. */
+.saved-list-card{border-left-width:4px}
+.saved-list-card.roster-status-valid{border-left-color:#4d9a60;background:color-mix(in srgb,#dff3e4 22%,var(--paper))}
+.saved-list-card.roster-status-invalid{border-left-color:#b84a43;background:color-mix(in srgb,#f7d9d6 24%,var(--paper))}
+.saved-list-card.roster-status-warning{border-left-color:#c69a37;background:color-mix(in srgb,#f6ebc9 27%,var(--paper))}
+.saved-list-row-actions{display:flex;align-items:stretch;border-left:1px solid var(--line)}
+.saved-list-action-button{display:flex;align-items:center;justify-content:center;min-width:58px;padding:0 9px;border:0;border-right:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:calc(8px + var(--font-offset));font-weight:800;text-decoration:none;cursor:pointer}
+.saved-list-row-actions .saved-list-copy-button{position:static;border-left:0}
+@media(max-width:620px){.saved-list-row-actions{width:100%;border-left:0;border-top:1px solid var(--line)}.saved-list-action-button{flex:1;min-height:38px}}
+
+/* Read-only roster overview follows the dense game-view convention while retaining Old.dex theming. */
+.list-view-page{display:grid;gap:13px}
+.list-view-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:16px 18px}
+.list-view-hero h1{margin:0;font-family:Georgia,'Times New Roman',serif;font-size:clamp(28px,4vw,40px)}
+.list-view-hero p:not(.eyebrow){margin:5px 0 0;color:var(--ink-soft)}
+.list-view-summary{display:grid;justify-items:end;gap:3px;font-variant-numeric:tabular-nums}.list-view-summary>strong{font-size:calc(18px + var(--font-offset))}.list-view-summary small{color:var(--ink-soft)}
+.roster-status-chip{display:inline-flex;align-items:center;justify-content:center;min-width:62px;padding:4px 8px;border-radius:999px;font-size:8px;font-weight:900;letter-spacing:.08em}.roster-status-chip.is-valid{background:#dbeedf;color:#28683a}.roster-status-chip.is-invalid{background:#f1d4d1;color:#8a2823}.roster-status-chip.is-warning{background:#f1e6bd;color:#76571a}
+.list-view-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px}
+.game-view-reference{overflow:hidden}.list-view-category>header{display:flex;justify-content:space-between;gap:10px;padding:10px 13px;background:var(--ink);color:var(--paper)}.list-view-category>header h2{margin:0;font-size:calc(12px + var(--font-offset))}.list-view-unit{padding:13px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--paper) 94%,transparent)}.list-view-unit:last-child{border-bottom:0}.list-view-unit-title{display:flex;justify-content:space-between;gap:12px}.list-view-loadout,.list-view-rule-line{display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:6px;font-size:calc(9px + var(--font-offset))}.list-view-loadout span:not(:last-child)::after{content:' ·';color:var(--ink-soft)}.list-view-rule-line>a{color:var(--ink);text-underline-offset:2px}.list-view-profile-wrap{overflow-x:auto;margin-top:8px}.list-view-profile-table{border-collapse:collapse;width:auto;min-width:430px;font-size:calc(8px + var(--font-offset))}.list-view-profile-table th,.list-view-profile-table td{padding:4px 7px;border:1px solid var(--line);text-align:center}.list-view-profile-table thead th{background:var(--paper-2);font-style:italic}.list-view-profile-table th:first-child{text-align:left}
+@media(max-width:620px){.list-view-hero{grid-template-columns:1fr}.list-view-summary{justify-items:start}.list-view-actions{justify-content:stretch}.list-view-actions>*{flex:1;justify-content:center}}
+
+/* Support links are explicit actions and retain theme text contrast. */
+.support-copy-row{border-bottom:1px solid var(--line)}
+.support-link-row a{text-decoration:none}
+:root[data-theme="dark"] .support-settings-card a{color:var(--ink)}
+.saved-list-card:not(.delete-select-mode){grid-template-columns:minmax(0,1fr) auto!important}

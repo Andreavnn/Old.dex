@@ -299,10 +299,11 @@ function equipmentOptions(raw: RawBuilderUnit): PrototypeEquipmentOption[] {
       magicAllowance: magicAllowanceFromValue(item.magic),
       ...extra,
     }
-    if (/^(?:The\s+)?Lore\s+of\b/i.test(name)) {
-      row.default = false
-      row.locked = false
-    }
+    // Source data already enforces mutually exclusive choices. Hide explanatory
+    // notes that merely repeat that enforced constraint (for example,
+    // “Must choose Lore of Yang or Lore of Yin”) without changing the source
+    // default/locked state of the selected option.
+    if (row.exclusiveGroup && /^must choose\b.*\bor\b/i.test(String(row.note || '').trim())) row.note = ''
     const ward = `${name} ${notes}`.match(/(?:Ward\s+save(?:\s+of)?\s*\(?\s*(2\+|3\+|4\+|5\+|6\+)\s*\)?|(2\+|3\+|4\+|5\+|6\+)\s+Ward\s+save)/i)
     if (ward) row.profileOverride = { ...(row.profileOverride || {}), Ward: ward[1] || ward[2] }
     rows.push(row)

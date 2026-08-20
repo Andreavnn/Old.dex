@@ -1,4 +1,4 @@
-import type { BuilderRosterSelection } from '../domain/rosterTypes'
+import type { BuilderRosterMagicItem, BuilderRosterSelection } from '../domain/rosterTypes'
 import { parseSavedArmyLists } from '../domain/schemas'
 import { readJson, readStorage, removeStorage, writeJson } from './storage'
 
@@ -15,6 +15,8 @@ export type SavedArmyList = {
   description: string
   roster?: BuilderRosterSelection[]
   locked?: boolean
+  actualPoints?: number
+  validationStatus?: 'valid' | 'invalid' | 'warning'
   createdAt: string
   updatedAt: string
 }
@@ -115,6 +117,8 @@ export function duplicateSavedArmyList(id: string) {
     description: source.description,
     roster: cloneRoster(source.roster || []),
     locked: false,
+    actualPoints: source.actualPoints,
+    validationStatus: source.validationStatus,
   })
 }
 
@@ -193,6 +197,78 @@ function owbMagicPoints(items: unknown, strength: number) {
   }
   return total
 }
+
+function normalizeMagicType(value: unknown): BuilderRosterMagicItem['type'] {
+  const clean = String(value || '').toLowerCase().replace(/[_\s]+/g, '-')
+  if (/weapon/.test(clean)) return 'weapon'
+  if (/armo(?:u)?r/.test(clean)) return 'armor'
+  if (/talisman/.test(clean)) return 'talisman'
+  if (/arcane/.test(clean)) return 'arcane-item'
+  if (/banner/.test(clean)) return 'banner'
+  return 'enchanted-item'
+}
+function owbMagicItems(items: unknown, ownerId: string, ownerLabel: string): BuilderRosterMagicItem[] {
+  if (!Array.isArray(items)) return []
+  const result: BuilderRosterMagicItem[] = []
+  for (const raw of items) {
+    if (!importRecord(raw)) continue
+    const selected = Array.isArray(raw.selected) ? raw.selected : []
+    const containerTypes = Array.isArray(raw.types) ? raw.types : []
+    const poolMaxPoints = Math.max(0, Number(raw.maxPoints) || 0) || undefined
+    for (const entry of selected) {
+      if (!importRecord(entry)) continue
+      const name = importName(entry)
+      if (!name) continue
+      const typeHint = entry.type || entry.itemType || entry.category || (containerTypes.length === 1 ? containerTypes[0] : '')
+      const type = normalizeMagicType(typeHint)
+      const count = Math.max(1, Number(entry.amount) || 1)
+      const perCopy = entry.perModel && Number(entry.perModelPoints) ? Number(entry.perModelPoints) : Number(entry.perUnitPoints) || Number(entry.points) || 0
+      const baseId = String(entry.id || importSlug(name))
+      result.push({
+        id: `import-magic-${ownerId}-${baseId}-${result.length}`,
+        baseId,
+        name,
+        points: Math.max(0, perCopy),
+        type,
+        source: importName(raw) || 'Imported magical items',
+        stackable: Boolean(entry.stackable || Number(entry.maximum) > 1 || count > 1),
+        maximum: Number(entry.maximum) > 0 ? Number(entry.maximum) : undefined,
+        onePerArmy: entry.onePerArmy !== false && !entry.stackable,
+        slug: importSlug(name),
+        count,
+        ownerId,
+        ownerLabel,
+        poolMaxPoints,
+      })
+    }
+  }
+  return result
+}
+function owbNestedMagicItems(items: unknown, ownerId: string, ownerLabel: string): BuilderRosterMagicItem[] {
+  if (!Array.isArray(items)) return []
+  const result: BuilderRosterMagicItem[] = []
+  for (const raw of items) {
+    if (!importRecord(raw)) continue
+    const name = importName(raw) || ownerLabel
+    if (importRecord(raw.magic)) result.push(...owbMagicItems([raw.magic], `${ownerId}-${importSlug(name)}`, name))
+    if (Array.isArray(raw.options)) result.push(...owbNestedMagicItems(raw.options, ownerId, ownerLabel))
+  }
+  return result
+}
+function owbAllMagicItems(unit: Record<string, unknown>, unitId: string, unitLabel: string) {
+  return [...owbMagicItems(unit.items, 'unit', unitLabel), ...owbNestedMagicItems(unit.command, unitId, unitLabel)]
+}
+function owbNestedMagicPoints(items: unknown, strength: number) {
+  if (!Array.isArray(items)) return 0
+  let total = 0
+  for (const raw of items) {
+    if (!importRecord(raw)) continue
+    if (importRecord(raw.magic)) total += owbMagicPoints([raw.magic], strength)
+    if (Array.isArray(raw.options)) total += owbNestedMagicPoints(raw.options, strength)
+  }
+  return total
+}
+
 function owbUnitPoints(unit: Record<string, unknown>, strength: number) {
   let total = (Number(unit.points) || 0) * Math.max(1, strength)
   total += owbSelectedOptionPoints(unit.options, strength)
@@ -201,6 +277,7 @@ function owbUnitPoints(unit: Record<string, unknown>, strength: number) {
   total += owbSelectedOptionPoints(unit.command, strength)
   total += owbSelectedOptionPoints(unit.mounts, strength)
   total += owbMagicPoints(unit.items, strength)
+  total += owbNestedMagicPoints(unit.command, strength)
   return Math.max(0, total)
 }
 function owbRoster(value: Record<string, unknown>) {
@@ -227,6 +304,8 @@ function owbRoster(value: Record<string, unknown>) {
       const specialRuleNames = importRules(raw.specialRules ?? raw.special_rules ?? raw.rules ?? raw.rule)
       const troopType = String(raw.troopType || raw.troop_type || raw.unitType || raw.type || '').trim()
       const activeLore = typeof raw.activeLore === 'string' ? [importTitle(raw.activeLore)] : Array.isArray(raw.activeLore) ? raw.activeLore.map(importTitle).filter(Boolean) : []
+      const importedMagicItems = owbAllMagicItems(raw, unitId, name)
+      for (const item of importedMagicItems) if (!selectedNames.some((existing) => existing.toLowerCase() === item.name.toLowerCase())) selectedNames.push(item.name)
       rows.push({
         instanceId: `import-${Date.now()}-${serial++}-${Math.random().toString(36).slice(2,7)}`,
         unitId,
@@ -246,6 +325,7 @@ function owbRoster(value: Record<string, unknown>) {
         keywords: troopType ? [{ label: troopType, path: '/model-profiles/troop-type' }] : [],
         weaponIds: [],
         equipmentIds: [],
+        magicItems: importedMagicItems,
         loreSelections: activeLore,
       })
     }
@@ -267,7 +347,7 @@ export function importSavedArmyListData(value: unknown) {
     if (native) {
       const parsed = parseSavedArmyLists([{ ...row, id: String(row.id || 'import'), createdAt: String(row.createdAt || new Date().toISOString()), updatedAt: String(row.updatedAt || new Date().toISOString()) }])[0]
       if (!parsed) continue
-      imported.push(createSavedArmyList({ name: parsed.name, army: parsed.army, armyName: parsed.armyName || importTitle(parsed.army), composition: parsed.composition || parsed.army, compositionName: parsed.compositionName || (parsed.composition === parsed.army ? 'Grand Army' : importTitle(parsed.composition)), rule: parsed.rule || 'open-war', points: parsed.points || 2000, options: parsed.options || [], description: parsed.description || '', roster: parsed.roster || [], locked: Boolean(parsed.locked) }))
+      imported.push(createSavedArmyList({ name: parsed.name, army: parsed.army, armyName: parsed.armyName || importTitle(parsed.army), composition: parsed.composition || parsed.army, compositionName: parsed.compositionName || (parsed.composition === parsed.army ? 'Grand Army' : importTitle(parsed.composition)), rule: parsed.rule || 'open-war', points: parsed.points || 2000, options: parsed.options || [], description: parsed.description || '', roster: parsed.roster || [], locked: Boolean(parsed.locked), actualPoints: parsed.actualPoints, validationStatus: parsed.validationStatus }))
       continue
     }
     const army = String(row.army || '').trim()
@@ -287,6 +367,8 @@ export function importSavedArmyListData(value: unknown) {
       description: String(row.description || ''),
       roster,
       locked: false,
+      actualPoints: roster.reduce((sum, unit) => sum + unit.totalPoints, 0),
+      validationStatus: 'warning',
     }))
   }
   if (!imported.length) throw new Error('No compatible Old.dex or Old World Builder army list was found in this JSON file.')
@@ -297,4 +379,21 @@ export function importSavedArmyListJson(text: string) {
   let value: unknown
   try { value = JSON.parse(text) } catch { throw new Error('The selected file is not valid JSON.') }
   return importSavedArmyListData(value)
+}
+
+
+export function savedArmyListExportJson(row: SavedArmyList) {
+  return JSON.stringify({ format: 'olddex-army-roster', version: '0.59', ...row, roster: cloneRoster(row.roster || []) }, null, 2)
+}
+
+export function exportSavedArmyList(row: SavedArmyList) {
+  const blob = new Blob([savedArmyListExportJson(row)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `${importSlug(row.name) || 'olddex-roster'}.olddex.json`
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }

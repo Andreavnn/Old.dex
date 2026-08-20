@@ -13,7 +13,7 @@ import { useRosterStore } from '../stores/rosterStore'
 import { favoriteUnitIdsForArmy, toggleFavoriteUnit } from '../services/favorites'
 import { loadCompositionRules, type CompositionRuleCatalog } from '../services/armyData'
 import { validateRoster } from '../services/rosterValidation'
-import { duplicateSavedArmyList, getSavedArmyList, importSavedArmyListJson, updateSavedArmyList, savedArmyListRoute } from '../services/savedLists'
+import { duplicateSavedArmyList, exportSavedArmyList, getSavedArmyList, importSavedArmyListJson, updateSavedArmyList, savedArmyListRoute } from '../services/savedLists'
 import { reportAppError } from '../services/appErrors'
 
 const route = useRoute()
@@ -32,7 +32,7 @@ const compositionRuleId = computed(() => String(route.query.rule || 'open-war') 
 const compositionRule = computed(() => compositionRuleLabel(compositionRuleId.value))
 const selectedOptions = computed(() => {
   const ids = new Set(String(route.query.options || '').split(',').map((value) => value.trim()).filter(Boolean))
-  return compositionOptions.filter((option) => ids.has(option.value))
+  return compositionOptions.filter((option) => ids.has(option.value) && option.value !== 'allow-custom-units')
 })
 const points = computed(() => {
   const parsed = Number(route.query.points || 2000)
@@ -193,6 +193,8 @@ const untouchedMagicPools = computed(() => roster.value.flatMap((row) => rosterM
 }).map((pool) => ({ row, pool }))))
 const hasMagicAllowanceWarning = computed(() => validationState.value === 'VALID' && untouchedMagicPools.value.length > 0)
 const hasRosterWarning = computed(() => validationState.value === 'VALID' && (overUnderWarning.value || hasMagicAllowanceWarning.value))
+const persistedRosterStatus = computed<'valid' | 'invalid' | 'warning'>(() => validationState.value === 'INVALID' || validationState.value === 'OVER LIMIT' ? 'invalid' : validationState.value === 'VALID' && rosterPoints.value === points.value && !hasRosterWarning.value ? 'valid' : 'warning')
+watch([savedListId, rosterPoints, persistedRosterStatus], () => { if (savedListId.value) updateSavedArmyList(savedListId.value, { actualPoints: rosterPoints.value, validationStatus: persistedRosterStatus.value }) }, { immediate: true })
 async function loadValidationData() {
   validationDataError.value = ''
   try { compositionRuleData.value = await loadCompositionRules() } catch (error) { reportAppError(error, 'LIST_BUILDER_COMPOSITION_RULES'); validationDataError.value = error instanceof Error ? error.message : 'Battle composition rules could not be loaded.' }
@@ -377,6 +379,18 @@ async function importArmyListFile(event: Event) {
   }
 }
 
+function exportCurrentList() {
+  if (!savedListId.value) return
+  persistRoster()
+  const saved = getSavedArmyList(savedListId.value)
+  if (saved) exportSavedArmyList({ ...saved, roster: roster.value, actualPoints: rosterPoints.value, validationStatus: persistedRosterStatus.value })
+}
+async function viewCurrentList() {
+  if (!savedListId.value) return
+  persistRoster()
+  await router.push({ name: 'list-view', params: { listId: savedListId.value } })
+}
+
 async function duplicateCurrentList() {
   if (!savedListId.value) return
   persistRoster()
@@ -405,6 +419,7 @@ const settingsCompositionRules = computed(() => {
 function settingsOptionAvailable(option: CompositionOptionId) {
   if (option === 'allow-allies') return Boolean(settingsCompositionRules.value?.allies)
   if (option === 'allow-mercenaries') return Boolean(settingsCompositionRules.value?.mercenaries)
+  if (option === 'allow-custom-units') return false
   return true
 }
 function normalizeSettingsAvailability() {
@@ -457,12 +472,12 @@ async function applySettings() {
         </div>
         <p v-if="description" class="builder-list-description">{{ description }}</p>
       </div>
-      <div class="builder-points-orb" :class="{ over: remainingPoints < 0 && !overUnderWarning, warning: overUnderWarning }"><strong>{{ rosterPoints }}</strong><span>/ {{ points }}</span><small>{{ remainingPoints >= 0 ? `${remainingPoints} remaining` : `${Math.abs(remainingPoints)} over` }}</small></div>
+      <div class="builder-points-orb" :class="{ over: remainingPoints < 0 && !overUnderWarning, warning: overUnderWarning }"><div class="builder-points-line"><strong>{{ rosterPoints }}</strong><span>/ {{ points }}</span></div><small>{{ remainingPoints >= 0 ? `– ${remainingPoints} remaining` : `– ${Math.abs(remainingPoints)} over` }}</small></div>
     </div>
 
     <section class="builder-command-strip card-surface">
-      <div class="builder-toolbar" aria-label="List tools"><button type="button" class="builder-tool" @click="listImportInput?.click()"><span>Import</span><small>JSON roster</small></button><input ref="listImportInput" class="file-import-input" type="file" accept=".json,.owb.json,.owb.lists.json,application/json" @change="importArmyListFile" /><button type="button" class="builder-tool" disabled title="Export is not available in this build"><span>Export</span><small>Coming later</small></button><button type="button" class="builder-tool" @click="duplicateCurrentList"><span>Duplicate</span><small>Copy list</small></button><button type="button" class="builder-tool" :disabled="listLocked" @click="openSettings"><span>Settings</span><small>List setup</small></button><button type="button" class="builder-tool" disabled title="Game View is not available in this build"><span>Game View</span><small>Coming later</small></button><button type="button" class="builder-tool builder-lock-tool" :class="{ active: listLocked }" @click="toggleListLock"><span>{{ listLocked ? 'Unlock Editing' : 'Lock List' }}</span><small>{{ listLocked ? 'Editing off' : 'Editing on' }}</small></button></div>
-      <div class="builder-validation-row"><span><strong>Army validation</strong><small>{{ validationIssues.length ? `${validationIssues.filter((issue) => issue.severity === 'error').length} rule issue${validationIssues.filter((issue) => issue.severity === 'error').length === 1 ? '' : 's'} to resolve.` : overUnderWarning ? `Roster is valid under Over - Under at ${Math.abs(remainingPoints)} points over the selected limit.` : hasMagicAllowanceWarning ? `Roster is valid; ${untouchedMagicPools.length} magic-item allowance${untouchedMagicPools.length === 1 ? '' : 's'} remain completely unspent.` : 'General, category percentages and composition requirements are satisfied.' }}</small></span><span class="validation-state-text" :class="{ danger: validationState === 'OVER LIMIT' || validationState === 'INVALID', valid: validationState === 'VALID' && !hasRosterWarning, warning: hasRosterWarning }">{{ validationState }}</span></div>
+      <div class="builder-toolbar" aria-label="Roster tools"><button type="button" class="builder-tool" @click="listImportInput?.click()"><span>Import</span><small>JSON roster</small></button><input ref="listImportInput" class="file-import-input" type="file" accept=".json,.owb.json,.owb.lists.json,application/json" @change="importArmyListFile" /><button type="button" class="builder-tool" @click="exportCurrentList"><span>Export</span><small>JSON roster</small></button><button type="button" class="builder-tool" @click="duplicateCurrentList"><span>Duplicate</span><small>Copy roster</small></button><button type="button" class="builder-tool" :disabled="listLocked" @click="openSettings"><span>Settings</span><small>Roster setup</small></button><button type="button" class="builder-tool" @click="viewCurrentList"><span>View</span><small>Roster overview</small></button><button type="button" class="builder-tool builder-lock-tool" :class="{ active: listLocked }" @click="toggleListLock"><span>{{ listLocked ? 'Unlock Editing' : 'Lock Roster' }}</span><small>{{ listLocked ? 'Editing off' : 'Editing on' }}</small></button></div>
+      <div class="builder-validation-row"><span><strong>Army validation</strong><small>{{ validationIssues.length ? `${validationIssues.filter((issue) => issue.severity === 'error').length} rule issue${validationIssues.filter((issue) => issue.severity === 'error').length === 1 ? '' : 's'} to resolve.` : overUnderWarning ? `Roster is valid under Over / Under at ${Math.abs(remainingPoints)} points over the selected limit.` : hasMagicAllowanceWarning ? `Roster is valid; ${untouchedMagicPools.length} magic-item allowance${untouchedMagicPools.length === 1 ? '' : 's'} remain completely unspent.` : 'General, category percentages and composition requirements are satisfied.' }}</small></span><span class="validation-state-text" :class="{ danger: validationState === 'OVER LIMIT' || validationState === 'INVALID', valid: validationState === 'VALID' && !hasRosterWarning, warning: hasRosterWarning }">{{ validationState }}</span></div>
       <div v-if="validationDataError" class="builder-validation-warning">{{ validationDataError }}</div>
       <ul v-if="validationIssues.length" class="builder-validation-list"><li v-for="(issue, index) in validationIssues" :key="`${issue.section}-${index}-${issue.message}`" :class="issue.severity"><span class="validation-section-label">{{ issue.section }}</span><span class="validation-issue-message">{{ issue.message }}</span></li></ul>
     </section>

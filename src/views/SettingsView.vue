@@ -181,14 +181,21 @@ async function updateBuilderRules() {
       </section>
     </section>
 
-    <section class="settings-group" aria-label="Donations">
+    <section class="settings-group" aria-label="Support">
       <div class="settings-group-heading">
-        <p class="eyebrow settings-group-title">DONATIONS</p>
+        <p class="eyebrow settings-group-title">SUPPORT</p>
       </div>
-      <section class="settings-card">
-        <div class="setting-row static-row support-placeholder-row">
-          <span><strong>Support Old.dex</strong><small>A voluntary donation/support option will be added here later. No payment functionality is active in this build.</small></span>
-          <span class="value-chip">COMING SOON</span>
+      <section class="settings-card support-settings-card">
+        <div class="setting-row static-row support-copy-row">
+          <span><strong>Support Old.dex</strong><small>Voluntary Support for Old.Dex – Not Affiliated with Games Workshop – Contributions Used Only for Domain and Hosting Costs</small></span>
+        </div>
+        <div class="setting-row support-link-row">
+          <span><strong>One Time Support</strong><small>Open the one-time Stripe support page in a new window.</small></span>
+          <a class="secondary-button settings-compact-action" href="https://buy.stripe.com/test_4gM5kDbEa6TM9Ig7bb3Nm03" target="_blank" rel="noopener noreferrer">Open</a>
+        </div>
+        <div class="setting-row support-link-row">
+          <span><strong>Recurring Support</strong><small>Open the recurring Stripe support page in a new window.</small></span>
+          <a class="secondary-button settings-compact-action" href="https://buy.stripe.com/test_fZu8wP4bI2Dw6w4cvv3Nm00" target="_blank" rel="noopener noreferrer">Open</a>
         </div>
       </section>
     </section>

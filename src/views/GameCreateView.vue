@@ -2,46 +2,66 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
-import { createSavedGame, type GameSide } from '../services/games'
+import { createSavedGame } from '../services/games'
 import { getSavedArmyLists, importSavedArmyListJson, type SavedArmyList } from '../services/savedLists'
 
 const router = useRouter()
 const lists = ref<SavedArmyList[]>(getSavedArmyLists())
-const importInput = ref<HTMLInputElement | null>(null)
-const importMessage = ref('')
-const playerListId = ref(lists.value[0]?.id || '')
+const playerImportInput = ref<HTMLInputElement | null>(null)
+const opponentImportInput = ref<HTMLInputElement | null>(null)
+const playerImportMessage = ref('')
+const opponentImportMessage = ref('')
+const playerListId = ref('')
 const opponentListId = ref('')
 const opponentName = ref('Opponent')
 const scenario = ref('Open Battle')
-const firstPlayer = ref<GameSide>('player')
+
+const scenarioOptions = [
+  { name: 'Open Battle', description: 'A standard battle without an additional scenario-specific deployment or victory condition.' },
+  { name: 'Meeting Engagement', description: 'Units may be held in reserve before deployment. Reserve handling is resolved during battle setup and deployment.' },
+  { name: 'Flank Attack', description: 'Each army may prepare a flanking force. Record the selected flank and force during battle setup.' },
+  { name: 'Command & Control', description: 'A central special feature becomes an additional objective and can award bonus victory points.' },
+  { name: 'Mountain Pass', description: 'The long battlefield edges are impassable, creating a narrow battlefield with restricted entry and escape.' },
+  { name: 'Break Point', description: 'Army strength is checked against a Break Point during the battle. Old.dex will surface the required battle checks in the match workflow.' },
+]
 
 const playerList = computed(() => lists.value.find((list) => list.id === playerListId.value) || null)
 const opponentList = computed(() => lists.value.find((list) => list.id === opponentListId.value) || null)
+const selectedScenario = computed(() => scenarioOptions.find((option) => option.name === scenario.value) || scenarioOptions[0])
 const canCreate = computed(() => Boolean(playerList.value))
 
-function refreshLists(preferredId = '') {
+function refreshLists(side: 'player' | 'opponent', preferredId = '') {
   lists.value = getSavedArmyLists()
-  if (preferredId && lists.value.some((list) => list.id === preferredId)) playerListId.value = preferredId
-  else if (!lists.value.some((list) => list.id === playerListId.value)) playerListId.value = lists.value[0]?.id || ''
+  if (preferredId && lists.value.some((list) => list.id === preferredId)) {
+    if (side === 'player') playerListId.value = preferredId
+    else opponentListId.value = preferredId
+  }
+  if (playerListId.value && !lists.value.some((list) => list.id === playerListId.value)) playerListId.value = ''
+  if (opponentListId.value && !lists.value.some((list) => list.id === opponentListId.value)) opponentListId.value = ''
 }
-async function importRoster(event: Event) {
+async function importRoster(event: Event, side: 'player' | 'opponent') {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
-  importMessage.value = ''
+  if (side === 'player') playerImportMessage.value = ''
+  else opponentImportMessage.value = ''
   try {
     const imported = importSavedArmyListJson(await file.text())
-    refreshLists(imported[0]?.id || '')
-    importMessage.value = `${imported.length} roster${imported.length === 1 ? '' : 's'} imported and ready to use.`
+    refreshLists(side, imported[0]?.id || '')
+    const message = `${imported.length} roster${imported.length === 1 ? '' : 's'} imported and ready to use.`
+    if (side === 'player') playerImportMessage.value = message
+    else opponentImportMessage.value = message
   } catch (error) {
-    importMessage.value = error instanceof Error ? error.message : 'This army-list JSON could not be imported.'
+    const message = error instanceof Error ? error.message : 'This army-roster JSON could not be imported.'
+    if (side === 'player') playerImportMessage.value = message
+    else opponentImportMessage.value = message
   } finally {
     input.value = ''
   }
 }
 function createMatch() {
   if (!playerList.value) return
-  const game = createSavedGame({ playerList: playerList.value, opponentList: opponentList.value, opponentName: opponentName.value, scenario: scenario.value, firstPlayer: firstPlayer.value })
+  const game = createSavedGame({ playerList: playerList.value, opponentList: opponentList.value, opponentName: opponentName.value, scenario: scenario.value })
   void router.push(`/games/${game.id}`)
 }
 </script>
@@ -52,25 +72,48 @@ function createMatch() {
     <div class="page-title-block">
       <p class="eyebrow">NEW MATCH</p>
       <h1>Start New Match</h1>
-      <p>Select one of your saved Army Lists or import a JSON roster, then choose the opponent and scenario.</p>
+      <p>Select saved army rosters or import JSON rosters for both sides, then choose the scenario. First turn is resolved later in the battle workflow.</p>
     </div>
 
     <section class="form-card game-create-form">
-      <div class="game-roster-source-row">
-        <strong>Your roster</strong>
-        <button type="button" class="secondary-button" @click="importInput?.click()">Import JSON roster</button>
-        <input ref="importInput" class="file-import-input" type="file" accept=".json,.owb.json,.owb.lists.json,application/json" @change="importRoster" />
-      </div>
-      <p v-if="importMessage" class="list-import-message" role="status">{{ importMessage }}</p>
+      <section class="game-roster-card">
+        <div class="game-roster-source-row">
+          <span><strong>Your Army Roster</strong><small>Use a roster already saved in Old.dex or import one.</small></span>
+          <button type="button" class="secondary-button" @click="playerImportInput?.click()">Import roster</button>
+          <input ref="playerImportInput" class="file-import-input" type="file" accept=".json,.owb.json,.owb.lists.json,application/json" @change="importRoster($event, 'player')" />
+        </div>
+        <label class="field-label">Select roster from list
+          <select v-model="playerListId" class="field-control" required>
+            <option value="" disabled>Select roster from list</option>
+            <option v-for="list in lists" :key="list.id" :value="list.id">{{ list.name }} — {{ list.armyName }} — {{ list.points }} pts</option>
+          </select>
+        </label>
+        <p v-if="playerImportMessage" class="list-import-message" role="status">{{ playerImportMessage }}</p>
+      </section>
 
-      <label v-if="lists.length" class="field-label">Your army list<select v-model="playerListId" class="field-control"><option v-for="list in lists" :key="list.id" :value="list.id">{{ list.name }} — {{ list.armyName }} — {{ list.points }} pts</option></select></label>
-      <div v-else class="inline-empty-note">No saved roster yet. Import a JSON army list above or create one in Army Lists.</div>
-      <label v-if="lists.length" class="field-label">Opponent saved list <select v-model="opponentListId" class="field-control"><option value="">No saved opponent list</option><option v-for="list in lists.filter((candidate) => candidate.id !== playerListId)" :key="list.id" :value="list.id">{{ list.name }} — {{ list.armyName }} — {{ list.points }} pts</option></select></label>
-      <label v-if="!opponentList" class="field-label">Opponent name<input v-model="opponentName" class="field-control" maxlength="80" /></label>
-      <label class="field-label">Scenario<select v-model="scenario" class="field-control"><option>Open Battle</option><option>Meeting Engagement</option><option>Flank Attack</option><option>Command &amp; Control</option><option>Mountain Pass</option><option>Break Point</option></select></label>
-      <fieldset class="game-first-player"><legend>First player</legend><label><input v-model="firstPlayer" value="player" type="radio" /> {{ playerList?.name || 'Your army' }}</label><label><input v-model="firstPlayer" value="opponent" type="radio" /> {{ opponentList?.name || opponentName || 'Opponent' }}</label></fieldset>
-      <RouterLink to="/games" class="secondary-button game-create-cancel">Cancel</RouterLink>
-      <button type="button" class="primary-button" :disabled="!canCreate" @click="createMatch">Create Match</button>
+      <section class="game-roster-card">
+        <div class="game-roster-source-row">
+          <span><strong>Opponent Army Roster</strong><small>Select a saved opponent roster or import one.</small></span>
+          <button type="button" class="secondary-button" @click="opponentImportInput?.click()">Import roster</button>
+          <input ref="opponentImportInput" class="file-import-input" type="file" accept=".json,.owb.json,.owb.lists.json,application/json" @change="importRoster($event, 'opponent')" />
+        </div>
+        <label class="field-label">Select roster from list
+          <select v-model="opponentListId" class="field-control">
+            <option value="">Select roster from list</option>
+            <option v-for="list in lists.filter((candidate) => candidate.id !== playerListId)" :key="list.id" :value="list.id">{{ list.name }} — {{ list.armyName }} — {{ list.points }} pts</option>
+          </select>
+        </label>
+        <label v-if="!opponentList" class="field-label">Opponent name<input v-model="opponentName" class="field-control" maxlength="80" /></label>
+        <p v-if="opponentImportMessage" class="list-import-message" role="status">{{ opponentImportMessage }}</p>
+      </section>
+
+      <label class="field-label">Scenario<select v-model="scenario" class="field-control"><option v-for="option in scenarioOptions" :key="option.name" :value="option.name">{{ option.name }}</option></select></label>
+      <aside class="scenario-info-window" aria-live="polite"><span class="value-chip">SCENARIO</span><div><strong>{{ selectedScenario.name }}</strong><p>{{ selectedScenario.description }}</p></div></aside>
+
+      <div class="game-create-actions">
+        <RouterLink to="/games" class="secondary-button game-create-cancel">Cancel</RouterLink>
+        <button type="button" class="primary-button" :disabled="!canCreate" @click="createMatch">Create Match</button>
+      </div>
     </section>
   </main>
 </template>

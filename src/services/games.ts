@@ -9,7 +9,7 @@ export type GameWorkflowPhase = { id: string; label: string; steps: GameWorkflow
 
 export const gameWorkflow: GameWorkflowPhase[] = [
   { id: 'setup', label: 'Setup', steps: [
-    { id: 'armies-battle', label: 'Armies & Battle', description: 'Confirm the participating army lists, battle format, scenario and first player.' },
+    { id: 'armies-battle', label: 'Armies & Battle', description: 'Confirm the participating army lists, battle format and selected scenario.' },
     { id: 'spells', label: 'Spells', description: 'Confirm each Wizard or Priest lore and the spells or prayers that will be used before deployment.' },
   ] },
   { id: 'overview', label: 'Overview', steps: [
@@ -62,6 +62,7 @@ export type SavedGame = {
   points: number
   scenario: string
   firstPlayer: GameSide
+  firstPlayerConfirmed: boolean
   round: number
   activeSide: GameSide
   phaseIndex: number
@@ -87,6 +88,7 @@ function parseGames(value: unknown): SavedGame[] {
     stepNotes: { ...(row.stepNotes || {}) },
     playerScore: Math.max(0, Number(row.playerScore || 0)),
     opponentScore: Math.max(0, Number(row.opponentScore || 0)),
+    firstPlayerConfirmed: typeof row.firstPlayerConfirmed === 'boolean' ? row.firstPlayerConfirmed : true,
   }))
 }
 
@@ -104,7 +106,6 @@ export function createSavedGame(input: {
   opponentList?: SavedArmyList | null
   opponentName?: string
   scenario: string
-  firstPlayer: GameSide
 }) {
   const now = new Date().toISOString()
   const opponentName = input.opponentList?.name || input.opponentName?.trim() || 'Opponent'
@@ -121,9 +122,10 @@ export function createSavedGame(input: {
     opponentName,
     points: Math.max(input.playerList.points, input.opponentList?.points || 0),
     scenario: input.scenario || 'Open Battle',
-    firstPlayer: input.firstPlayer,
+    firstPlayer: 'player',
+    firstPlayerConfirmed: false,
     round: 1,
-    activeSide: input.firstPlayer,
+    activeSide: 'player',
     phaseIndex: 0,
     stepIndex: 0,
     stepNotes: {},

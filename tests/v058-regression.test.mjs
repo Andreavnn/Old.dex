@@ -23,7 +23,7 @@ test('v0.58 restores global text scale while keeping the large header scoped', (
 
 test('v0.58 adds theme paper backings and dark Settings contrast for image backgrounds', () => {
   assert.match(styles, /data-background.*page-title-block/)
-  assert.match(styles, /background:color-mix\(in srgb,var\(--paper\) 94%,transparent\)/)
+  assert.match(styles, /background:color-mix\(in srgb,var\(--paper\) 82%,transparent\)/)
   assert.match(styles, /:root\[data-theme="dark"\] \.settings-page/)
 })
 
@@ -51,11 +51,11 @@ test('v0.58 capitalizes lore labels and marks spell lores as Winds of Magic', ()
 test('v0.58 imports JSON rosters from Army Lists, builder, and Start New Match', () => {
   assert.match(saved, /export function importSavedArmyListJson/)
   assert.match(saved, /Old World Builder \.owb\.json\/\.owb\.lists\.json/)
-  assert.match(home, /Import list/)
+  assert.match(home, /Import roster/)
   assert.match(home, /importSavedArmyListJson/)
   assert.match(builder, /JSON roster/)
   assert.match(builder, /importSavedArmyListJson/)
-  assert.match(gameCreate, /Import JSON roster/)
+  assert.match(gameCreate, /Import roster/)
   assert.match(gameCreate, /importSavedArmyListJson/)
 })
 

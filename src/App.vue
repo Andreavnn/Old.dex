@@ -18,7 +18,7 @@ onMounted(() => {
   <div class="app-shell">
     <RouterView />
     <footer class="app-footer">
-      <span>Old.dex Alpha Build 0.58</span>
+      <span>Old.dex Alpha Build 0.59</span>
     </footer>
   </div>
 </template>

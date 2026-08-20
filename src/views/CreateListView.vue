@@ -59,6 +59,7 @@ const activeCompositionRules = computed(() => {
 function optionAvailable(option: CompositionOptionId) {
   if (option === 'allow-allies') return Boolean(activeCompositionRules.value?.allies)
   if (option === 'allow-mercenaries') return Boolean(activeCompositionRules.value?.mercenaries)
+  if (option === 'allow-custom-units') return false
   return true
 }
 function normalizeCompositionAvailability() {
@@ -179,18 +180,18 @@ function createList() {
     <AppHeader compact back-to="/lists" />
 
     <div class="page-title-block">
-      <p class="eyebrow">NEW LIST</p>
-      <h1>Create Army List</h1>
-      <p>Choose the army, composition, battle composition and points limit. Create list opens the army builder.</p>
+      <p class="eyebrow">NEW ROSTER</p>
+      <h1>Create Army Roster</h1>
+      <p>Choose the army, composition, battle composition and points limit. Create roster opens the army builder.</p>
     </div>
 
     <form class="form-card list-setup-card" @submit.prevent="createList">
       <div class="form-section-title">
-        <strong>List setup</strong>
+        <strong>Roster setup</strong>
         <span class="value-chip">SETUP</span>
       </div>
 
-      <label class="field-label">List name
+      <label class="field-label">Roster name
         <input
           v-model="listName"
           class="field-control"
@@ -276,7 +277,7 @@ function createList() {
       </label>
 
       <RouterLink to="/lists" class="secondary-button create-list-cancel">Cancel</RouterLink>
-      <button type="submit" class="primary-button create-list-button" :disabled="!selectedArmy || !armyComposition || !compositionRule">Create list</button>
+      <button type="submit" class="primary-button create-list-button" :disabled="!selectedArmy || !armyComposition || !compositionRule">Create roster</button>
     </form>
   </main>
 </template>

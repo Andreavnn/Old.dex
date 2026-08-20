@@ -244,7 +244,21 @@ async function enrichWeapon(weapon: PrototypeWeapon, paths: Map<string, string>)
       const link = universalWeaponRuleLink(rule)
       if (link && !ruleLinks.some((existing) => existing.label.toLowerCase() === link.label.toLowerCase())) ruleLinks.push(link)
     }
-    const hasNotes = Array.from(dom.querySelectorAll('p, div, li')).some((node) => /^Notes?\s*:/i.test(node.textContent?.replace(/\s+/g, ' ').trim() || ''))
+    // Weapon pages often put essential firing mechanics in Notes rather than in
+    // the Special Rules table cell (for example cannon fire/misfire procedures).
+    // Treat linked Notes mechanics as weapon rules site-wide so no army needs a
+    // one-off data patch.
+    const noteNodes = Array.from(dom.querySelectorAll('p, div, li')).filter((node) => /^Notes?\s*:/i.test(node.textContent?.replace(/\s+/g, ' ').trim() || ''))
+    for (const node of noteNodes) {
+      for (const anchor of Array.from(node.querySelectorAll<HTMLAnchorElement>('a[href],a[data-rule-path],a[data-app-path]'))) {
+        const label = anchor.textContent?.replace(/\s+/g, ' ').trim() || ''
+        const notePath = anchor.dataset.rulePath || anchor.dataset.appPath || normalizeRepositoryPath(anchor.getAttribute('href') || '')
+        if (!label || !notePath) continue
+        if (!rules.some((existing) => existing.toLowerCase() === label.toLowerCase())) rules.push(label)
+        if (!ruleLinks.some((existing) => existing.label.toLowerCase() === label.toLowerCase() && existing.path === notePath)) ruleLinks.push({ label, path: notePath })
+      }
+    }
+    const hasNotes = noteNodes.length > 0
     const hasUniqueRule = Boolean(weapon.hasUniqueRule) || hasNotes || rules.some((rule) => !universalWeaponRuleLink(rule))
     return {
       ...weapon,

@@ -70,13 +70,13 @@ test('Settings text-size choices remain left-to-right at narrow widths', () => {
 })
 
 
-test('Equipment & Options groups follow a stable logical order with Wizard & Spell Lores after normal groups', () => {
+test('Equipment & Options groups follow a stable logical order with Wizards & Magic after normal groups', () => {
   const equipment = unitView.indexOf("{ key: 'equipment', title: 'Armour & Equipment'")
   const role = unitView.indexOf("{ key: 'role', title: 'Command & Role'")
   const mount = unitView.indexOf("{ key: 'mount', title: 'Mount'")
   const mountOption = unitView.indexOf("{ key: 'mount-option', title: 'Mount Options'")
   const special = unitView.indexOf("{ key: 'special', title: 'Special Rules & Upgrades'")
-  const wizard = unitView.indexOf('Wizard &amp; Spell Lores')
+  const wizard = unitView.indexOf('Wizards &amp; Magic')
   assert.ok(equipment >= 0 && equipment < role && role < mount && mount < mountOption && mountOption < special && special < wizard)
 })
 

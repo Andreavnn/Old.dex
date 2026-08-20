@@ -35,7 +35,7 @@ test('v0.57 unit picker retains selections while changing category tabs', () => 
   assert.match(builder, /pickerSelectionCategories\.value\.get\(unit\.id\) \|\| unit\.category/)
 })
 
-test('v0.57 Over - Under and Monster Mash are real composition options', () => {
+test('v0.57 Over / Under and Monster Mash are real composition options', () => {
   const data = read('src/data/listBuilder.ts')
   const validation = read('src/services/rosterValidation.ts')
   assert.match(data, /'over-under'/)
@@ -54,12 +54,12 @@ test('v0.57 selected Battle Composition option descriptions are expandable in cr
   assert.match(create, /create-list-cancel/)
 })
 
-test('v0.57 Wizard & Spell Lores persist and become Special Rule cards', () => {
-  assert.match(unit, /Wizard &amp; Spell Lores/)
+test('v0.57 wizard/magic lore selections persist and become Special Rule cards', () => {
+  assert.match(unit, /Wizards &amp; Magic/)
   assert.match(unit, /selectedLores/)
   assert.match(unit, /selectedLoreRules/)
   assert.match(unit, /return \[\.\.\.sourceRules, \.\.\.selectedLoreRules\.value\]/)
-  assert.match(unit, /loreSelections: \[\.\.\.selectedLores\.value\]/)
+  assert.match(unit, /loreSelections: activeLoreNames\.value/)
   const raw = read('src/domain/rawArmyData.ts')
   const live = read('src/data/liveBuilderUnits.ts')
   assert.match(raw, /spells\?: unknown\[\]/)

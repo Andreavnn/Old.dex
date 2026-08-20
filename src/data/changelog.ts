@@ -6,6 +6,16 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.59', title: 'Roster workflow, match tools, and rules-profile polish', notes: [
+    'Made image-backed text panels more transparent with a light backdrop blur, removed Background panel divider borders, and replaced Donations with explicit one-time and recurring Support actions.',
+    'Expanded Games with compact three-item defaults, filters and search across match names, rosters, factions and points, and aligned the Games content width with the rest of Old.dex.',
+    'Reworked Start New Match so both players can select or import rosters, replaced premature first-player selection with scenario information, and moved first-turn recording into the Deployment workflow.',
+    'Added actual-versus-limit roster totals, green/yellow/red roster state tinting, native JSON export, and a read-only roster overview with unit loadouts, rules and profile tables.',
+    'Repaired magical-item picker layout and preserved imported Old World Builder magical-item selections and points where the JSON contains them.',
+    'Expanded Wizards & Magic with source lore/magic choices, removed redundant enforced-choice notes, centered model-count controls, widened the roster total display, and normalized counted Hand Weapon labels.',
+    'Improved weapon rule ingestion so linked mechanical Notes such as firing and misfire procedures are surfaced with the weapon profile site-wide, and removed unresolved rule-text placeholder copy.',
+    'Contained Select Units action dividers so Add/View controls render cleanly and disabled the unfinished Custom Units battle option until it has functional data support.',
+  ] },
   { version: '0.58', title: 'Interface readability, JSON imports, and weapon-data integrity', notes: [
     'Restored the original site-wide interface text scale while keeping the larger OLD.DEX, ALPHA BUILD, and Changelog header treatment isolated to the header.',
     'Added theme-colored back panels for exposed text when a custom background image is active and corrected Settings text contrast in dark faction themes.',
