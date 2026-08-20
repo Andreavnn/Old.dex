@@ -11,6 +11,7 @@ import {
   normalizeWeaponAllocation,
   selectionModeForEquipment,
   selectionModeForWeapon,
+  unitSelectionPointBreakdown,
   weaponIsEquipped,
   weaponIsOptionalChoice,
 } from '../src/domain/loadout'
@@ -40,6 +41,43 @@ test('Shield is always a unit-toggle even when legacy/source fields claim stacka
 test('Unit-toggle Shield can still be priced per model', () => {
   const shield = option({ id: 'shield', name: 'Shield', points: 2, costMode: 'per-model' })
   assert.equal(equipmentSelectionCost(shield, 12, 0), 24)
+})
+
+test('Point breakdown includes base models, flat upgrades, per-model upgrades, mixed weapon counts, and magic items', () => {
+  const greatWeapon = weapon({ id: 'great', name: 'Great weapon', points: 4, costMode: 'per-model' })
+  const mixedBow = weapon({ id: 'bow', name: 'Bow', kind: 'missile', points: 2, selectionMode: 'per-model-count', allocationGroup: 'mixed' })
+  const shield = option({ id: 'shield', name: 'Shield', points: 1, costMode: 'per-model' })
+  const champion = option({ id: 'champion', name: 'Champion', points: 8 })
+  const fixture = unit({ basePointsPerModel: 8, minimumModels: 10, weapons: [greatWeapon, mixedBow], equipmentOptions: [shield, champion] })
+  const points = unitSelectionPointBreakdown({
+    unit: fixture,
+    modelCount: 10,
+    selectedWeapons: [greatWeapon, mixedBow],
+    selectedEquipment: [shield, champion],
+    weaponCounts: new Map([['bow', 4]]),
+    equipmentCounts: new Map(),
+    magicPoints: 50,
+  })
+  assert.deepEqual(points, {
+    basePoints: 80,
+    weaponPoints: 48,
+    equipmentPoints: 18,
+    magicPoints: 50,
+    optionPoints: 116,
+    totalPoints: 196,
+  })
+})
+
+test('Character-style eight-point upgrade package is never dropped from the total', () => {
+  const greatWeapon = weapon({ id: 'great', name: 'Great weapon', points: 4, costMode: 'per-model' })
+  const shield = option({ id: 'shield', name: 'Shield', points: 2, costMode: 'per-model' })
+  const spear = weapon({ id: 'spear', name: 'Cavalry spear', points: 2, costMode: 'per-model' })
+  const fixture = unit({ category: 'Characters', points: 75, basePointsPerModel: 75, minimumModels: 1, maximumModels: 1, unitSize: '1 model', weapons: [greatWeapon, spear], equipmentOptions: [shield] })
+  const points = unitSelectionPointBreakdown({ unit: fixture, modelCount: 1, selectedWeapons: [greatWeapon, spear], selectedEquipment: [shield], magicPoints: 50 })
+  assert.equal(points.basePoints, 75)
+  assert.equal(points.weaponPoints + points.equipmentPoints, 8)
+  assert.equal(points.magicPoints, 50)
+  assert.equal(points.totalPoints, 133)
 })
 
 test('Legacy stackable alone no longer turns an option into a per-model selector', () => {

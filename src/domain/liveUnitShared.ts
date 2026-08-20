@@ -16,6 +16,16 @@ export function slug(value: string) {
   return value.toLowerCase().replace(/[’']/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
+export function normalizeDisplayLabel(value: string) {
+  return String(value || '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/([A-Za-z0-9])\(/g, '$1 (')
+    .replace(/\)([A-Za-z0-9])/g, ') $1')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export function noteText(value: unknown): string {
   if (!value) return ''
   if (Array.isArray(value)) return value.map(noteText).filter(Boolean).join(' • ')

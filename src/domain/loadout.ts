@@ -49,6 +49,35 @@ export function equipmentSelectionCost(option: PrototypeEquipmentOption, modelCo
   return Math.max(0, Number(option.points) || 0) * quantity
 }
 
+export function unitSelectionPointBreakdown(input: {
+  unit: PrototypeUnit
+  modelCount: number
+  selectedWeapons: PrototypeWeapon[]
+  selectedEquipment: PrototypeEquipmentOption[]
+  weaponCounts?: ReadonlyMap<string, number>
+  equipmentCounts?: ReadonlyMap<string, number>
+  magicPoints?: number
+  magicalMaelstrom?: boolean
+}) {
+  const modelCount = Math.max(1, Number(input.modelCount) || 1)
+  const weaponCounts = input.weaponCounts || new Map<string, number>()
+  const equipmentCounts = input.equipmentCounts || new Map<string, number>()
+  const basePoints = input.unit.basePointsPerModel !== undefined
+    ? Math.max(0, Number(input.unit.basePointsPerModel) || 0) * modelCount
+    : Math.max(0, Number(input.unit.points) || 0)
+  const weaponPoints = input.selectedWeapons.reduce(
+    (sum, weapon) => sum + weaponSelectionCost(weapon, modelCount, weaponCounts.get(weapon.id) || 0),
+    0,
+  )
+  const equipmentPoints = input.selectedEquipment.reduce(
+    (sum, option) => sum + (input.magicalMaelstrom && wizardLevelFromName(option.name) > 0 ? 0 : equipmentSelectionCost(option, modelCount, equipmentCounts.get(option.id) || 0)),
+    0,
+  )
+  const magicPoints = Math.max(0, Number(input.magicPoints) || 0)
+  const optionPoints = weaponPoints + equipmentPoints + magicPoints
+  return { basePoints, weaponPoints, equipmentPoints, magicPoints, optionPoints, totalPoints: basePoints + optionPoints }
+}
+
 export function unitUsesMixedWeaponAllocation(unit: PrototypeUnit) {
   return unit.weapons.some(isPerModelWeaponSelection)
 }
@@ -232,19 +261,18 @@ export function createDefaultRosterSelection(unit: PrototypeUnit, instanceId: st
 
   const selectedWeapons = unit.weapons.filter((weapon) => weaponIds.includes(weapon.id))
   const selectedEquipment = unit.equipmentOptions.filter((option) => equipmentIds.includes(option.id))
-  const optionPoints = selectedWeapons.reduce((sum, weapon) => sum + weaponSelectionCost(weapon, modelCount, weaponCounts.get(weapon.id) || 0), 0)
-    + selectedEquipment.reduce((sum, option) => sum + (config.magicalMaelstrom && wizardLevelFromName(option.name) > 0 ? 0 : equipmentSelectionCost(option, modelCount, equipmentCounts.get(option.id) || 0)), 0)
+  const points = unitSelectionPointBreakdown({ unit, modelCount, selectedWeapons, selectedEquipment, weaponCounts, equipmentCounts, magicalMaelstrom: config.magicalMaelstrom })
   const maelstromLevel = config.magicalMaelstrom ? magicalMaelstromWizardLevel(unit.equipmentOptions, Number(unit.baseWizardLevel || 0)) : 0
   const displayEquipment = selectedEquipment.filter((option) => !(config.magicalMaelstrom && wizardLevelFromName(option.name) > 0))
   const maelstromLabels = maelstromLevel > 0 ? [`Wizard Level ${maelstromLevel}`, 'Magical Maelstrom'] : []
-  const basePoints = unit.basePointsPerModel !== undefined ? unit.basePointsPerModel * modelCount : unit.points
+  const basePoints = points.basePoints
 
   return {
     instanceId,
     unitId: unit.id,
     name: unit.name,
     category: unit.category,
-    totalPoints: basePoints + optionPoints,
+    totalPoints: points.totalPoints,
     basePoints,
     unitSize: `${modelCount} ${modelCount === 1 ? 'model' : 'models'}`,
     modelCount,
@@ -302,10 +330,8 @@ export function applyMagicalMaelstromToRosterSelection(unit: PrototypeUnit, row:
   const equipmentCounts = new Map(Object.entries(row.equipmentCounts || {}).map(([id, count]) => [id, Number(count) || 0]))
   const selectedWeapons = unit.weapons.filter((weapon) => weaponIds.includes(weapon.id))
   const selectedEquipment = unit.equipmentOptions.filter((option) => equipmentIds.includes(option.id))
-  const optionPoints = selectedWeapons.reduce((sum, weapon) => sum + weaponSelectionCost(weapon, modelCount, weaponCounts.get(weapon.id) || 0), 0)
-    + selectedEquipment.reduce((sum, option) => sum + (wizardLevelFromName(option.name) > 0 ? 0 : equipmentSelectionCost(option, modelCount, equipmentCounts.get(option.id) || 0)), 0)
-    + (row.magicItems || []).reduce((sum, item) => sum + Math.max(1, Number(item.count || 1)) * Math.max(0, Number(item.points || 0)), 0)
-  const basePoints = unit.basePointsPerModel !== undefined ? unit.basePointsPerModel * modelCount : row.basePoints
+  const magicPoints = (row.magicItems || []).reduce((sum, item) => sum + Math.max(1, Number(item.count || 1)) * Math.max(0, Number(item.points || 0)), 0)
+  const points = unitSelectionPointBreakdown({ unit, modelCount, selectedWeapons, selectedEquipment, weaponCounts, equipmentCounts, magicPoints, magicalMaelstrom: true })
   const replaceLabels = (values: string[] = []) => {
     const next = values.filter((label) => wizardLevelFromName(label) <= 0 && !/^Magical Maelstrom$/i.test(label))
     next.push(`Wizard Level ${level}`, 'Magical Maelstrom')
@@ -317,7 +343,7 @@ export function applyMagicalMaelstromToRosterSelection(unit: PrototypeUnit, row:
     options: replaceLabels(row.options),
     includedEquipment: replaceLabels(row.includedEquipment),
     optionalSelections: (row.optionalSelections || []).filter((label) => wizardLevelFromName(label) <= 0 && !/^Magical Maelstrom$/i.test(label)),
-    totalPoints: basePoints + optionPoints,
+    totalPoints: points.totalPoints,
   }
 }
 
@@ -331,10 +357,8 @@ export function removeMagicalMaelstromFromRosterSelection(unit: PrototypeUnit, r
   const selectedWeapons = unit.weapons.filter((weapon) => (row.weaponIds || []).includes(weapon.id))
   const selectedEquipment = unit.equipmentOptions.filter((option) => equipmentIds.includes(option.id))
   const actualLevel = Math.max(0, ...selectedEquipment.map((option) => wizardLevelFromName(option.name)))
-  const optionPoints = selectedWeapons.reduce((sum, weapon) => sum + weaponSelectionCost(weapon, modelCount, weaponCounts.get(weapon.id) || 0), 0)
-    + selectedEquipment.reduce((sum, option) => sum + equipmentSelectionCost(option, modelCount, equipmentCounts.get(option.id) || 0), 0)
-    + (row.magicItems || []).reduce((sum, item) => sum + Math.max(1, Number(item.count || 1)) * Math.max(0, Number(item.points || 0)), 0)
-  const basePoints = unit.basePointsPerModel !== undefined ? unit.basePointsPerModel * modelCount : row.basePoints
+  const magicPoints = (row.magicItems || []).reduce((sum, item) => sum + Math.max(1, Number(item.count || 1)) * Math.max(0, Number(item.points || 0)), 0)
+  const points = unitSelectionPointBreakdown({ unit, modelCount, selectedWeapons, selectedEquipment, weaponCounts, equipmentCounts, magicPoints })
   const stripMaelstromLabels = (values: string[] = []) => values.filter(
     (label) => wizardLevelFromName(label) <= 0 && !/^Magical Maelstrom$/i.test(label),
   )
@@ -353,6 +377,6 @@ export function removeMagicalMaelstromFromRosterSelection(unit: PrototypeUnit, r
     options: [...new Set(options)],
     includedEquipment: [...new Set(includedEquipment)],
     optionalSelections: [...new Set(optionalSelections)],
-    totalPoints: basePoints + optionPoints,
+    totalPoints: points.totalPoints,
   }
 }

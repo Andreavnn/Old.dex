@@ -61,8 +61,9 @@ test('Army-list composition choices render as plain checkbox text rather than op
 
 test('Settings text-size choices remain left-to-right at narrow widths', () => {
   const styles = readFileSync('src/styles.css', 'utf8')
-  assert.match(styles, /\.font-size-control \{[\s\S]*?display: flex;[\s\S]*?flex-wrap: nowrap;/)
-  assert.doesNotMatch(styles, /\.font-size-control\s*\{[^}]*grid-template-columns/s)
+  assert.match(styles, /\.font-size-control \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: repeat\(5, minmax\(0, 1fr\)\);/)
+  assert.match(styles, /\.font-size-control button \{[\s\S]*?min-width: 0;/)
+  assert.doesNotMatch(styles, /\.font-size-control\s*\{[^}]*overflow-x:\s*auto/s)
 })
 
 
@@ -91,6 +92,8 @@ test('Unimplemented roster toolbar actions are visibly disabled rather than acti
 test('Weapon Special Rules render as rounded pills from every weapon rule', () => {
   const styles = readFileSync('src/styles.css', 'utf8')
   assert.match(unitView, /weapon\.rules[\s\S]*map\(\(label\) => \(\{ label, path: specialRulePath\(label\) \}\)\)/)
+  assert.match(unitView, /weapon\.hasUniqueRule && weapon\.path\) rows\.push\(\{ label: weapon\.name/)
+  assert.doesNotMatch(unitView, /label:\s*'Weapon Rule'/)
   assert.match(styles, /\.weapon-rule-label[\s\S]*border-radius:999px/)
 })
 
@@ -98,6 +101,9 @@ test('Special-rule and magical-item cards carry explicit kind pills', () => {
   const card = readFileSync('src/components/RuleAbilityCard.vue', 'utf8')
   assert.match(card, /kindLabel \|\| 'Special Rule'/)
   assert.match(unitView, /kind-label="Magical Item"/)
+  assert.match(card, /old-rule-keywords[\s\S]*rule-kind-pill/)
+  const summary = card.match(/<div class="old-rule-summary[\s\S]*?<\/div>/)?.[0] || ''
+  assert.doesNotMatch(summary, /rule-kind-pill/)
 })
 
 test('Composition options exclude match-only terrain and weather and include the new magic modes', () => {
@@ -137,4 +143,38 @@ test('Roster edit autosave is a pure snapshot and cannot normalize watched refs'
   const autosave = unitView.slice(start, end)
   assert.doesNotMatch(autosave, /normalizeSelections\(\)|normalizeWeaponCounts\(\)|normalizeEquipmentCounts\(\)/)
   assert.match(unitView, /let rosterSaveQueued = false[\s\S]*function queueRosterSave\(\)[\s\S]*watch\(\[selectedWeaponIds, selectedEquipmentIds, selectedMagicCounts, magicItemDetails, modelCount, weaponCounts, equipmentCounts\], queueRosterSave\)/)
+})
+
+test('Dynamic profile characteristic changes preserve the user scroll position', () => {
+  const styles = readFileSync('src/styles.css', 'utf8')
+  assert.match(unitView, /function restoreScrollPosition\([\s\S]*requestAnimationFrame[\s\S]*requestAnimationFrame/)
+  assert.match(styles, /\.unit-page\{overflow-anchor:none\}/)
+  assert.match(styles, /\.old-world-profile\{[^}]*overflow-anchor:none/s)
+})
+
+test('Magic-item cards use one full-width card with actions attached beneath it', () => {
+  const styles = readFileSync('src/styles.css', 'utf8')
+  assert.match(styles, /\.magic-item-card-grid\{grid-template-columns:1fr;/)
+  assert.match(styles, /\.selected-magic-rule-card\{[^}]*grid-template-columns:minmax\(0,1fr\)/s)
+  assert.match(styles, /\.magic-item-card-actions\{grid-column:1;/)
+})
+
+test('Unit Details shows the starting unit size rather than the edited model count', () => {
+  assert.match(unitView, /function startingUnitSize\(\)/)
+  assert.match(unitView, /<small>Unit size<\/small><strong>\{\{ startingUnitSize\(\) \}\}<\/strong>/)
+})
+
+test('Unit picker point values use the same default-roster calculator as units added to the roster', () => {
+  const builder = readFileSync('src/views/ListBuilderView.vue', 'utf8')
+  assert.match(builder, /function startingUnitPoints\(unit: PrototypeUnit\)[\s\S]*createDefaultRosterSelection/)
+  assert.match(builder, /unit-picker-points">\{\{ startingUnitPoints\(unit\) \}\} pts/)
+})
+
+test('The expanded icon pack includes all six spell-category icons', () => {
+  const icon = readFileSync('src/components/RuleToneIcon.vue', 'utf8')
+  for (const filename of ['spell-vortex.png', 'spell-enchantment.png', 'spell-hex.png', 'spell-conveyance.png', 'spell-missile.png', 'spell-assailment.png']) {
+    assert.match(icon, new RegExp(filename.replace('.', '\\.')))
+  }
+  assert.match(icon, /magical\\s\+vortex|magical\\s\+vortex/)
+  assert.match(icon, /magic\\s\+missile|magic\\s\+missile/)
 })

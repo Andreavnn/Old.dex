@@ -14,13 +14,12 @@ import { findBuilderRosterSelection, updateBuilderRosterSelection, type BuilderR
 import { isFavoriteUnit, setFavoriteUnit } from '../services/favorites'
 import { getSavedArmyList } from '../services/savedLists'
 import {
-  equipmentSelectionCost,
   isPerModelEquipmentSelection,
   isPerModelWeaponSelection,
   normalizeEquipmentCounts as normalizeDomainEquipmentCounts,
   normalizeWeaponAllocation,
+  unitSelectionPointBreakdown,
   weaponAllocationGroup,
-  weaponSelectionCost,
   weaponIsEquipped as domainWeaponIsEquipped,
   weaponIsOptionalChoice as domainWeaponIsOptionalChoice,
 } from '../domain/loadout'
@@ -269,17 +268,26 @@ const selectedMagicEntries = computed(() => {
 })
 function magicPoolPoints(ownerId: string) { return selectedMagicEntries.value.filter(({ item }) => item.ownerId === ownerId).reduce((sum, entry) => sum + entry.item.points * entry.count, 0) }
 const magicPoints = computed(() => selectedMagicEntries.value.reduce((sum, entry) => sum + entry.item.points * entry.count, 0))
-function selectedWeaponCost(weapon: PrototypeWeapon) { return weaponSelectionCost(weapon, modelCount.value, weaponCount(weapon)) }
-function selectedEquipmentCost(option: PrototypeEquipmentOption) { return equipmentSelectionCost(option, modelCount.value, equipmentCount(option)) }
-const baseUnitPoints = computed(() => prototypeUnit.value?.basePointsPerModel !== undefined ? prototypeUnit.value.basePointsPerModel * modelCount.value : (prototypeUnit.value?.points || 0))
-const optionPoints = computed(() => selectedWeapons.value.reduce((sum, weapon) => sum + selectedWeaponCost(weapon), 0) + selectedEquipment.value.reduce((sum, option) => sum + (magicalMaelstromEnabled.value && isWizardLevelOption(option) ? 0 : selectedEquipmentCost(option)), 0) + magicPoints.value)
-const totalPoints = computed(() => baseUnitPoints.value + optionPoints.value)
+const pointBreakdown = computed(() => prototypeUnit.value ? unitSelectionPointBreakdown({
+  unit: prototypeUnit.value,
+  modelCount: modelCount.value,
+  selectedWeapons: selectedWeapons.value,
+  selectedEquipment: selectedEquipment.value,
+  weaponCounts: weaponCounts.value,
+  equipmentCounts: equipmentCounts.value,
+  magicPoints: magicPoints.value,
+  magicalMaelstrom: magicalMaelstromEnabled.value,
+}) : { basePoints: 0, weaponPoints: 0, equipmentPoints: 0, magicPoints: 0, optionPoints: 0, totalPoints: 0 })
+const baseUnitPoints = computed(() => pointBreakdown.value.basePoints)
+const optionPoints = computed(() => pointBreakdown.value.optionPoints)
+const totalPoints = computed(() => pointBreakdown.value.totalPoints)
 const selectedMagicWeapons = computed(() => selectedMagicEntries.value.filter(({ item }) => item.type === 'weapon'))
 
 function magicWeaponDisplay(entry: { item: MagicItem; count: number }) {
   const detail = magicItemDetails.value.get(entry.item.id) || {}
   const ownerPrefix = entry.item.ownerId === 'unit' ? '' : `${entry.item.ownerLabel} — `
-  return { id: `magic-${entry.item.id}`, name: ownerPrefix + (entry.count > 1 ? `${entry.item.name} ×${entry.count}` : entry.item.name), kind: detail.kind || 'melee', range: detail.range || (detail.kind === 'missile' ? 'See rule' : 'Combat'), strength: detail.strength || 'See rule', ap: detail.ap || 'See rule', rules: detail.rules?.length ? detail.rules : [], points: entry.item.points * entry.count, default: true, locked: true, path: `/magic-item/${entry.item.slug}`, hasUniqueRule: true } satisfies PrototypeWeapon
+  const rules = [...new Set(['Magic Weapon', ...(detail.rules || [])].filter(Boolean))]
+  return { id: `magic-${entry.item.id}`, name: ownerPrefix + (entry.count > 1 ? `${entry.item.name} ×${entry.count}` : entry.item.name), kind: detail.kind || 'melee', range: detail.range || (detail.kind === 'missile' ? 'See rule' : 'Combat'), strength: detail.strength || 'See rule', ap: detail.ap || 'See rule', rules, points: entry.item.points * entry.count, default: true, locked: true, path: `/magic-item/${entry.item.slug}`, hasUniqueRule: true } satisfies PrototypeWeapon
 }
 function weaponOwnerAvailable(weapon: PrototypeWeapon) { return !weapon.requiresSelection || selectionHas(weapon.requiresSelection) }
 function weaponIsEquipped(weapon: PrototypeWeapon) { return prototypeUnit.value ? domainWeaponIsEquipped(prototypeUnit.value, weapon, selectedWeaponIds.value, weaponCounts.value) : false }
@@ -308,7 +316,10 @@ function weaponRuleLabels(weapon: PrototypeWeapon) {
     ...(weapon.rules || []).filter(Boolean).map((label) => ({ label, path: specialRulePath(label) })),
     ...(weapon.ruleLinks || []),
   ]
-  if (weapon.hasUniqueRule && weapon.path) rows.push({ label: 'Weapon Rule', path: weapon.path })
+  // A weapon-specific rule should identify the weapon itself rather than use a
+  // generic "Weapon Rule" placeholder. Universal special rules remain listed
+  // individually above, while this pill opens the weapon/magic-item rule page.
+  if (weapon.hasUniqueRule && weapon.path) rows.push({ label: weapon.name.replace(/^.*? — /, '').replace(/\s+×\d+$/, ''), path: weapon.path })
   const seen = new Set<string>()
   return rows.filter((row) => { const key = `${row.label.toLowerCase()}:${row.path}`; if (seen.has(key)) return false; seen.add(key); return true })
 }
@@ -503,10 +514,19 @@ const activeSpecialRules = computed(() => {
   if (!unit) return []
   return unit.specialRules.filter((rule) => (!rule.requiresSelection || selectionHas(rule.requiresSelection)) && (!rule.requiresAnySelection?.length || rule.requiresAnySelection.some(selectionHas)))
 })
-const magicItemCards = computed(() => selectedMagicEntries.value.map(({ item, count }) => ({ item, count, rule: { name: `${item.ownerId === 'unit' ? '' : `${item.ownerLabel} — `}${count > 1 ? `${item.name} ×${count}` : item.name}`, path: `/magic-item/${item.slug}`, timing: magicTypeLabel(item.type), tone: 'magic' as RuleTone, summary: magicItemDetails.value.get(item.id)?.summary || '', keywords: [{ label: item.name, path: `/magic-item/${item.slug}` }, { label: 'Magic Items', path: '/magic-items' }] } })))
+const magicItemCards = computed(() => selectedMagicEntries.value.map(({ item, count }) => {
+  const detail = magicItemDetails.value.get(item.id)
+  return { item, count, rule: { name: `${item.ownerId === 'unit' ? '' : `${item.ownerLabel} — `}${count > 1 ? `${item.name} ×${count}` : item.name}`, path: `/magic-item/${item.slug}`, timing: magicTypeLabel(item.type), tone: 'magic' as RuleTone, summary: detail?.summary || (magicItemDetails.value.has(item.id) ? 'Open this magical item for its full rule text.' : ''), keywords: [{ label: item.name, path: `/magic-item/${item.slug}` }, { label: 'Magic Items', path: '/magic-items' }] } }
+}))
 const packedSpecialRules = computed(() => [...activeSpecialRules.value].sort((a, b) => (b.summary.length + b.name.length * 2) - (a.summary.length + a.name.length * 2)))
 const canAdjustModelCount = computed(() => isEditing.value && Boolean(prototypeUnit.value) && prototypeUnit.value?.unitSize !== '1 model' && (Number(prototypeUnit.value?.maximumModels || 0) !== 1 || Number(prototypeUnit.value?.minimumModels || 1) !== 1))
 function formatUnitSize() { return `${modelCount.value} ${modelCount.value === 1 ? 'model' : 'models'}` }
+function startingUnitSize() {
+  const minimum = Math.max(1, Number(prototypeUnit.value?.minimumModels || 1))
+  const maximum = Number(prototypeUnit.value?.maximumModels || 0)
+  if (maximum > 0 && maximum === minimum) return `${minimum} ${minimum === 1 ? 'model' : 'models'}`
+  return `${minimum}+ models`
+}
 function adjustModelCount(delta: number) {
   if (!canAdjustModelCount.value) return
   const minimum = Math.max(1, Number(prototypeUnit.value?.minimumModels || 1))
@@ -602,9 +622,21 @@ function normalizeSelections() {
 }
 function restoreScrollAfterMutation(mutator: () => void) {
   if (isReadOnly.value) return
+  const x = window.scrollX
   const y = window.scrollY
   mutator()
-  void nextTick(() => window.scrollTo({ top: y, behavior: 'auto' }))
+  restoreScrollPosition(x, y)
+}
+function restoreScrollPosition(x = window.scrollX, y = window.scrollY) {
+  void nextTick(() => {
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ left: x, top: y, behavior: 'auto' })
+      // Dynamic characteristics (Ward/Regeneration/mount bonuses) can change
+      // layout again on the following frame. Re-assert the user's position so
+      // the profile panel never becomes an unintended scroll target.
+      window.requestAnimationFrame(() => window.scrollTo({ left: x, top: y, behavior: 'auto' }))
+    })
+  })
 }
 function setWeaponSelected(weapon: PrototypeWeapon, selected: boolean) {
   if (isReadOnly.value || mundaneWeaponSuperseded(weapon) || weaponUnavailable(weapon) || weaponEffectivelyLocked(weapon)) return
@@ -731,15 +763,15 @@ async function loadMagicItemDetail(item: MagicItem) {
 async function addMagicItem() {
   if (isReadOnly.value) return
   const item = magicItems.value.find((candidate) => candidate.id === pendingMagicItem.value); if (!item || !canAddMagicItem(item)) return
-  const scrollY = window.scrollY; const next = new Map(selectedMagicCounts.value); next.set(item.id, selectedMagicCount(item.id) + 1); selectedMagicCounts.value = next; pendingMagicItem.value = ''
-  await loadMagicItemDetail(item); applyMagicSupersession(); await nextTick(); window.scrollTo({ top: scrollY, behavior: 'auto' })
+  const scrollX = window.scrollX; const scrollY = window.scrollY; const next = new Map(selectedMagicCounts.value); next.set(item.id, selectedMagicCount(item.id) + 1); selectedMagicCounts.value = next; pendingMagicItem.value = ''
+  await loadMagicItemDetail(item); applyMagicSupersession(); restoreScrollPosition(scrollX, scrollY)
 }
 async function adjustMagicItem(id: string, delta: number) {
   if (isReadOnly.value) return
   const item = magicItems.value.find((candidate) => candidate.id === id); if (!item) return
-  const scrollY = window.scrollY; const current = selectedMagicCount(id); if (delta > 0 && !canAddMagicItem(item)) return
+  const scrollX = window.scrollX; const scrollY = window.scrollY; const current = selectedMagicCount(id); if (delta > 0 && !canAddMagicItem(item)) return
   const next = new Map(selectedMagicCounts.value); const count = Math.max(0, current + delta); if (!count) next.delete(id); else next.set(id, count); selectedMagicCounts.value = next
-  if (count) await loadMagicItemDetail(item); applyMagicSupersession(); await nextTick(); window.scrollTo({ top: scrollY, behavior: 'auto' })
+  if (count) await loadMagicItemDetail(item); applyMagicSupersession(); restoreScrollPosition(scrollX, scrollY)
 }
 
 watch(() => activeMagicPools.value.map((pool) => `${pool.id}:${pool.maxPoints}:${pool.types.join(',')}`).join('|'), async () => {
@@ -913,7 +945,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
           <div class="magic-pool-summaries" role="group" aria-label="Magic item allowance owner">
             <button v-for="pool in activeMagicPools" :key="pool.id" type="button" class="magic-purchase-head magic-pool-card" :class="{ active: selectedMagicPool?.id === pool.id }" :disabled="!isEditing" @click="selectMagicPool(pool.id)"><div><span class="magic-allowance-label">{{ pool.label }}</span><strong>{{ magicPoolPoints(pool.id) }} / {{ pool.maxPoints }} pts</strong></div><span>{{ Math.max(0, pool.maxPoints - magicPoolPoints(pool.id)) }} pts remaining</span></button>
           </div>
-          <div v-if="isEditing" class="magic-add-row"><select v-model="pendingMagicItem" :disabled="magicLoading || !filteredMagicItems.length"><option value="">{{ magicLoading ? 'Loading magic items…' : filteredMagicItems.length ? 'Select magic item' : 'No affordable magic items available' }}</option><optgroup v-for="group in magicItemGroups" :key="group.key" :label="group.label"><option v-for="item in group.items" :key="item.id" :value="item.id">{{ item.name }} — {{ item.points }} pts{{ maxMagicCopies(item) > 1 ? ' · repeatable' : '' }}</option></optgroup></select><button class="secondary-button" type="button" :disabled="!pendingMagicItem" @click="addMagicItem">Add item</button></div>
+          <div v-if="isEditing" class="magic-add-row" :class="{ 'is-empty': !magicLoading && !filteredMagicItems.length }"><select v-model="pendingMagicItem" :disabled="magicLoading || !filteredMagicItems.length"><option value="">{{ magicLoading ? 'Loading magic items…' : filteredMagicItems.length ? 'Select magic item' : 'Magic item allowance fully spent or no legal items remain' }}</option><optgroup v-for="group in magicItemGroups" :key="group.key" :label="group.label"><option v-for="item in group.items" :key="item.id" :value="item.id">{{ item.name }} — {{ item.points }} pts{{ maxMagicCopies(item) > 1 ? ' · repeatable' : '' }}</option></optgroup></select><button v-if="magicLoading || filteredMagicItems.length" class="secondary-button" type="button" :disabled="!pendingMagicItem" @click="addMagicItem">Add item</button></div>
           <p v-if="magicError" class="magic-error">{{ magicError }}</p>
           <div v-if="magicItemCards.length" class="magic-item-card-grid old-rule-grid">
             <div v-for="entry in magicItemCards" :key="entry.item.id" class="selected-magic-rule-card">
@@ -930,7 +962,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
 
         <section class="unit-card-section static-unit-section special-rules-section"><h2>Special Rules</h2><div class="old-rule-grid"><RuleAbilityCard v-for="rule in packedSpecialRules" :key="`${rule.name}-${rule.path}`" :rule="rule" /></div></section>
 
-        <section class="unit-details-panel card-surface"><div class="unit-details-heading-row"><h2>Unit Details</h2></div><div class="unit-details-grid"><div><small>Army</small><strong>{{ prototypeUnit.details.army || army?.name || '—' }}</strong></div><div><small>Unit category</small><strong>{{ prototypeUnit.details.unitCategory || prototypeUnit.category }}</strong></div><div><small>Unit size</small><strong>{{ formatUnitSize() }}<template v-if="prototypeUnit.maximumModels || prototypeUnit.minimumModels"> ({{ prototypeUnit.unitSize }})</template></strong></div><div><small>Troop type</small><strong>{{ prototypeUnit.details.troopType || '—' }}</strong></div><div><small>Base size</small><strong>{{ prototypeUnit.details.baseSize || '—' }}</strong></div><div><small>Publication</small><strong>{{ prototypeUnit.details.publication || '—' }}<template v-if="prototypeUnit.details.page">, p. {{ prototypeUnit.details.page }}</template></strong></div><div v-for="detail in prototypeUnit.additionalDetails || []" :key="detail.label"><small>{{ detail.label }}</small><strong>{{ detail.value }}</strong></div></div></section>
+        <section class="unit-details-panel card-surface"><div class="unit-details-heading-row"><h2>Unit Details</h2></div><div class="unit-details-grid"><div><small>Army</small><strong>{{ prototypeUnit.details.army || army?.name || '—' }}</strong></div><div><small>Unit category</small><strong>{{ prototypeUnit.details.unitCategory || prototypeUnit.category }}</strong></div><div><small>Unit size</small><strong>{{ startingUnitSize() }}</strong></div><div><small>Troop type</small><strong>{{ prototypeUnit.details.troopType || '—' }}</strong></div><div><small>Base size</small><strong>{{ prototypeUnit.details.baseSize || '—' }}</strong></div><div><small>Publication</small><strong>{{ prototypeUnit.details.publication || '—' }}<template v-if="prototypeUnit.details.page">, p. {{ prototypeUnit.details.page }}</template></strong></div><div v-for="detail in prototypeUnit.additionalDetails || []" :key="detail.label"><small>{{ detail.label }}</small><strong>{{ detail.value }}</strong></div></div></section>
 
         <section class="unit-keywords-section"><div class="unit-keyword-heading"><h2>Keywords</h2></div><div class="unit-keyword-bar"><RouterLink v-for="keyword in unitKeywordLinks" :key="keyword.label" :to="`/rules/read${keyword.path}`">{{ keyword.label }}</RouterLink></div><p class="keyword-helper-note">Old.dex helper links. These are navigation aids, not an official Warhammer: The Old World keyword system.</p></section>
       </div>

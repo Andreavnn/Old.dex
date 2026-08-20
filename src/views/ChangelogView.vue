@@ -13,7 +13,7 @@ import { changelogEntries } from '../data/changelog'
     </div>
 
     <section class="changelog-stack" aria-label="Old.dex changelog">
-      <details v-for="entry in changelogEntries" :key="entry.version" class="changelog-entry card-surface" :open="entry.version === '0.51'">
+      <details v-for="entry in changelogEntries" :key="entry.version" class="changelog-entry card-surface" :open="entry.version === '0.52'">
         <summary>
           <span><strong>Alpha Build {{ entry.version }}</strong><small>{{ entry.title }}</small></span>
           <span class="changelog-chevron" aria-hidden="true">⌄</span>

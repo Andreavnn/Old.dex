@@ -1,6 +1,16 @@
-# Old.dex GUI v0.51
+# Old.dex GUI v0.52
 
 This build continues the code-remediation baseline and applies the current Army Lists/profile rules and UI review to the canonical Vue/TypeScript application source. The deployed Vue application is the primary review target; standalone previews, when generated, are build artifacts only.
+
+## v0.52 changes
+
+- Fixed the roster Edit autosave feedback loop that could freeze a browser tab after opening an added unit.
+- Stabilized scroll position while dynamic characteristics, saves, mounts, and other profile modifiers change the characteristic row.
+- Unified point calculation across the unit picker, default roster rows, edited profiles, per-model choices, mixed weapon counts, Wizard modes, and magic items.
+- Moved Special Rule/Magical Item type pills to each rule card's keyword footer, cleaned selected magic-item card layout, and replaced generic weapon-rule placeholders with available specific weapon-rule pills.
+- Normalized concatenated troop-type text and changed Unit Details to show the starting unit size (for example, `5+ models`) rather than the current edited roster count.
+- Rebuilt the Settings text-size selector as a fixed five-choice horizontal control with no internal scrollbar.
+- Extended the approved icon pack with dedicated Magical Vortex, Enchantment, Hex, Conveyance, Magic Missile, and Assailment icons while retaining the approved 14 characteristic/rule icons.
 
 ## v0.51 changes
 

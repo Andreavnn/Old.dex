@@ -46,6 +46,6 @@ if (remainingLocalRuntimeRefs.length) {
 const fingerprint = applicationSourceFingerprint()
 const marker = `<!-- ODX-STANDALONE-PREVIEW | GENERATED-ARTIFACT | SOURCE-SHA256:${fingerprint} | DO-NOT-EDIT -->`
 html = html.replace(/<!doctype html>/i, `<!doctype html>\n${marker}`)
-html = html.replace(/<title>.*?<\/title>/is, '<title>Old.dex GUI v0.51 Standalone Review Preview</title>')
+html = html.replace(/<title>.*?<\/title>/is, '<title>Old.dex GUI v0.52 Standalone Review Preview</title>')
 writeFileSync(outputPath, html)
 process.stdout.write(`Standalone review preview written to preview.html (${fingerprint.slice(0, 12)}…).\n`)

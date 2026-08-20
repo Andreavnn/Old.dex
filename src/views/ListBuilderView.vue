@@ -139,8 +139,11 @@ const filteredPickerUnits = computed(() => {
   let rows = availableUnits.value.filter((unit) => unit.category === pickerCategory.value)
   if (query) rows = rows.filter((unit) => unit.name.toLowerCase().includes(query))
   if (favoritesOnly.value) rows = rows.filter((unit) => favoriteIds.value.has(unit.id))
-  return [...rows].sort((a, b) => sortMode.value === 'points' ? a.points - b.points || a.name.localeCompare(b.name) : a.name.localeCompare(b.name))
+  return [...rows].sort((a, b) => sortMode.value === 'points' ? startingUnitPoints(a) - startingUnitPoints(b) || a.name.localeCompare(b.name) : a.name.localeCompare(b.name))
 })
+function startingUnitPoints(unit: PrototypeUnit) {
+  return createDefaultRosterSelection(unit, 'points-preview', { magicalMaelstrom: selectedOptionIds.value.has('magical-maelstrom') }).totalPoints
+}
 const rosterPoints = computed(() => roster.value.reduce((sum, row) => sum + row.totalPoints, 0))
 const remainingPoints = computed(() => points.value - rosterPoints.value)
 const validationIssues = computed(() => {
@@ -423,7 +426,7 @@ async function applySettings() {
         <div v-else-if="filteredPickerUnits.length" class="unit-picker-list">
           <article v-for="unit in filteredPickerUnits" :key="unit.id" class="unit-picker-row" :class="{ 'is-selected': pickerUnitSelected(unit.id) }">
             <button type="button" class="unit-picker-favourite" :class="{ active: favoriteIds.has(unit.id) }" @click.stop="toggleFavorite(unit.id)" :aria-label="`Favorite ${unit.name}`">★</button>
-            <button type="button" class="picker-unit-main" :disabled="pickerAdding" :aria-pressed="pickerUnitSelected(unit.id)" @click="togglePickerUnit(unit.id)"><span><strong>{{ unit.name }}</strong><small>{{ unit.unitSize }} · {{ unit.category }}</small><small v-if="unit.compositionNotes?.length" class="picker-composition-note">{{ unit.compositionNotes.join(' • ') }}</small></span></button><span class="unit-picker-points">{{ unit.points }} pts</span>
+            <button type="button" class="picker-unit-main" :disabled="pickerAdding" :aria-pressed="pickerUnitSelected(unit.id)" @click="togglePickerUnit(unit.id)"><span><strong>{{ unit.name }}</strong><small>{{ unit.unitSize }} · {{ unit.category }}</small><small v-if="unit.compositionNotes?.length" class="picker-composition-note">{{ unit.compositionNotes.join(' • ') }}</small></span></button><span class="unit-picker-points">{{ startingUnitPoints(unit) }} pts</span>
             <div class="unit-picker-actions"><button type="button" class="builder-mini-action primary icon-only-action" :class="{ selected: pickerUnitSelected(unit.id) }" :disabled="pickerAdding" :aria-label="`${pickerUnitSelected(unit.id) ? 'Remove' : 'Select'} ${unit.name}`" :title="pickerUnitSelected(unit.id) ? 'Selected' : 'Select'" @click="togglePickerUnit(unit.id)"><svg v-if="pickerUnitSelected(unit.id)" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg><svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button><RouterLink class="builder-mini-action icon-only-action" :to="`/army/${selectedArmy.slug}/unit/${unit.id}?return=${encodeURIComponent(route.fullPath)}&composition=${encodeURIComponent(selectedComposition.id)}&mode=view`" :aria-label="`View ${unit.name}`" title="View"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></RouterLink></div>
           </article>
         </div>

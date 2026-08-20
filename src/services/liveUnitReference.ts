@@ -1,7 +1,7 @@
 import type { BuilderCategory, ProfileKey, PrototypeUnit, PrototypeWeapon } from '../data/builderPrototype'
 import type { RawBuilderUnit, RawRecord } from '../domain/rawArmyData'
 import { isRecord } from '../domain/schemas'
-import { baseUnitSize, blankProfile, maximumModels, minimumModels, noteText, phaseLabel, slug, specialRuleTone, text } from '../domain/liveUnitShared'
+import { baseUnitSize, blankProfile, maximumModels, minimumModels, normalizeDisplayLabel, noteText, phaseLabel, slug, specialRuleTone, text } from '../domain/liveUnitShared'
 import { normalizeRepositoryPath } from '../data/ruleRepository'
 import { fetchRuleDocument } from './ruleContent'
 import { extractMechanicalRuleText } from './ruleText'
@@ -165,7 +165,7 @@ function parseMetadata(dom: Document, raw: RawBuilderUnit, category: BuilderCate
     return match?.[1]?.replace(/\s+/g, ' ').trim() || ''
   }
   const unitCategory = field('Unit Category') || category
-  const troopType = field('Troop Type')
+  const troopType = normalizeDisplayLabel(field('Troop Type'))
   const baseSize = field('Base Size')
   const explicitUnitSize = bodyText.match(/Unit Size:\s*([0-9]+(?:\s*[–-]\s*[0-9]+|\+)?(?:\s*models?)?)/i)?.[1]?.trim() || ''
   const parsedUnitSize = explicitUnitSize || field('Unit Size')

@@ -5,6 +5,14 @@ export type ChangelogEntry = {
 }
 
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.52', title: 'Roster editing, profile stability, points, and expanded icons', notes: [
+    'Fixed the roster Edit reactive autosave loop that could freeze the browser after opening an added unit.',
+    'Stabilized the viewport while dynamic characteristics such as Ward Save, Regeneration, mounts, and profile modifiers appear or disappear.',
+    'Unified unit point calculations across the unit picker, default roster rows, profile editing, magic items, per-model choices, and mixed-model weapon allocations.',
+    'Moved Special Rule and Magical Item type pills to the keyword footer, cleaned selected magic-item cards, and made weapon tables expose every available weapon-rule pill without generic Weapon Rule placeholders.',
+    'Normalized troop-type spacing, changed Unit Details to show starting unit size such as 5+ models, and repaired the Settings text-size control so all five choices remain left-to-right without a scrollbar.',
+    'Refreshed the supplied characteristic/rule icon artwork and expanded the icon pack with Magical Vortex, Enchantment, Hex, Conveyance, Magic Missile, and Assailment spell-category icons.'
+  ] },
   { version: '0.51', title: 'Army-list rules, magic modes, and profile presentation', notes: [
     'Added pill presentation for every equipped weapon rule and explicit Special Rule/Magical Item type pills on rule cards.',
     'Recentered the approved characteristic artwork, standardized Army List action-icon geometry, rounded pill UI consistently, and completed a typography/spacing cleanup.',
