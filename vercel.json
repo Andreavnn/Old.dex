@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/tow-source/:path*", "destination": "https://tow.whfb.app/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
