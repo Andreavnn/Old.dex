@@ -240,10 +240,10 @@ function createList() {
         </label>
       </fieldset>
 
-      <details v-if="selectedCompositionOptionDetails.length" class="composition-option-details">
-        <summary>Selected option details <span>{{ selectedCompositionOptionDetails.length }}</span></summary>
+      <section v-if="selectedCompositionOptionDetails.length" class="composition-option-details permanent-option-details">
+        <div class="composition-option-details-heading">Selected option details <span>{{ selectedCompositionOptionDetails.length }}</span></div>
         <div class="composition-option-detail-list"><article v-for="option in selectedCompositionOptionDetails" :key="option.value"><strong>{{ option.label }}</strong><p>{{ option.description }}</p></article></div>
-      </details>
+      </section>
 
       <div class="points-field-wrap">
         <label class="field-label">Points limit

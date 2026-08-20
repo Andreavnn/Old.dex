@@ -1,5 +1,17 @@
 # Old.dex Changelog
 
+## Alpha Build 0.58 — Interface readability, JSON imports, and weapon-data integrity
+
+- Restored the original site-wide interface text scale while keeping the larger OLD.DEX, ALPHA BUILD, and Changelog header treatment isolated to the header.
+- Added theme-colored back panels for exposed text when a custom background image is active and corrected Settings text contrast in dark faction themes.
+- Repaired the Select Units modal so rows retain readable height/columns instead of being compressed, and centered/colored the Create List Cancel action red.
+- Kept selected Battle Composition option details permanently expanded with larger default text.
+- Properly capitalized Magical Lore names, changed spell-lore phase labeling to Winds of Magic, and added Spell Lore: <Lore> keywords to selected lore rule cards.
+- Enabled JSON army-list import from Army Lists, active list-building, and Start New Match, including native Old.dex data plus Old World Builder .owb.json/.owb.lists.json files.
+- Fixed nested source-option selection IDs so dependent choices such as nested weapon upgrades are exposed consistently across armies, and expanded ranged-weapon recognition to bombs/grenades.
+- Merged source-specific weapon special rules with shared weapon-reference rules instead of overwriting one source with the other.
+
+
 This is the canonical duplicate-free project history. The in-app Changelog mirrors these same entries. Repeated correction passes are consolidated into the build or build range where the behavior became part of the application source.
 
 ## Alpha Build 0.57 — Magic selection, composition options, display polish, and Games groundwork

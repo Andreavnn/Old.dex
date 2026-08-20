@@ -431,15 +431,27 @@ function toggleLore(lore: string, selected: boolean) {
 function handleLoreCheckbox(lore: string, event: Event) {
   toggleLore(lore, Boolean((event.target as HTMLInputElement | null)?.checked))
 }
+function formatLoreName(value: string) {
+  const words = String(value || '').trim().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').split(' ').filter(Boolean)
+  return words.map((word, index) => {
+    const lower = word.toLowerCase()
+    if (index > 0 && ['of', 'the', 'and'].includes(lower)) return lower
+    return lower ? lower.charAt(0).toUpperCase() + lower.slice(1) : ''
+  }).join(' ')
+}
 function loreRulePath(_lore: string) { return '/the-lores-of-magic' }
-const selectedLoreRules = computed<PrototypeUnit['specialRules']>(() => [...selectedLores.value].map((lore) => ({
-  name: lore,
-  path: loreRulePath(lore),
-  timing: /prayer/i.test(lore) || isPrayerCaster.value && !isWizard.value ? 'Prayer Lore' : 'Magic Lore',
-  tone: 'magic' as RuleTone,
-  summary: /prayer/i.test(lore) ? `Selected prayer lore for ${prettyUnitName.value}.` : `Selected spell lore for ${prettyUnitName.value}.`,
-  keywords: [{ label: /prayer/i.test(lore) ? 'Prayer' : 'Spell Lore', path: '/the-lores-of-magic' }],
-})))
+const selectedLoreRules = computed<PrototypeUnit['specialRules']>(() => [...selectedLores.value].map((lore) => {
+  const displayLore = formatLoreName(lore)
+  const prayer = /prayer/i.test(lore) || isPrayerCaster.value && !isWizard.value
+  return {
+    name: displayLore,
+    path: loreRulePath(lore),
+    timing: prayer ? 'Prayer Lore' : 'Winds of Magic',
+    tone: 'magic' as RuleTone,
+    summary: prayer ? `Selected prayer lore for ${prettyUnitName.value}.` : `Selected spell lore for ${prettyUnitName.value}.`,
+    keywords: [{ label: prayer ? `Prayer Lore: ${displayLore}` : `Spell Lore: ${displayLore}`, path: '/the-lores-of-magic' }],
+  }
+}))
 watch([isWizard, isPrayerCaster], ([wizard, priest]) => {
   if (!wizard && !priest && selectedLores.value.size) selectedLores.value = new Set()
 })
@@ -1122,7 +1134,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
               <div v-if="loreChoices.length" class="lore-choice-grid" :class="{ unavailable: !loreSelectionEnabled }">
                 <label v-for="lore in loreChoices" :key="lore" :class="{ selected: selectedLores.has(lore) }">
                   <input type="checkbox" :checked="selectedLores.has(lore)" :disabled="isReadOnly || !loreSelectionEnabled" @change="handleLoreCheckbox(lore, $event)" />
-                  <span><strong>{{ lore }}</strong><small>{{ loreSelectionEnabled ? 'Add this lore to the model profile.' : 'Select a Wizard or Priest option first.' }}</small></span>
+                  <span><strong>{{ formatLoreName(lore) }}</strong><small>{{ loreSelectionEnabled ? 'Add this lore to the model profile.' : 'Select a Wizard or Priest option first.' }}</small></span>
                 </label>
               </div>
             </section>

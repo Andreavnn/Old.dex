@@ -6,6 +6,15 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.58', title: 'Interface readability, JSON imports, and weapon-data integrity', notes: [
+    'Restored the original site-wide interface text scale while keeping the larger OLD.DEX, ALPHA BUILD, and Changelog header treatment isolated to the header.',
+    'Added theme-colored back panels for exposed text when a custom background image is active and corrected Settings text contrast in dark faction themes.',
+    'Repaired the Select Units modal so rows retain readable height and columns, and centered/colored the Create List Cancel action red.',
+    'Kept selected Battle Composition option details permanently expanded with larger default text.',
+    'Properly capitalized Magical Lore names, changed spell-lore phase labeling to Winds of Magic, and added lore-specific keywords to selected lore rule cards.',
+    'Enabled JSON army-list import from Army Lists, active list-building, and Start New Match, including native Old.dex and Old World Builder JSON formats.',
+    'Fixed nested source-option selection IDs, expanded bomb/grenade weapon recognition, and merged source-specific weapon rules with shared weapon-reference rules site-wide.',
+  ] },
   { version: '0.57', title: 'Magic selection, composition options, display polish, and Games groundwork', notes: [
     'Refined roster percentage presentation so only the current percentage is status-coloured, zero-percent rows remain neutral, VALID/INVALID badges are centered, and Army List popouts/text-size controls fit their available space more reliably.',
     'Increased OLD.DEX/build/Changelog readability, deepened all light faction themes, improved Legions of Undead contrast, corrected dark-theme highlight text/icon contrast, and added four fixed user-selectable site background images.',

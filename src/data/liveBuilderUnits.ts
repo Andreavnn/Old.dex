@@ -44,16 +44,35 @@ function armourSaveFromName(name: string) {
 }
 
 function weaponLike(name: string) {
-  return /weapon|spear|pike|glaive|halberd|lance|flail|whip|staff|stave|sword|blade|axe|hammer|mace|maul|club|dagger|knife|cleaver|choppa|stabba|scythe|pick|ironfist|claw|talon|fist|bow|crossbow|longbow|shortbow|warbow|javelin|throwing|sling|pistol|handgun|gun|rifle|firearm|blowpipe|bolt thrower|stone thrower|catapult|ballista|trebuchet|mortar|lobber|doom diver|cannon/i.test(name)
+  return /weapon|spear|pike|glaive|halberd|lance|flail|whip|staff|stave|sword|blade|axe|hammer|mace|maul|club|dagger|knife|cleaver|choppa|stabba|scythe|pick|ironfist|claw|talon|fist|bow|crossbow|longbow|shortbow|warbow|javelin|throwing|sling|pistol|handgun|gun|rifle|firearm|blowpipe|bomb|grenade|bolt thrower|stone thrower|catapult|ballista|trebuchet|mortar|lobber|doom diver|cannon/i.test(name)
 }
 
 function missileLike(name: string) {
-  return /bow|crossbow|longbow|shortbow|warbow|javelin|throwing|sling|pistol|handgun|gun|rifle|firearm|blowpipe|bolt thrower|stone thrower|ballista|trebuchet|mortar|catapult|lobber|cannon|doom diver|rock lobber/i.test(name)
+  return /bow|crossbow|longbow|shortbow|warbow|javelin|throwing|sling|pistol|handgun|gun|rifle|firearm|blowpipe|bomb|grenade|bolt thrower|stone thrower|ballista|trebuchet|mortar|catapult|lobber|cannon|doom diver|rock lobber/i.test(name)
 }
 
 function unitWidePerModelRule(name: string) {
   return /^(?:Stubborn|Veteran)$/i.test(name.trim())
 }
+
+function sourceRuleValue(item: RawBuilderItem | RawBuilderUnit) {
+  return item?.specialRules ?? item?.special_rules ?? item?.rules ?? item?.rule ?? ''
+}
+
+function sourceRuleNames(item: RawBuilderItem | RawBuilderUnit) {
+  const value = sourceRuleValue(item)
+  const rows = Array.isArray(value) ? value : [value]
+  const names: string[] = []
+  for (const row of rows) {
+    const valueText = text(row) || (typeof row === 'string' ? row : '')
+    for (const name of String(valueText || '').split(',').map((entry) => entry.trim()).filter(Boolean)) {
+      if (!names.some((existing) => existing.toLowerCase() === name.toLowerCase())) names.push(name)
+    }
+  }
+  return names
+}
+
+function sourceRuleText(item: RawBuilderItem | RawBuilderUnit) { return sourceRuleNames(item).join(', ') }
 
 function sourceIncluded(item: RawBuilderItem) { return Boolean(item?.active || item?.alwaysActive || item?.equippedDefault) }
 function sourceAlwaysIncluded(item: RawBuilderItem) { return Boolean(item?.alwaysActive) }
@@ -71,7 +90,7 @@ function sourceWizardStartingLevel(raw: RawBuilderUnit) {
   }
   scan([...(Array.isArray(raw.options) ? raw.options : []), ...(Array.isArray(raw.command) ? raw.command : [])])
   if (marked.length) return Math.min(...marked)
-  const fromRules = text(raw.specialRules).match(/(?:Level\s*(\d+)\s*Wizard|Wizard\s*Level\s*(\d+))/i)
+  const fromRules = sourceRuleText(raw).match(/(?:Level\s*(\d+)\s*Wizard|Wizard\s*Level\s*(\d+))/i)
   return fromRules ? Number(fromRules[1] || fromRules[2] || 0) : 0
 }
 
@@ -94,12 +113,12 @@ function mountedOnlyNote(value: unknown) {
 }
 
 function mixedArmamentRule(raw: RawBuilderUnit) {
-  return /motley crew|mixed armament|mixed weapons|diverse armament/i.test(text(raw.specialRules))
+  return /motley crew|mixed armament|mixed weapons|diverse armament/i.test(sourceRuleText(raw))
 }
 
 function handWeaponExplicitlyExcluded(raw: RawBuilderUnit) {
   if (raw?.noHandWeapon === true || raw?.handWeapon === false) return true
-  const source = [noteText(raw?.notes), noteText(raw?.specialRules)].filter(Boolean).join(' ')
+  const source = [noteText(raw?.notes), sourceRuleText(raw)].filter(Boolean).join(' ')
   return /(?:does not|doesn't|do not|cannot|can't) (?:have|carry|use|count as having).*hand weapons?|(?:has|have) no hand weapons?|not equipped with (?:a )?hand weapons?/i.test(source)
 }
 
@@ -139,7 +158,7 @@ function equipmentRows(raw: RawBuilderUnit): PrototypeWeapon[] {
         range: kind === 'missile' ? 'See rule' : 'Combat',
         strength: 'See rule',
         ap: 'See rule',
-        rules: [],
+        rules: sourceRuleNames(item),
         points: mixedOwner || partIndex !== costIndex ? 0 : Number(item.points || 0),
         // Weapons that are intrinsic to an optional model/profile (for example an
         // Orc Bully's Whip) are conditional defaults: once that owner is selected
@@ -179,11 +198,11 @@ function equipmentRows(raw: RawBuilderUnit): PrototypeWeapon[] {
   const walkOptions = (items: RawBuilderItem[], prefix: string, parentId?: string) => {
     for (const item of items) {
       const name = text(item)
-      const itemId = selectableId(item, `${prefix}-${slug(name)}`)
+      const itemId = selectableId(item, prefix)
       const choiceGroup = item?.exclusive ? `${parentId || prefix}-weapon-choice` : undefined
       if (splitWeaponDescriptor(name).weaponParts.length) addWeapon(item, prefix, { fromOption: true, parentId, exclusiveGroup: choiceGroup })
       const childParent = splitWeaponDescriptor(name).nonWeaponParts.length ? itemId : (weaponLike(name) ? itemId : (name ? itemId : parentId))
-      if (Array.isArray(item.options)) walkOptions(item.options, `${prefix}-option`, childParent)
+      if (Array.isArray(item.options)) walkOptions(item.options, `${itemId}-option`, childParent)
     }
   }
   for (const item of Array.isArray(raw.equipment) ? raw.equipment : []) {
@@ -373,7 +392,7 @@ function equipmentOptions(raw: RawBuilderUnit): PrototypeEquipmentOption[] {
       })
     }
   }
-  return inferEquipmentOptionDependencies(rows, text(raw.specialRules))
+  return inferEquipmentOptionDependencies(rows, sourceRuleText(raw))
 }
 
 
@@ -400,7 +419,8 @@ function selectedSpecialRules(raw: RawBuilderUnit, options: PrototypeEquipmentOp
       if (!name) continue
       let option: PrototypeEquipmentOption | undefined
       if (!weaponLike(name)) option = matchingOption(name, kind, parentId) || matchingOption(name, undefined, parentId)
-      if (option && item.specialRules) push(item.specialRules, option.id)
+      const itemRules = sourceRuleValue(item)
+      if (option && itemRules) push(itemRules, option.id)
       if (option && /^Big [’']Uns$/i.test(name)) {
         const tone = specialRuleTone(name)
         rules.push({ name, path: '/special-rules/big-uns', timing: phaseLabel(tone), tone, summary: '', keywords: [], requiresSelection: option.id })
@@ -447,7 +467,7 @@ function baseSpecialRules(raw: RawBuilderUnit) {
   // Wizard level and available-lore metadata are profile configuration, not
   // standalone special rules. The current Wizard level is rendered from the
   // selected option state in UnitView instead.
-  const names = text(raw.specialRules).split(',').map((item) => item.trim()).filter(Boolean).filter((name) => !/^(?:Level\s*\d+\s*Wizard|Wizard\s*Level\s*\d+|(?:The\s+)?Lore\s+of\b)/i.test(name))
+  const names = sourceRuleText(raw).split(',').map((item) => item.trim()).filter(Boolean).filter((name) => !/^(?:Level\s*\d+\s*Wizard|Wizard\s*Level\s*\d+|(?:The\s+)?Lore\s+of\b)/i.test(name))
   return names.map((name) => {
     const tone = specialRuleTone(name)
     return {
@@ -517,6 +537,15 @@ function namedGeneralRequirement(raw: RawBuilderUnit, compositionId: string) {
   return false
 }
 
+function formatLoreName(value: string) {
+  const words = String(value || '').trim().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').split(' ').filter(Boolean)
+  return words.map((word, index) => {
+    const lower = word.toLowerCase()
+    if (index > 0 && ['of', 'the', 'and'].includes(lower)) return lower
+    return lower ? lower.charAt(0).toUpperCase() + lower.slice(1) : ''
+  }).join(' ')
+}
+
 function makeCatalogUnit(raw: RawBuilderUnit, category: BuilderCategory, armyName: string, compositionId = ''): PrototypeUnit {
   const options = equipmentOptions(raw)
   const weapons = equipmentRows(raw)
@@ -552,7 +581,7 @@ function makeCatalogUnit(raw: RawBuilderUnit, category: BuilderCategory, armyNam
       ...(Array.isArray(raw.magicLores) ? raw.magicLores : []),
       ...(Array.isArray(raw.prayerLores) ? raw.prayerLores : []),
       ...(Array.isArray(raw.prayersLores) ? raw.prayersLores : []),
-    ].map((value: unknown) => text(value)).filter(Boolean))],
+    ].map((value: unknown) => formatLoreName(text(value))).filter(Boolean))],
     baseWizardLevel: sourceWizardStartingLevel(raw) || undefined,
     additionalDetails: additionalUnitDetails(raw),
     mixedWeaponAllocation: weapons.some((weapon) => weapon.selectionMode === 'per-model-count'),

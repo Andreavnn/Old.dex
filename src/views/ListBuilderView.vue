@@ -13,7 +13,7 @@ import { useRosterStore } from '../stores/rosterStore'
 import { favoriteUnitIdsForArmy, toggleFavoriteUnit } from '../services/favorites'
 import { loadCompositionRules, type CompositionRuleCatalog } from '../services/armyData'
 import { validateRoster } from '../services/rosterValidation'
-import { duplicateSavedArmyList, getSavedArmyList, updateSavedArmyList, savedArmyListRoute } from '../services/savedLists'
+import { duplicateSavedArmyList, getSavedArmyList, importSavedArmyListJson, updateSavedArmyList, savedArmyListRoute } from '../services/savedLists'
 import { reportAppError } from '../services/appErrors'
 
 const route = useRoute()
@@ -62,6 +62,8 @@ const { rows: roster, persist: persistRoster } = useRosterStore(builderPath)
 const compositionRuleData = ref<CompositionRuleCatalog | null>(null)
 const validationDataError = ref('')
 const settingsOpen = ref(false)
+const listImportInput = ref<HTMLInputElement | null>(null)
+const listImportMessage = ref('')
 const addingUnitId = ref('')
 const pickerSelectedIds = ref(new Set<string>())
 const pickerSelectionCategories = ref(new Map<string, BuilderCategory>())
@@ -360,6 +362,21 @@ function toggleListLock() {
   updateSavedArmyList(savedListId.value, { locked: listLocked.value })
   if (listLocked.value) { settingsOpen.value = false; cancelPicker() }
 }
+async function importArmyListFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  listImportMessage.value = ''
+  try {
+    const imported = importSavedArmyListJson(await file.text())
+    if (imported[0]) await router.push(savedArmyListRoute(imported[0]))
+  } catch (error) {
+    listImportMessage.value = error instanceof Error ? error.message : 'This army-list JSON could not be imported.'
+  } finally {
+    input.value = ''
+  }
+}
+
 async function duplicateCurrentList() {
   if (!savedListId.value) return
   persistRoster()
@@ -444,7 +461,7 @@ async function applySettings() {
     </div>
 
     <section class="builder-command-strip card-surface">
-      <div class="builder-toolbar" aria-label="List tools"><button type="button" class="builder-tool" disabled title="Import is not available in this build"><span>Import</span><small>Coming later</small></button><button type="button" class="builder-tool" disabled title="Export is not available in this build"><span>Export</span><small>Coming later</small></button><button type="button" class="builder-tool" @click="duplicateCurrentList"><span>Duplicate</span><small>Copy list</small></button><button type="button" class="builder-tool" :disabled="listLocked" @click="openSettings"><span>Settings</span><small>List setup</small></button><button type="button" class="builder-tool" disabled title="Game View is not available in this build"><span>Game View</span><small>Coming later</small></button><button type="button" class="builder-tool builder-lock-tool" :class="{ active: listLocked }" @click="toggleListLock"><span>{{ listLocked ? 'Unlock Editing' : 'Lock List' }}</span><small>{{ listLocked ? 'Editing off' : 'Editing on' }}</small></button></div>
+      <div class="builder-toolbar" aria-label="List tools"><button type="button" class="builder-tool" @click="listImportInput?.click()"><span>Import</span><small>JSON roster</small></button><input ref="listImportInput" class="file-import-input" type="file" accept=".json,.owb.json,.owb.lists.json,application/json" @change="importArmyListFile" /><button type="button" class="builder-tool" disabled title="Export is not available in this build"><span>Export</span><small>Coming later</small></button><button type="button" class="builder-tool" @click="duplicateCurrentList"><span>Duplicate</span><small>Copy list</small></button><button type="button" class="builder-tool" :disabled="listLocked" @click="openSettings"><span>Settings</span><small>List setup</small></button><button type="button" class="builder-tool" disabled title="Game View is not available in this build"><span>Game View</span><small>Coming later</small></button><button type="button" class="builder-tool builder-lock-tool" :class="{ active: listLocked }" @click="toggleListLock"><span>{{ listLocked ? 'Unlock Editing' : 'Lock List' }}</span><small>{{ listLocked ? 'Editing off' : 'Editing on' }}</small></button></div>
       <div class="builder-validation-row"><span><strong>Army validation</strong><small>{{ validationIssues.length ? `${validationIssues.filter((issue) => issue.severity === 'error').length} rule issue${validationIssues.filter((issue) => issue.severity === 'error').length === 1 ? '' : 's'} to resolve.` : overUnderWarning ? `Roster is valid under Over - Under at ${Math.abs(remainingPoints)} points over the selected limit.` : hasMagicAllowanceWarning ? `Roster is valid; ${untouchedMagicPools.length} magic-item allowance${untouchedMagicPools.length === 1 ? '' : 's'} remain completely unspent.` : 'General, category percentages and composition requirements are satisfied.' }}</small></span><span class="validation-state-text" :class="{ danger: validationState === 'OVER LIMIT' || validationState === 'INVALID', valid: validationState === 'VALID' && !hasRosterWarning, warning: hasRosterWarning }">{{ validationState }}</span></div>
       <div v-if="validationDataError" class="builder-validation-warning">{{ validationDataError }}</div>
       <ul v-if="validationIssues.length" class="builder-validation-list"><li v-for="(issue, index) in validationIssues" :key="`${issue.section}-${index}-${issue.message}`" :class="issue.severity"><span class="validation-section-label">{{ issue.section }}</span><span class="validation-issue-message">{{ issue.message }}</span></li></ul>
@@ -499,7 +516,7 @@ async function applySettings() {
           <label class="field-label">Army composition<select v-model="settingsComposition" class="field-control"><option v-for="composition in liveCompositions" :key="composition.id" :value="composition.id">{{ composition.name }}</option></select></label>
           <label class="field-label">Battle Composition<select v-model="settingsRule" class="field-control"><option v-for="rule in compositionRules" :key="rule.value" :value="rule.value">{{ rule.label }}</option></select></label>
           <fieldset class="composition-options" aria-label="Battle Composition Options"><legend>Battle Composition Options</legend><label v-for="option in compositionOptions" :key="option.value" class="composition-option" :class="{ locked: settingsOptionLocked(option.value), unavailable: !settingsOptionAvailable(option.value) }"><input type="checkbox" :checked="settingsOptionState[option.value]" :disabled="settingsOptionDisabled(option.value)" @change="handleSettingsOption(option.value, $event)" /><span>{{ option.label }}</span><small v-if="settingsOptionLocked(option.value)">Required</small><small v-else-if="!settingsOptionAvailable(option.value)">Not available</small></label></fieldset>
-          <details v-if="settingsSelectedOptionDetails.length" class="composition-option-details"><summary>Selected option details <span>{{ settingsSelectedOptionDetails.length }}</span></summary><div class="composition-option-detail-list"><article v-for="option in settingsSelectedOptionDetails" :key="option.value"><strong>{{ option.label }}</strong><p>{{ option.description }}</p></article></div></details>
+          <section v-if="settingsSelectedOptionDetails.length" class="composition-option-details permanent-option-details"><div class="composition-option-details-heading">Selected option details <span>{{ settingsSelectedOptionDetails.length }}</span></div><div class="composition-option-detail-list"><article v-for="option in settingsSelectedOptionDetails" :key="option.value"><strong>{{ option.label }}</strong><p>{{ option.description }}</p></article></div></section>
           <div class="points-field-wrap"><label class="field-label">Points limit<input v-model.number="settingsPoints" class="field-control" type="number" inputmode="numeric" :min="settingsRule === 'battle-march' ? 500 : 0" :max="settingsRule === 'battle-march' ? 750 : 10000" step="50" /></label><div class="point-presets" aria-label="Quick points presets"><button v-for="preset in settingsPointPresets" :key="preset" type="button" :class="['point-preset', { active: settingsPoints === preset }]" @click="settingsPoints = preset">{{ preset }}</button></div><p v-if="settingsRule === 'battle-march'" class="form-note points-rule-note">Battle March uses 500–750 point armies.</p></div>
         </div>
         <div class="list-settings-actions"><button type="button" class="secondary-button" @click="settingsOpen = false">Cancel</button><button type="button" class="primary-button" @click="applySettings">Apply settings</button></div>

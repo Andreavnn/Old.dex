@@ -135,7 +135,7 @@ async function updateBuilderRules() {
           <input v-model="compactRows" type="checkbox" />
         </label>
         <div class="setting-row">
-          <span><strong>Text size</strong><small>Choose from two steps below or above the normal interface text size. Normal is one pixel larger than the previous default.</small></span>
+          <span><strong>Text size</strong><small>Choose from two steps below or above the normal interface text size. Normal uses the original site-wide interface scale; the enlarged Old.dex header is independent of this setting.</small></span>
           <div class="font-size-control" role="group" aria-label="Text size">
             <button
               v-for="option in fontOptions"

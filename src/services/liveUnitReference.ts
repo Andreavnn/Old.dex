@@ -236,10 +236,16 @@ async function enrichWeapon(weapon: PrototypeWeapon, paths: Map<string, string>)
     const rows = Array.from(dom.querySelectorAll('table tr')).slice(1)
     const cells = rows.flatMap((row) => [Array.from(row.querySelectorAll('td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '')]).find((row) => row.length >= 4)
     if (!cells) return { ...weapon, path }
-    const rules = cells[3] && !/^[-—]$/.test(cells[3]) ? cells[3].split(/,\s*/).filter(Boolean) : []
-    const ruleLinks = rules.map(universalWeaponRuleLink).filter((row): row is { label: string; path: string } => Boolean(row))
+    const referenceRules = cells[3] && !/^[-—]$/.test(cells[3]) ? cells[3].split(/,\s*/).filter(Boolean) : []
+    const rules: string[] = []
+    for (const rule of [...(weapon.rules || []), ...referenceRules]) if (rule && !rules.some((existing) => existing.toLowerCase() === rule.toLowerCase())) rules.push(rule)
+    const ruleLinks = [...(weapon.ruleLinks || [])]
+    for (const rule of rules) {
+      const link = universalWeaponRuleLink(rule)
+      if (link && !ruleLinks.some((existing) => existing.label.toLowerCase() === link.label.toLowerCase())) ruleLinks.push(link)
+    }
     const hasNotes = Array.from(dom.querySelectorAll('p, div, li')).some((node) => /^Notes?\s*:/i.test(node.textContent?.replace(/\s+/g, ' ').trim() || ''))
-    const hasUniqueRule = hasNotes || rules.some((rule) => !universalWeaponRuleLink(rule))
+    const hasUniqueRule = Boolean(weapon.hasUniqueRule) || hasNotes || rules.some((rule) => !universalWeaponRuleLink(rule))
     return {
       ...weapon,
       path,
