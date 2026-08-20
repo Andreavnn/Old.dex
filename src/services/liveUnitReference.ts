@@ -191,11 +191,22 @@ function matchingPath(map: Map<string, string>, name: string, fallback: string) 
 }
 
 
+function fallbackReferenceText(html: string, title = '') {
+  const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
+  dom.querySelectorAll('script,style,nav,header,footer,table').forEach((node) => node.remove())
+  const wantedTitle = title.toLowerCase().trim()
+  const rows = Array.from(dom.querySelectorAll('p, li'))
+    .map((node) => node.textContent?.replace(/\s+/g, ' ').trim() || '')
+    .filter((value) => value.length >= 18 && value.toLowerCase() !== wantedTitle && !/^(publication|source|page)\b/i.test(value))
+  const seen = new Set<string>()
+  return rows.filter((value) => { const key = value.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true }).slice(0, 4).join(' ').slice(0, 1800)
+}
+
 async function enrichSpecialRule(rule: PrototypeUnit['specialRules'][number]) {
   if (!rule.path) return rule
   try {
     const document = await fetchRuleDocument(rule.path)
-    const summary = extractMechanicalRuleText(document.html)
+    const summary = extractMechanicalRuleText(document.html) || fallbackReferenceText(document.html, rule.name)
     return { ...rule, summary: summary || rule.summary }
   } catch (error) {
     reportAppError(error, 'UNIT_RULE_REFERENCE', { rule: rule.name, path: rule.path })

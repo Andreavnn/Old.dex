@@ -18,7 +18,7 @@ const openGames = computed(() => games.value.filter((game) => game.status === 'o
 const history = computed(() => games.value.filter((game) => game.status === 'complete'))
 
 function filterOptions(rows: SavedGame[]) {
-  const options = [{ value: 'all', label: 'Filter: All' }]
+  const options = [{ value: 'all', label: 'All' }]
   const armies = [...new Set(rows.flatMap((game) => [game.playerArmyName, game.opponentArmyName || '']).filter(Boolean))].sort()
   const points = [...new Set(rows.map((game) => Number(game.points)).filter((value) => Number.isFinite(value) && value > 0))].sort((a, b) => a - b)
   const scenarios = [...new Set(rows.map((game) => game.scenario).filter(Boolean))].sort()
@@ -42,6 +42,7 @@ function matchesSearch(game: SavedGame, query: string) {
   if (!wanted) return true
   return [
     game.name,
+    game.playerName,
     game.playerListName,
     game.opponentListName,
     game.opponentName,
@@ -95,7 +96,7 @@ function resultLabel(game: SavedGame) {
         <h2>Open Matches</h2>
         <div class="games-section-tools">
           <span class="section-count">{{ openGames.length }}</span>
-          <label class="games-filter-control"><span class="sr-only">Filter open matches</span><select v-model="openFilter"><option v-for="option in openOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
+          <details class="games-filter-menu"><summary aria-label="Filter matches" title="Filter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg></summary><label class="games-filter-control"><span class="sr-only">Filter</span><select v-model="openFilter" @click.stop><option v-for="option in openOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label></details>
           <button type="button" class="games-search-toggle" :class="{ active: openSearchVisible }" aria-label="Search open matches" @click="toggleSearch('open')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></button>
         </div>
       </div>
@@ -115,7 +116,7 @@ function resultLabel(game: SavedGame) {
         <h2>Match History</h2>
         <div class="games-section-tools">
           <span class="section-count">{{ history.length }}</span>
-          <label class="games-filter-control"><span class="sr-only">Filter match history</span><select v-model="historyFilter"><option v-for="option in historyOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
+          <details class="games-filter-menu"><summary aria-label="Filter matches" title="Filter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg></summary><label class="games-filter-control"><span class="sr-only">Filter</span><select v-model="historyFilter" @click.stop><option v-for="option in historyOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label></details>
           <button type="button" class="games-search-toggle" :class="{ active: historySearchVisible }" aria-label="Search match history" @click="toggleSearch('history')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></button>
         </div>
       </div>

@@ -1,0 +1,33 @@
+Old.dex Alpha Build 0.60 — verification report
+Prepared: 20 August 2026
+
+PACKAGE
+Old.dex-v0.60-DIRECT-SOURCE.zip
+
+VERIFICATION STATUS
+PASS — Static source verification completed for the updated v0.60 package (regression suite plus direct-source review files included).
+PASS — v0.57 + v0.58 + v0.59 + v0.60 regression suite: 39/39 tests passed.
+PASS — Production Support URLs are present and no Stripe test-mode Support URL remains.
+PASS — Enemy-roster persistence/export/import plumbing is present in saved-list schemas and services.
+PASS — No visible View/Export text controls remain in the Army Rosters card actions; icon controls are used instead.
+PASS — Missing magical-item and special-rule summaries have secondary document-text fallback paths.
+PASS — Visible application/header version references are Alpha Build 0.60.
+PASS — package.json version is 0.60.0.
+
+V0.60 REGRESSION COVERAGE
+- Production one-time and recurring Support links as centered side-by-side buttons.
+- Icon-driven Games filtering with existing search and three-most-recent default behavior.
+- Friendly General / Enemy General match setup panels with always-available names, roster selection and JSON import.
+- Friendly-roster battle composition information below scenario information.
+- Create Match / Cancel action order reversed.
+- Army Roster View and Export icon actions.
+- Enemy Roster flagging and separate Enemy Army Rosters section.
+- Enemy-roster flag preservation through local persistence, duplication and native JSON round-tripping.
+- Magical-item detail preloading/fallback text and visible greyed-out unaffordable choices.
+- Secondary fallback loading for special-rule and magical-item rule cards with empty primary summaries.
+
+PROFILE LOAD-TIME STATUS
+Implemented in this rebuilt v0.60 package. The unit-profile loader now prepares the base Builder profile first, renders it immediately, and completes special-rule / weapon / optional-profile enrichment in the background. The duplicate second army-data read inside live-unit loading was also removed by consolidating preparation and enrichment around one prepared source payload. Cold-cache rule/weapon reference fetches still affect how quickly the background details finish, but they no longer block initial profile display.
+
+NOTES
+This is a direct-source update package. Upload its contents over the existing Old.dex repository root, replacing matching paths and adding new files.

@@ -6,6 +6,16 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.60', title: 'Match setup, enemy rosters, support actions, and rule-detail reliability', notes: [
+    'Replaced the Support links with the production one-time and recurring Stripe URLs and presented both as centered side-by-side buttons below the support disclaimer.',
+    'Simplified Games filtering to icon-driven filter menus while retaining search, three-item default lists, and match metadata filtering.',
+    'Reworked Start New Match around Friendly General and Enemy General panels, each with an always-available general-name field plus roster selection/import controls.',
+    'Added friendly-roster battle composition details beneath the scenario information and reversed the Create Match / Cancel action order.',
+    'Replaced Army Roster View and Export text actions with icon actions and added an Enemy Roster flag that moves flagged rosters into a separate Enemy Army Rosters group.',
+    'Preserved enemy-roster status through native JSON export/import and list duplication.',
+    'Improved magical-item selection descriptions with background detail loading and stronger fallback extraction while keeping unaffordable legal items visible and greyed out.',
+    'Added a second rule-card detail fallback so special-rule and magical-item cards can recover readable information when the primary rules-index extraction returns no summary.',
+  ] },
   { version: '0.59', title: 'Roster workflow, match tools, and rules-profile polish', notes: [
     'Made image-backed text panels more transparent with a light backdrop blur, removed Background panel divider borders, and replaced Donations with explicit one-time and recurring Support actions.',
     'Expanded Games with compact three-item defaults, filters and search across match names, rosters, factions and points, and aligned the Games content width with the rest of Old.dex.',

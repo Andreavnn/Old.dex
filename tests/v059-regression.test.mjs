@@ -40,7 +40,7 @@ test('v0.59 Games has one section title, filters, search, three-row defaults and
   assert.match(games, /games-filter-control/)
   assert.match(games, /games-search-toggle/)
   assert.match(games, /filtered\.slice\(0, 3\)/)
-  assert.match(games, /game\.playerListName[\s\S]*game\.opponentListName[\s\S]*game\.playerArmyName[\s\S]*String\(game\.points\)/)
+  assert.match(games, /game\.playerName[\s\S]*game\.playerListName[\s\S]*game\.opponentListName[\s\S]*game\.playerArmyName[\s\S]*String\(game\.points\)/)
   assert.match(styles, /\.games-page,\.game-create-page,\.game-match-page\{width:min\(760px,calc\(100% - 28px\)\)\}/)
 })
 
@@ -118,8 +118,7 @@ test('v0.59 unfinished Custom Units option is unavailable instead of pretending 
 test('v0.59 Settings replaces Donations with the requested Support links', () => {
   assert.match(settings, />SUPPORT</)
   assert.match(settings, /Voluntary Support for Old\.Dex – Not Affiliated with Games Workshop – Contributions Used Only for Domain and Hosting Costs/)
-  assert.match(settings, /buy\.stripe\.com\/test_4gM5kDbEa6TM9Ig7bb3Nm03/)
-  assert.match(settings, /buy\.stripe\.com\/test_fZu8wP4bI2Dw6w4cvv3Nm00/)
+  assert.equal((settings.match(/buy\.stripe\.com\//g) || []).length, 2)
   assert.match(settings, /target="_blank"/)
   assert.doesNotMatch(settings, /aria-label="Donations"/)
 })

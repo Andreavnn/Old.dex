@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
+import { compositionOptionDescription, compositionOptions, compositionRuleLabel } from '../data/listBuilder'
 import { createSavedGame } from '../services/games'
 import { getSavedArmyLists, importSavedArmyListJson, type SavedArmyList } from '../services/savedLists'
 
@@ -13,7 +14,8 @@ const playerImportMessage = ref('')
 const opponentImportMessage = ref('')
 const playerListId = ref('')
 const opponentListId = ref('')
-const opponentName = ref('Opponent')
+const playerName = ref('')
+const opponentName = ref('')
 const scenario = ref('Open Battle')
 
 const scenarioOptions = [
@@ -25,10 +27,27 @@ const scenarioOptions = [
   { name: 'Break Point', description: 'Army strength is checked against a Break Point during the battle. Old.dex will surface the required battle checks in the match workflow.' },
 ]
 
+const friendlyLists = computed(() => lists.value.filter((list) => !list.enemyRoster))
+const enemyLists = computed(() => lists.value.filter((list) => list.enemyRoster))
 const playerList = computed(() => lists.value.find((list) => list.id === playerListId.value) || null)
 const opponentList = computed(() => lists.value.find((list) => list.id === opponentListId.value) || null)
 const selectedScenario = computed(() => scenarioOptions.find((option) => option.name === scenario.value) || scenarioOptions[0])
 const canCreate = computed(() => Boolean(playerList.value))
+const friendlyCompositionOptions = computed(() => {
+  const list = playerList.value
+  if (!list) return []
+  return (list.options || []).map((id) => {
+    const option = compositionOptions.find((candidate) => candidate.value === id)
+    return { id, label: option?.label || id, description: option ? compositionOptionDescription(option.value) : '' }
+  })
+})
+
+function rosterGeneralName(list: SavedArmyList | null) {
+  const general = (list?.roster || []).find((row) => (row.options || []).some((value) => /^General$/i.test(String(value).replace(/\s*[×x]\d+\s*$/, '').trim())))
+  return general?.name || ''
+}
+function friendlyNamePlaceholder() { return rosterGeneralName(playerList.value) || 'Friendly General' }
+function enemyNamePlaceholder() { return rosterGeneralName(opponentList.value) || 'Enemy General' }
 
 function refreshLists(side: 'player' | 'opponent', preferredId = '') {
   lists.value = getSavedArmyLists()
@@ -61,7 +80,13 @@ async function importRoster(event: Event, side: 'player' | 'opponent') {
 }
 function createMatch() {
   if (!playerList.value) return
-  const game = createSavedGame({ playerList: playerList.value, opponentList: opponentList.value, opponentName: opponentName.value, scenario: scenario.value })
+  const game = createSavedGame({
+    playerList: playerList.value,
+    opponentList: opponentList.value,
+    playerName: playerName.value || friendlyNamePlaceholder(),
+    opponentName: opponentName.value || enemyNamePlaceholder(),
+    scenario: scenario.value,
+  })
   void router.push(`/games/${game.id}`)
 }
 </script>
@@ -72,47 +97,70 @@ function createMatch() {
     <div class="page-title-block">
       <p class="eyebrow">NEW MATCH</p>
       <h1>Start New Match</h1>
-      <p>Select saved army rosters or import JSON rosters for both sides, then choose the scenario. First turn is resolved later in the battle workflow.</p>
+      <p>Choose the friendly and enemy generals, select or import their rosters, and then choose the battle scenario.</p>
     </div>
 
     <section class="form-card game-create-form">
-      <section class="game-roster-card">
-        <div class="game-roster-source-row">
-          <span><strong>Your Army Roster</strong><small>Use a roster already saved in Old.dex or import one.</small></span>
-          <button type="button" class="secondary-button" @click="playerImportInput?.click()">Import roster</button>
+      <section class="game-roster-card general-roster-card">
+        <div class="general-panel-heading"><span><strong>Friendly General</strong><small>Select an Old.dex roster or import a JSON roster in the same panel.</small></span></div>
+        <label class="field-label">Friendly general name<input v-model="playerName" class="field-control" maxlength="80" :placeholder="friendlyNamePlaceholder()" /></label>
+        <div class="game-roster-source-controls">
+          <label class="field-label roster-select-field">Select roster from list
+            <select v-model="playerListId" class="field-control" required>
+              <option value="" disabled>Select roster from list</option>
+              <optgroup v-if="friendlyLists.length" label="Army Rosters">
+                <option v-for="list in friendlyLists" :key="list.id" :value="list.id">{{ list.name }} — {{ list.armyName }} — {{ list.points }} pts</option>
+              </optgroup>
+              <optgroup v-if="enemyLists.length" label="Enemy Army Rosters">
+                <option v-for="list in enemyLists" :key="list.id" :value="list.id">{{ list.name }} — {{ list.armyName }} — {{ list.points }} pts</option>
+              </optgroup>
+            </select>
+          </label>
+          <button type="button" class="secondary-button roster-import-button" @click="playerImportInput?.click()">Import roster</button>
           <input ref="playerImportInput" class="file-import-input" type="file" accept=".json,.owb.json,.owb.lists.json,application/json" @change="importRoster($event, 'player')" />
         </div>
-        <label class="field-label">Select roster from list
-          <select v-model="playerListId" class="field-control" required>
-            <option value="" disabled>Select roster from list</option>
-            <option v-for="list in lists" :key="list.id" :value="list.id">{{ list.name }} — {{ list.armyName }} — {{ list.points }} pts</option>
-          </select>
-        </label>
         <p v-if="playerImportMessage" class="list-import-message" role="status">{{ playerImportMessage }}</p>
       </section>
 
-      <section class="game-roster-card">
-        <div class="game-roster-source-row">
-          <span><strong>Opponent Army Roster</strong><small>Select a saved opponent roster or import one.</small></span>
-          <button type="button" class="secondary-button" @click="opponentImportInput?.click()">Import roster</button>
+      <section class="game-roster-card general-roster-card">
+        <div class="general-panel-heading"><span><strong>Enemy General</strong><small>Select an enemy roster, another saved roster, or import a JSON roster.</small></span></div>
+        <label class="field-label">Enemy general name<input v-model="opponentName" class="field-control" maxlength="80" :placeholder="enemyNamePlaceholder()" /></label>
+        <div class="game-roster-source-controls">
+          <label class="field-label roster-select-field">Select roster from list
+            <select v-model="opponentListId" class="field-control">
+              <option value="">Select roster from list</option>
+              <optgroup v-if="enemyLists.length" label="Enemy Army Rosters">
+                <option v-for="list in enemyLists.filter((candidate) => candidate.id !== playerListId)" :key="list.id" :value="list.id">{{ list.name }} — {{ list.armyName }} — {{ list.points }} pts</option>
+              </optgroup>
+              <optgroup v-if="friendlyLists.length" label="Army Rosters">
+                <option v-for="list in friendlyLists.filter((candidate) => candidate.id !== playerListId)" :key="list.id" :value="list.id">{{ list.name }} — {{ list.armyName }} — {{ list.points }} pts</option>
+              </optgroup>
+            </select>
+          </label>
+          <button type="button" class="secondary-button roster-import-button" @click="opponentImportInput?.click()">Import roster</button>
           <input ref="opponentImportInput" class="file-import-input" type="file" accept=".json,.owb.json,.owb.lists.json,application/json" @change="importRoster($event, 'opponent')" />
         </div>
-        <label class="field-label">Select roster from list
-          <select v-model="opponentListId" class="field-control">
-            <option value="">Select roster from list</option>
-            <option v-for="list in lists.filter((candidate) => candidate.id !== playerListId)" :key="list.id" :value="list.id">{{ list.name }} — {{ list.armyName }} — {{ list.points }} pts</option>
-          </select>
-        </label>
-        <label v-if="!opponentList" class="field-label">Opponent name<input v-model="opponentName" class="field-control" maxlength="80" /></label>
         <p v-if="opponentImportMessage" class="list-import-message" role="status">{{ opponentImportMessage }}</p>
       </section>
 
       <label class="field-label">Scenario<select v-model="scenario" class="field-control"><option v-for="option in scenarioOptions" :key="option.name" :value="option.name">{{ option.name }}</option></select></label>
       <aside class="scenario-info-window" aria-live="polite"><span class="value-chip">SCENARIO</span><div><strong>{{ selectedScenario.name }}</strong><p>{{ selectedScenario.description }}</p></div></aside>
 
+      <aside v-if="playerList" class="battle-composition-window" aria-label="Friendly roster battle composition">
+        <span class="value-chip">BATTLE COMPOSITION</span>
+        <div class="battle-composition-copy">
+          <strong>{{ playerList.compositionName }} · {{ compositionRuleLabel(playerList.rule) }}</strong>
+          <p v-if="friendlyCompositionOptions.length">The friendly roster has the following battle composition options enabled.</p>
+          <p v-else>No additional battle composition options are enabled for this friendly roster.</p>
+          <ul v-if="friendlyCompositionOptions.length" class="battle-composition-option-list">
+            <li v-for="option in friendlyCompositionOptions" :key="option.id"><strong>{{ option.label }}</strong><span v-if="option.description">{{ option.description }}</span></li>
+          </ul>
+        </div>
+      </aside>
+
       <div class="game-create-actions">
-        <RouterLink to="/games" class="secondary-button game-create-cancel">Cancel</RouterLink>
         <button type="button" class="primary-button" :disabled="!canCreate" @click="createMatch">Create Match</button>
+        <RouterLink to="/games" class="secondary-button game-create-cancel">Cancel</RouterLink>
       </div>
     </section>
   </main>

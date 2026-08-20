@@ -55,6 +55,7 @@ export type SavedGame = {
   playerListId: string
   playerListName: string
   playerArmyName: string
+  playerName: string
   opponentListId?: string
   opponentListName?: string
   opponentArmyName?: string
@@ -89,6 +90,7 @@ function parseGames(value: unknown): SavedGame[] {
     playerScore: Math.max(0, Number(row.playerScore || 0)),
     opponentScore: Math.max(0, Number(row.opponentScore || 0)),
     firstPlayerConfirmed: typeof row.firstPlayerConfirmed === 'boolean' ? row.firstPlayerConfirmed : true,
+    playerName: String(row.playerName || 'Friendly General'),
   }))
 }
 
@@ -104,18 +106,21 @@ export function getSavedGame(id: string) { return getSavedGames().find((game) =>
 export function createSavedGame(input: {
   playerList: SavedArmyList
   opponentList?: SavedArmyList | null
+  playerName?: string
   opponentName?: string
   scenario: string
 }) {
   const now = new Date().toISOString()
-  const opponentName = input.opponentList?.name || input.opponentName?.trim() || 'Opponent'
+  const playerName = input.playerName?.trim() || 'Friendly General'
+  const opponentName = input.opponentName?.trim() || 'Enemy General'
   const game: SavedGame = {
     id: `game-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     status: 'open',
-    name: `${input.playerList.name} vs ${opponentName}`,
+    name: `${playerName} vs ${opponentName}`,
     playerListId: input.playerList.id,
     playerListName: input.playerList.name,
     playerArmyName: input.playerList.armyName,
+    playerName,
     opponentListId: input.opponentList?.id,
     opponentListName: input.opponentList?.name,
     opponentArmyName: input.opponentList?.armyName,

@@ -673,13 +673,93 @@ export async function loadRawBuilderUnit(dataKey: string, unitId: string): Promi
   return null
 }
 
-export async function loadLiveUnitProfile(dataKey: string, armyName: string, unitId: string, compositionId: string): Promise<PrototypeUnit | null> {
-  const raw = await loadRawBuilderUnit(dataKey, unitId)
-  if (!raw) return null
+type PreparedLiveUnitProfile = {
+  raw: RawBuilderUnit
+  category: BuilderCategory
+  unit: PrototypeUnit
+}
+
+function clonePrototypeUnit(unit: PrototypeUnit): PrototypeUnit {
+  return {
+    ...unit,
+    profile: { ...unit.profile },
+    profiles: unit.profiles?.map((row) => ({ name: row.name, profile: { ...row.profile } })),
+    weapons: unit.weapons.map((weapon) => ({
+      ...weapon,
+      rules: [...(weapon.rules || [])],
+      ruleLinks: weapon.ruleLinks?.map((link) => ({ ...link })),
+      profileOverride: weapon.profileOverride ? { ...weapon.profileOverride } : undefined,
+    })),
+    equipmentOptions: unit.equipmentOptions.map((option) => ({
+      ...option,
+      rules: option.rules ? [...option.rules] : undefined,
+      profileOverride: option.profileOverride ? { ...option.profileOverride } : undefined,
+      riderProfileModifiers: option.riderProfileModifiers ? { ...option.riderProfileModifiers } : undefined,
+      magicAllowance: option.magicAllowance ? { ...option.magicAllowance, types: [...option.magicAllowance.types] } : undefined,
+      profileEquipment: option.profileEquipment ? [...option.profileEquipment] : undefined,
+    })),
+    magicAllowance: unit.magicAllowance ? { ...unit.magicAllowance, types: [...unit.magicAllowance.types] } : undefined,
+    details: { ...unit.details },
+    specialRules: unit.specialRules.map((rule) => ({
+      ...rule,
+      keywords: rule.keywords.map((keyword) => ({ ...keyword })),
+    })),
+    keywords: unit.keywords.map((keyword) => ({ ...keyword })),
+    additionalDetails: unit.additionalDetails?.map((detail) => ({ ...detail })),
+    optionalProfiles: unit.optionalProfiles?.map((profile) => ({
+      ...profile,
+      profile: { ...profile.profile },
+      equipment: [...profile.equipment],
+    })),
+    lores: unit.lores ? [...unit.lores] : undefined,
+    compositionNotes: unit.compositionNotes ? [...unit.compositionNotes] : undefined,
+  }
+}
+
+async function prepareLiveUnitProfile(dataKey: string, armyName: string, unitId: string, compositionId: string): Promise<PreparedLiveUnitProfile | null> {
   const data = await loadArmyData(dataKey) as ArmyDataDocument
+  let raw: RawBuilderUnit | null = null
   let sourceKey = 'core'
-  for (const [key, value] of Object.entries(data)) if (Array.isArray(value) && value.some((row: RawBuilderItem) => String(row?.id) === unitId)) sourceKey = key
+  for (const [key, value] of Object.entries(data)) {
+    if (!Array.isArray(value)) continue
+    const found = (value as RawBuilderUnit[]).find((row) => String(row?.id) === unitId)
+    if (found) {
+      raw = found
+      sourceKey = key
+      break
+    }
+  }
+  if (!raw) return null
   const category = compositionCategory(raw, compositionId, sourceKey) || categoryMap[sourceKey] || 'Core'
   const unit = makeCatalogUnit(raw, category, armyName, compositionId)
-  return enrichLiveUnitReference(unit, raw, category, armyName, dataKey)
+  return { raw, category, unit }
+}
+
+export async function loadBaseLiveUnitProfile(dataKey: string, armyName: string, unitId: string, compositionId: string): Promise<PrototypeUnit | null> {
+  const prepared = await prepareLiveUnitProfile(dataKey, armyName, unitId, compositionId)
+  return prepared ? clonePrototypeUnit(prepared.unit) : null
+}
+
+export async function loadLiveUnitProfile(dataKey: string, armyName: string, unitId: string, compositionId: string): Promise<PrototypeUnit | null> {
+  const prepared = await prepareLiveUnitProfile(dataKey, armyName, unitId, compositionId)
+  if (!prepared) return null
+  const enriched = await enrichLiveUnitReference(clonePrototypeUnit(prepared.unit), prepared.raw, prepared.category, armyName, dataKey)
+  return clonePrototypeUnit(enriched)
+}
+
+export async function loadLiveUnitProfileProgressively(
+  dataKey: string,
+  armyName: string,
+  unitId: string,
+  compositionId: string,
+  callbacks: { onBase?: (unit: PrototypeUnit) => void; onEnriched?: (unit: PrototypeUnit) => void } = {},
+): Promise<PrototypeUnit | null> {
+  const prepared = await prepareLiveUnitProfile(dataKey, armyName, unitId, compositionId)
+  if (!prepared) return null
+  const baseUnit = clonePrototypeUnit(prepared.unit)
+  callbacks.onBase?.(clonePrototypeUnit(baseUnit))
+  const enriched = await enrichLiveUnitReference(clonePrototypeUnit(prepared.unit), prepared.raw, prepared.category, armyName, dataKey)
+  const finalUnit = clonePrototypeUnit(enriched)
+  callbacks.onEnriched?.(clonePrototypeUnit(finalUnit))
+  return finalUnit
 }

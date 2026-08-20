@@ -17,6 +17,7 @@ export type SavedArmyList = {
   locked?: boolean
   actualPoints?: number
   validationStatus?: 'valid' | 'invalid' | 'warning'
+  enemyRoster?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -119,6 +120,7 @@ export function duplicateSavedArmyList(id: string) {
     locked: false,
     actualPoints: source.actualPoints,
     validationStatus: source.validationStatus,
+    enemyRoster: source.enemyRoster,
   })
 }
 
@@ -347,7 +349,7 @@ export function importSavedArmyListData(value: unknown) {
     if (native) {
       const parsed = parseSavedArmyLists([{ ...row, id: String(row.id || 'import'), createdAt: String(row.createdAt || new Date().toISOString()), updatedAt: String(row.updatedAt || new Date().toISOString()) }])[0]
       if (!parsed) continue
-      imported.push(createSavedArmyList({ name: parsed.name, army: parsed.army, armyName: parsed.armyName || importTitle(parsed.army), composition: parsed.composition || parsed.army, compositionName: parsed.compositionName || (parsed.composition === parsed.army ? 'Grand Army' : importTitle(parsed.composition)), rule: parsed.rule || 'open-war', points: parsed.points || 2000, options: parsed.options || [], description: parsed.description || '', roster: parsed.roster || [], locked: Boolean(parsed.locked), actualPoints: parsed.actualPoints, validationStatus: parsed.validationStatus }))
+      imported.push(createSavedArmyList({ name: parsed.name, army: parsed.army, armyName: parsed.armyName || importTitle(parsed.army), composition: parsed.composition || parsed.army, compositionName: parsed.compositionName || (parsed.composition === parsed.army ? 'Grand Army' : importTitle(parsed.composition)), rule: parsed.rule || 'open-war', points: parsed.points || 2000, options: parsed.options || [], description: parsed.description || '', roster: parsed.roster || [], locked: Boolean(parsed.locked), actualPoints: parsed.actualPoints, validationStatus: parsed.validationStatus, enemyRoster: Boolean(parsed.enemyRoster) }))
       continue
     }
     const army = String(row.army || '').trim()
@@ -369,6 +371,7 @@ export function importSavedArmyListData(value: unknown) {
       locked: false,
       actualPoints: roster.reduce((sum, unit) => sum + unit.totalPoints, 0),
       validationStatus: 'warning',
+      enemyRoster: false,
     }))
   }
   if (!imported.length) throw new Error('No compatible Old.dex or Old World Builder army list was found in this JSON file.')
@@ -383,7 +386,7 @@ export function importSavedArmyListJson(text: string) {
 
 
 export function savedArmyListExportJson(row: SavedArmyList) {
-  return JSON.stringify({ format: 'olddex-army-roster', version: '0.59', ...row, roster: cloneRoster(row.roster || []) }, null, 2)
+  return JSON.stringify({ format: 'olddex-army-roster', version: '0.60', ...row, roster: cloneRoster(row.roster || []) }, null, 2)
 }
 
 export function exportSavedArmyList(row: SavedArmyList) {

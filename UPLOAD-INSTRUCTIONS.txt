@@ -1,9 +1,9 @@
-Old.dex v0.59 direct-source upload
+Old.dex v0.60 direct-source upload
 
 Upload the CONTENTS of this folder to the root of Andreavnn/Old.dex on main,
 replacing matching paths and adding the new files/directories.
 
 This package intentionally contains the changed/new source, assets, tests,
-changelog/version files, and the v0.59 verification report required for this update.
+changelog/version files, and the v0.60 verification report required for this update.
 
-Do not upload it as a nested Old.dex-v0.59-DIRECT-SOURCE folder.
+Do not upload it as a nested Old.dex-v0.60-DIRECT-SOURCE folder.

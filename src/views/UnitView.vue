@@ -6,7 +6,7 @@ import RuleAbilityCard from '../components/RuleAbilityCard.vue'
 import CharacteristicIcon from '../components/CharacteristicIcon.vue'
 import { getArmy } from '../data/armies'
 import { prototypeUnitsForArmy, type ProfileKey, type PrototypeEquipmentOption, type PrototypeUnit, type PrototypeWeapon, type RuleTone } from '../data/builderPrototype'
-import { loadLiveUnitProfile } from '../data/liveBuilderUnits'
+import { loadLiveUnitProfileProgressively } from '../data/liveBuilderUnits'
 import { loadArmyData } from '../services/armyData'
 import { fetchRuleDocument } from '../services/ruleContent'
 import { extractMechanicalRuleText } from '../services/ruleText'
@@ -35,6 +35,7 @@ const army = computed(() => getArmy(String(route.params.armySlug)))
 const unitId = computed(() => String(route.params.unitSlug || ''))
 const liveUnit = ref<PrototypeUnit | null>(null)
 const liveLoading = ref(false)
+const liveReferenceLoading = ref(false)
 const liveError = ref('')
 const favourite = ref(false)
 const modelCount = ref(1)
@@ -89,18 +90,40 @@ function statsForProfile(profile: Record<ProfileKey, string>) {
 }
 function statLabel(stat: ProfileKey) { return stat === 'Ward' ? 'Wd' : stat }
 
+let liveLoadToken = 0
 async function loadLiveUnit() {
   if (!army.value) return
+  const token = ++liveLoadToken
   liveLoading.value = true
+  liveReferenceLoading.value = false
   liveError.value = ''
+  liveUnit.value = null
   try {
-    liveUnit.value = await loadLiveUnitProfile(army.value.dataKey, army.value.name, unitId.value, compositionId.value)
-    if (!liveUnit.value) liveError.value = 'This unit is not available in the current army data.'
+    const result = await loadLiveUnitProfileProgressively(army.value.dataKey, army.value.name, unitId.value, compositionId.value, {
+      onBase: (unit) => {
+        if (token !== liveLoadToken) return
+        liveUnit.value = unit
+        liveLoading.value = false
+        liveReferenceLoading.value = true
+      },
+      onEnriched: (unit) => {
+        if (token !== liveLoadToken) return
+        liveUnit.value = unit
+        liveReferenceLoading.value = false
+      },
+    })
+    if (token !== liveLoadToken) return
+    if (!result && !liveUnit.value) {
+      liveError.value = 'This unit is not available in the current army data.'
+      liveReferenceLoading.value = false
+    }
   } catch (error) {
+    if (token !== liveLoadToken) return
     reportAppError(error, 'UNIT_PROFILE_LOAD', { unitId: unitId.value, army: army.value?.slug })
     liveError.value = error instanceof Error ? error.message : 'The live unit profile could not be loaded.'
+    liveReferenceLoading.value = false
   } finally {
-    liveLoading.value = false
+    if (token === liveLoadToken) liveLoading.value = false
   }
 }
 watch(() => [army.value?.slug, unitId.value, compositionId.value], () => {
@@ -825,6 +848,16 @@ function optionCost(points: number) { return points > 0 ? `+${points} pts` : '' 
 const magicTypeOrder: MagicItem['type'][] = ['weapon', 'armor', 'talisman', 'enchanted-item', 'arcane-item', 'banner']
 function magicTypeLabel(type: MagicItem['type']) { return ({ weapon: 'Magic Weapon', armor: 'Magic Armour', talisman: 'Talisman', 'enchanted-item': 'Enchanted Item', 'arcane-item': 'Arcane Item', banner: 'Magic Banner' } as const)[type] }
 function magicSlug(name: string) { return name.toLowerCase().replace(/\*/g, '').replace(/[’']/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') }
+function fallbackMagicItemText(html: string, itemName: string) {
+  const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
+  dom.querySelectorAll('script,style,nav,header,footer,table').forEach((node) => node.remove())
+  const wanted = itemName.toLowerCase().trim()
+  const rows = Array.from(dom.querySelectorAll('p, li'))
+    .map((node) => node.textContent?.replace(/\s+/g, ' ').trim() || '')
+    .filter((value) => value.length >= 18 && value.toLowerCase() !== wanted && !/^(publication|source|page)\b/i.test(value))
+  const seen = new Set<string>()
+  return rows.filter((value) => { const key = value.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true }).slice(0, 4).join(' ').slice(0, 1800)
+}
 const magicPickerPool = computed(() => selectedMagicPool.value)
 const magicPickerTabs = computed(() => magicTypeOrder.filter((type) => magicPickerPool.value?.types.includes(type)))
 const magicPickerItems = computed(() => {
@@ -844,6 +877,11 @@ function magicPickerCanSelect(item: MagicItem) {
   if (magicPickerCount(item.id) > 0) return true
   return item.points <= magicPickerRemaining()
 }
+async function preloadMagicPickerDetails() {
+  const rows = magicPickerItems.value.filter((item) => !magicItemDetails.value.has(item.id))
+  if (!rows.length) return
+  await Promise.allSettled(rows.map((item) => loadMagicItemDetail(item)))
+}
 function openMagicPicker() {
   const pool = selectedMagicPool.value
   if (!isEditing.value || !pool) return
@@ -853,6 +891,7 @@ function openMagicPicker() {
   magicPickerExpanded.value = new Set()
   magicPickerTab.value = pool.types.find((type) => magicItems.value.some((item) => item.ownerId === pool.id && item.type === type)) || pool.types[0] || ''
   magicPickerOpen.value = true
+  void preloadMagicPickerDetails()
 }
 function cancelMagicPicker() {
   magicPickerOpen.value = false
@@ -948,7 +987,7 @@ async function loadMagicItemDetail(item: MagicItem) {
     const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
     const rows = Array.from(dom.querySelectorAll('table tr')).slice(1)
     const cells = rows.map((row) => Array.from(row.querySelectorAll('td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '')).find((row) => row.length >= 4)
-    const detail: MagicItemDetail = { summary: extractMechanicalRuleText(document.html), fluff: item.fluff }
+    const detail: MagicItemDetail = { summary: extractMechanicalRuleText(document.html) || fallbackMagicItemText(document.html, item.name), fluff: item.fluff }
     const fluffNode = dom.querySelector<HTMLElement>('.fluff, .flavour, .flavor, p em, p i')
     const fluffText = fluffNode?.textContent?.replace(/\s+/g, ' ').trim() || ''
     if (fluffText && fluffText !== detail.summary && fluffText.length > 12) detail.fluff = fluffText
@@ -966,6 +1005,10 @@ async function loadMagicItemDetail(item: MagicItem) {
     magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, detail)
   } catch (error) { reportAppError(error, 'MAGIC_ITEM_DETAIL', { itemId: item.id, unitId: unitId.value }); magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, { fluff: item.fluff }) }
 }
+watch(() => [magicPickerOpen.value, magicPickerTab.value, magicPickerItems.value.map((item) => item.id).join('|')], () => {
+  if (magicPickerOpen.value) void preloadMagicPickerDetails()
+})
+
 async function adjustMagicItem(id: string, delta: number) {
   if (isReadOnly.value) return
   const item = magicItems.value.find((candidate) => candidate.id === id); if (!item) return
@@ -1068,6 +1111,9 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
           <small v-else>{{ startingUnitSize() }}</small>
         </div>
       </section>
+
+
+      <section v-if="liveReferenceLoading" class="unit-reference-loading card-surface" aria-live="polite"><p><strong>Loading reference details…</strong> Showing the Builder profile now while special rules, weapons, and optional profiles finish loading in the background.</p></section>
 
       <section class="old-world-profile" aria-label="Unit characteristics">
         <div v-for="row in profileRows" :key="row.name" class="model-profile-row">
@@ -1202,13 +1248,13 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
               <article v-for="item in magicPickerItems" :key="item.id" class="magic-picker-item" :class="{ selected: magicPickerCount(item.id) > 0, unaffordable: !magicPickerCanSelect(item) }">
                 <div class="magic-picker-item-main" @click="toggleMagicPickerDescription(item)">
                   <input type="checkbox" :checked="magicPickerCount(item.id) > 0" :disabled="!magicPickerCanSelect(item)" @click.stop @change="handleMagicPickerCheckbox(item, $event)" />
-                  <span><strong>{{ item.name }}</strong><small>{{ item.source }}</small></span>
+                  <span><strong>{{ item.name }}</strong><small>{{ magicPickerDetail(item)?.summary || magicPickerDetail(item)?.fluff || item.source }}</small></span>
                   <b>{{ item.points }} pts</b>
                   <span class="magic-picker-chevron" :class="{ open: magicPickerExpanded.has(item.id) }">⌄</span>
                 </div>
                 <div v-if="magicPickerExpanded.has(item.id)" class="magic-picker-description">
                   <p v-if="magicPickerDetail(item)?.fluff" class="magic-picker-fluff">{{ magicPickerDetail(item)?.fluff }}</p>
-                  <p>{{ magicPickerDetail(item)?.summary || 'Open the item rule for the full description.' }}</p>
+                  <p>{{ magicPickerDetail(item)?.summary || magicPickerDetail(item)?.fluff || 'Rule information is still loading.' }}</p>
                   <div v-if="maxMagicCopies(item) > 1 && magicPickerCount(item.id) > 0" class="magic-picker-quantity option-stepper"><button type="button" :disabled="magicPickerCount(item.id) <= 1" @click.stop="adjustMagicPickerCount(item, -1)">−</button><strong>{{ magicPickerCount(item.id) }}</strong><button type="button" :disabled="magicPickerCount(item.id) >= maxMagicCopies(item) || item.points > magicPickerRemaining()" @click.stop="adjustMagicPickerCount(item, 1)">+</button></div>
                 </div>
               </article>

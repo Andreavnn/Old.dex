@@ -186,6 +186,7 @@ export type PersistedSavedArmyList = {
   locked?: boolean
   actualPoints?: number
   validationStatus?: 'valid' | 'invalid' | 'warning'
+  enemyRoster?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -212,6 +213,7 @@ export function parseSavedArmyLists(value: unknown): PersistedSavedArmyList[] {
       locked: typeof row.locked === 'boolean' ? row.locked : undefined,
       actualPoints: Number.isFinite(Number(row.actualPoints)) ? Math.max(0, Number(row.actualPoints)) : undefined,
       validationStatus: ['valid', 'invalid', 'warning'].includes(String(row.validationStatus)) ? String(row.validationStatus) as PersistedSavedArmyList['validationStatus'] : undefined,
+      enemyRoster: typeof row.enemyRoster === 'boolean' ? row.enemyRoster : undefined,
       createdAt: String(row.createdAt || new Date(0).toISOString()),
       updatedAt: String(row.updatedAt || row.createdAt || new Date(0).toISOString()),
     }]

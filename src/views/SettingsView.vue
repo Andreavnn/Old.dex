@@ -189,13 +189,9 @@ async function updateBuilderRules() {
         <div class="setting-row static-row support-copy-row">
           <span><strong>Support Old.dex</strong><small>Voluntary Support for Old.Dex – Not Affiliated with Games Workshop – Contributions Used Only for Domain and Hosting Costs</small></span>
         </div>
-        <div class="setting-row support-link-row">
-          <span><strong>One Time Support</strong><small>Open the one-time Stripe support page in a new window.</small></span>
-          <a class="secondary-button settings-compact-action" href="https://buy.stripe.com/test_4gM5kDbEa6TM9Ig7bb3Nm03" target="_blank" rel="noopener noreferrer">Open</a>
-        </div>
-        <div class="setting-row support-link-row">
-          <span><strong>Recurring Support</strong><small>Open the recurring Stripe support page in a new window.</small></span>
-          <a class="secondary-button settings-compact-action" href="https://buy.stripe.com/test_fZu8wP4bI2Dw6w4cvv3Nm00" target="_blank" rel="noopener noreferrer">Open</a>
+        <div class="support-button-row" aria-label="Old.dex support options">
+          <a class="secondary-button support-action-button" href="https://buy.stripe.com/eVq7sL0Zw2DwdYwcvv3Nm01" target="_blank" rel="noopener noreferrer">One Time Support</a>
+          <a class="secondary-button support-action-button" href="https://buy.stripe.com/fZu8wP4bI2Dw6w4cvv3Nm00" target="_blank" rel="noopener noreferrer">Recurring Support</a>
         </div>
       </section>
     </section>

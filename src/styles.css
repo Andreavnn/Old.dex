@@ -2622,3 +2622,39 @@ html[data-background]:not([data-background="none"]) .brand-stack{
 .support-link-row a{text-decoration:none}
 :root[data-theme="dark"] .support-settings-card a{color:var(--ink)}
 .saved-list-card:not(.delete-select-mode){grid-template-columns:minmax(0,1fr) auto!important}
+
+/* Alpha 0.60 — match setup, enemy rosters, support actions, and rule-detail reliability. */
+.games-filter-menu{position:relative}
+.games-filter-menu>summary{display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid var(--line-dark);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer;list-style:none}
+.games-filter-menu>summary::-webkit-details-marker{display:none}
+.games-filter-menu>summary svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.games-filter-menu[open]>summary{background:var(--ink);color:var(--paper)}
+.games-filter-menu .games-filter-control{position:absolute;z-index:20;right:0;top:38px;padding:6px;border:1px solid var(--line-dark);border-radius:9px;background:var(--paper);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.games-filter-menu .games-filter-control select{width:190px;max-width:190px}
+@media(max-width:560px){.games-filter-menu .games-filter-control{left:0;right:auto}.games-filter-menu .games-filter-control select{width:min(240px,calc(100vw - 56px));max-width:none}}
+
+.general-roster-card{gap:11px}.general-panel-heading{display:flex;align-items:start;justify-content:space-between;gap:10px}.general-panel-heading span{display:grid;gap:2px}.general-panel-heading small{color:var(--ink-soft);line-height:1.4}
+.game-roster-source-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:9px}.roster-select-field{margin:0}.roster-import-button{min-height:40px;justify-content:center}.game-roster-source-controls .file-import-input{display:none!important}
+.battle-composition-window{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:11px;padding:12px;border:1px solid color-mix(in srgb,var(--accent) 32%,var(--line));border-radius:10px;background:color-mix(in srgb,var(--paper-2) 88%,transparent)}
+.battle-composition-copy>p{margin:4px 0 0;color:var(--ink-soft);line-height:1.45}.battle-composition-option-list{display:grid;gap:7px;margin:9px 0 0;padding:0;list-style:none}.battle-composition-option-list li{display:grid;gap:2px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}.battle-composition-option-list span{color:var(--ink-soft);font-size:calc(8.5px + var(--font-offset));line-height:1.4}
+.game-create-actions{grid-template-columns:1.35fr 1fr}
+@media(max-width:540px){.game-roster-source-controls,.game-create-actions{grid-template-columns:1fr}.battle-composition-window{grid-template-columns:1fr}}
+
+.roster-list-group{display:grid;gap:9px}.roster-list-group-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;padding:4px 2px}.roster-list-group-heading h2{margin:0;font-family:Georgia,'Times New Roman',serif;font-size:calc(20px + var(--font-offset))}.roster-list-group-heading .eyebrow{margin:0 0 3px}.enemy-roster-group{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.saved-list-icon-action{display:grid;place-items:center;width:42px;min-width:42px;padding:0;border:0;border-right:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;text-decoration:none}.saved-list-icon-action svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.saved-list-icon-action:hover,.saved-list-icon-action:focus-visible{background:var(--paper-2)}.saved-list-icon-action.enemy-roster-toggle.active{background:color-mix(in srgb,var(--danger) 12%,var(--paper));color:var(--danger)}
+.enemy-roster-card{border-left-color:color-mix(in srgb,var(--danger) 70%,var(--line-dark))!important}.enemy-roster-label{border-color:color-mix(in srgb,var(--danger) 46%,var(--line));background:color-mix(in srgb,var(--danger) 9%,var(--paper));color:var(--danger)}
+.saved-list-row-actions .saved-list-copy-button{width:42px;min-width:42px}.saved-list-row-actions .saved-list-copy-button svg{width:18px;height:18px}
+@media(max-width:620px){.saved-list-icon-action,.saved-list-row-actions .saved-list-copy-button{flex:1;min-height:40px;width:auto}}
+
+.support-settings-card{padding-bottom:14px}.support-copy-row{border-bottom:0}.support-button-row{display:flex;align-items:center;justify-content:center;gap:10px;padding:4px 14px 2px}.support-action-button{min-width:170px;justify-content:center;text-align:center;text-decoration:none}.support-action-button:visited{color:var(--ink)}
+@media(max-width:520px){.support-button-row{flex-direction:column}.support-action-button{width:100%;min-width:0}}
+
+.magic-picker-item.unaffordable:not(.selected){display:block!important;opacity:.42;filter:saturate(.35)}
+.magic-picker-item.unaffordable:not(.selected) .magic-picker-item-main{cursor:not-allowed}
+.magic-picker-item-main>span:first-of-type small{max-width:100%;color:var(--ink-soft)}
+.magic-picker-description p{white-space:normal}
+
+
+.unit-reference-loading{margin:0 0 1rem;padding:.85rem 1rem;background:rgba(17,17,17,.58);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.unit-reference-loading p{margin:0;color:var(--panel-text,#f5f1e8);font-size:.95rem;line-height:1.45}
+.unit-reference-loading strong{color:inherit}
