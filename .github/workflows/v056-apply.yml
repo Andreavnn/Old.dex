@@ -1,0 +1,53 @@
+name: Apply Old.dex v0.56 source update
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/apply-v056.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-v056:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'Apply v0.56 source patch') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out canonical source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply v0.56 source changes
+        run: python scripts/apply-v056.py
+
+      - name: Install dependencies
+        run: npm install --no-package-lock
+
+      - name: ODX static analysis
+        run: npm run lint
+
+      - name: Regression tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Check patch whitespace
+        run: git diff --check
+
+      - name: Commit canonical source
+        run: |
+          rm -f scripts/apply-v056.py .github/workflows/v056-apply.yml
+          git config user.name "Old.dex Source Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Apply v0.56 source patch"
+          git push origin main
