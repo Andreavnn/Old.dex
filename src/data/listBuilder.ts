@@ -39,6 +39,8 @@ export type CompositionOptionId =
   | 'allow-allies'
   | 'allow-mercenaries'
   | 'allow-custom-units'
+  | 'over-under'
+  | 'monster-mash'
 
 export const compositionOptions: Array<{ value: CompositionOptionId; label: string }> = [
   { value: 'battle-march-magical-items', label: 'Battle March Magical Items' },
@@ -49,11 +51,31 @@ export const compositionOptions: Array<{ value: CompositionOptionId; label: stri
   { value: 'allow-allies', label: 'Allow Allied Units' },
   { value: 'allow-mercenaries', label: 'Allow Mercenary Units' },
   { value: 'allow-custom-units', label: 'Allow Custom Units' },
+  { value: 'over-under', label: 'Over - Under' },
+  { value: 'monster-mash', label: 'Monster Mash' },
 ]
 
 export const battleMarchLockedOptions = new Set<CompositionOptionId>([
   'battle-march-magical-items',
 ])
+
+
+export const compositionOptionDescriptions: Partial<Record<CompositionOptionId, string>> = {
+  'battle-march-magical-items': 'Allows magical items from the Battle March campaign to be taken by models.',
+  'limit-magical-items-75': 'Limits magical items costing more than 75 points from being purchased by units.',
+  'limit-magical-items-50': 'Limits magical items costing more than 50 points from being purchased by units.',
+  'limit-one-magic': 'Only one magical item from each item category may be selected across the entire army roster.',
+  'magical-maelstrom': 'Increases all Wizard levels to their maximum level, plus 1, for no additional points cost.',
+  'over-under': 'Allows the roster to be up to 10 points over the selected points limit and remain valid with a warning.',
+  'monster-mash': 'Allows one non-character Monstrous Creature, War Machine or Chariot to be selected as a Core unit.',
+  'allow-allies': 'Allows eligible allied units permitted by the selected army composition.',
+  'allow-mercenaries': 'Allows eligible mercenary units permitted by the selected army composition.',
+  'allow-custom-units': 'Enables the Custom Units roster category for future custom unit data.',
+}
+
+export function compositionOptionDescription(option: CompositionOptionId) {
+  return compositionOptionDescriptions[option] || ''
+}
 
 
 export function emptyCompositionOptionState(): Record<CompositionOptionId, boolean> {

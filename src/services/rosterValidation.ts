@@ -137,6 +137,10 @@ export function validateRoster(input: {
   roster.filter((row) => row.category === 'Mercenaries' && !mercenariesAllowed).forEach((row) => issues.push({ severity: 'error', section: 'Mercenaries', instanceId: row.instanceId, message: `${row.name} is a Mercenary, but Mercenaries are not enabled for this list.` }))
   roster.filter((row) => row.category === 'Custom Units' && !optionSet.has('allow-custom-units')).forEach((row) => issues.push({ severity: 'error', section: 'Custom Units', instanceId: row.instanceId, message: `${row.name} is a custom unit, but Custom Units are not enabled for this list.` }))
 
+  const monsterMashRows = roster.filter((row) => row.category === 'Core' && /(?:Monstrous Creature|War Machine|Chariot)/i.test(String(row.troopType || '')))
+  if (!optionSet.has('monster-mash')) monsterMashRows.forEach((row) => issues.push({ severity: 'error', section: 'Core', instanceId: row.instanceId, message: `${row.name} requires the Monster Mash Battle Composition option to count as Core.` }))
+  else if (monsterMashRows.length > 1) monsterMashRows.forEach((row) => issues.push({ severity: 'error', section: 'Core', instanceId: row.instanceId, message: 'Monster Mash allows only one non-character Monstrous Creature, War Machine or Chariot to count as Core.' }))
+
   const nonCharacters = roster.filter((row) => !isCharacterRow(row) && !/\b(?:WM|WB|Sw)\b|war machine|war beast|swarm/i.test(row.troopType || ''))
   const minimumNonCharacters = compositionRuleId.includes('battle-march') ? 2 : 3
   if (nonCharacters.length < minimumNonCharacters) issues.push({ severity: 'error', section: 'Army', message: `The army needs at least ${minimumNonCharacters} qualifying non-character units.` })

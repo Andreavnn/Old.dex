@@ -40,6 +40,16 @@ export interface RawBuilderUnit extends RawBuilderItem {
   mounts?: RawBuilderItem[]
   items?: RawBuilderItem[]
   lores?: unknown[]
+  magicLores?: unknown[]
+  prayerLores?: unknown[]
+  prayersLores?: unknown[]
+  spells?: unknown[]
+  prayers?: unknown[]
+  boundSpells?: unknown[]
+  troopType?: unknown
+  troop_type?: unknown
+  unitType?: unknown
+  type?: unknown
   specialRules?: unknown
   armyComposition?: unknown
   noHandWeapon?: unknown

@@ -47,4 +47,5 @@ export type BuilderRosterSelection = {
   magicPools?: Array<{ ownerId: string; ownerLabel: string; maxPoints: number }>
   weaponCounts?: Record<string, number>
   equipmentCounts?: Record<string, number>
+  loreSelections?: string[]
 }

@@ -32,8 +32,9 @@ const displayedKeywords = computed(() => {
       <span class="old-rule-title-row"><RuleToneIcon :tone="props.rule.tone" :label="`${props.rule.timing} ${displayRule.title}`" /><span class="old-rule-name">{{ displayRule.title }}</span></span>
     </div>
     <div class="old-rule-body">
+      <p v-if="props.rule.fluff" class="old-rule-fluff">{{ props.rule.fluff }}</p>
       <p v-if="props.rule.summary">{{ props.rule.summary }}</p>
-      <p v-else class="rule-effect-loading">Rule text is loading from the rules index.</p>
+      <p v-else-if="!props.rule.fluff" class="rule-effect-loading">Rule text is loading from the rules index.</p>
       <div class="old-rule-keywords" aria-label="Related rules">
         <RouterLink v-if="ownRulePath" class="rule-kind-pill" :to="`/rules/read${ownRulePath}`">{{ props.kindLabel || 'Special Rule' }}</RouterLink>
         <span v-else class="rule-kind-pill">{{ props.kindLabel || 'Special Rule' }}</span>

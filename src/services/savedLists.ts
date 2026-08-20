@@ -36,6 +36,7 @@ function cloneRoster(rows: BuilderRosterSelection[]) {
     magicPools: (row.magicPools || []).map((pool) => ({ ...pool })),
     weaponCounts: { ...(row.weaponCounts || {}) },
     equipmentCounts: { ...(row.equipmentCounts || {}) },
+    loreSelections: [...(row.loreSelections || [])],
   }))
 }
 

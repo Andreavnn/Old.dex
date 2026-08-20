@@ -32,9 +32,12 @@ test('Rule HTML sanitizer strips active content and event/style attributes', () 
 })
 
 
-test('Magic item picker has one selector and no search/type filter fields', () => {
+test('Magic item selection uses a staged popup with category tabs and explicit commit/cancel behavior', () => {
   assert.doesNotMatch(unitView, /magicSearch|magic-search|All allowed types|v-model="magicType"/)
-  assert.match(unitView, /Select magic item/)
+  assert.match(unitView, /Choose Magical Items/)
+  assert.match(unitView, /magicPickerTabs/)
+  assert.match(unitView, /function finishMagicPicker\(\)/)
+  assert.match(unitView, /function cancelMagicPicker\(\)/)
   assert.match(unitView, /magicItemCards[\s\S]*RuleAbilityCard/)
 })
 
@@ -67,13 +70,13 @@ test('Settings text-size choices remain left-to-right at narrow widths', () => {
 })
 
 
-test('Equipment & Options groups follow a stable logical order', () => {
+test('Equipment & Options groups follow a stable logical order with Wizard & Spell Lores after normal groups', () => {
   const equipment = unitView.indexOf("{ key: 'equipment', title: 'Armour & Equipment'")
   const role = unitView.indexOf("{ key: 'role', title: 'Command & Role'")
   const mount = unitView.indexOf("{ key: 'mount', title: 'Mount'")
   const mountOption = unitView.indexOf("{ key: 'mount-option', title: 'Mount Options'")
   const special = unitView.indexOf("{ key: 'special', title: 'Special Rules & Upgrades'")
-  const wizard = unitView.indexOf("{ key: 'wizard', title: 'Wizard Level'")
+  const wizard = unitView.indexOf('Wizard &amp; Spell Lores')
   assert.ok(equipment >= 0 && equipment < role && role < mount && mount < mountOption && mountOption < special && special < wizard)
 })
 
@@ -142,7 +145,7 @@ test('Roster edit autosave is a pure snapshot and cannot normalize watched refs'
   assert.ok(start >= 0 && end > start)
   const autosave = unitView.slice(start, end)
   assert.doesNotMatch(autosave, /normalizeSelections\(\)|normalizeWeaponCounts\(\)|normalizeEquipmentCounts\(\)/)
-  assert.match(unitView, /let rosterSaveQueued = false[\s\S]*function queueRosterSave\(\)[\s\S]*watch\(\[selectedWeaponIds, selectedEquipmentIds, selectedMagicCounts, magicItemDetails, modelCount, weaponCounts, equipmentCounts\], queueRosterSave\)/)
+  assert.match(unitView, /let rosterSaveQueued = false[\s\S]*function queueRosterSave\(\)[\s\S]*watch\(\[selectedWeaponIds, selectedEquipmentIds, selectedMagicCounts, magicItemDetails, selectedLores, modelCount, weaponCounts, equipmentCounts\], queueRosterSave\)/)
 })
 
 test('Dynamic profile characteristic changes preserve the user scroll position', () => {
@@ -223,7 +226,7 @@ test('Roster keeps percentages on categories but removes them from the top list 
   assert.match(builder, /qualifier: 'Maximum'/)
   assert.match(builder, /categoryAllowancePointsText\(category\)/)
   assert.match(builder, /\{\{ categorySelectedCount\(category\) \}\} Selected/)
-  assert.match(builder, /\{\{ categoryPercent\(category\) \}\}% \/ \{\{ categoryAllowance\(category\)\?\.percent \}\}%/)
+  assert.match(builder, /category-percentage-current[\s\S]*categoryPercent\(category\)[\s\S]*category-percentage-target[\s\S]*categoryAllowance\(category\)\?\.percent/)
   assert.match(builder, /builder-points-orb[\s\S]*\{\{ rosterPoints \}\}[\s\S]*\/ \{\{ points \}\}[\s\S]*remaining/)
 })
 

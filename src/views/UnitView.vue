@@ -111,16 +111,20 @@ watch(() => [army.value?.slug, unitId.value, compositionId.value], () => {
 const selectedWeaponIds = ref(new Set<string>())
 const selectedEquipmentIds = ref(new Set<string>())
 
-type MagicItem = { id: string; baseId: string; ownerId: string; ownerLabel: string; poolMaxPoints: number; name: string; points: number; type: 'weapon' | 'armor' | 'talisman' | 'enchanted-item' | 'arcane-item' | 'banner'; source: string; stackable: boolean; maximum?: number; onePerArmy: boolean; slug: string }
-type MagicItemDetail = { kind?: 'melee' | 'missile'; range?: string; strength?: string; ap?: string; rules?: string[]; summary?: string; profileOverride?: Partial<Record<ProfileKey, string>>; shield?: boolean }
+type MagicItem = { id: string; baseId: string; ownerId: string; ownerLabel: string; poolMaxPoints: number; name: string; points: number; type: 'weapon' | 'armor' | 'talisman' | 'enchanted-item' | 'arcane-item' | 'banner'; source: string; stackable: boolean; maximum?: number; onePerArmy: boolean; slug: string; fluff?: string }
+type MagicItemDetail = { kind?: 'melee' | 'missile'; range?: string; strength?: string; ap?: string; rules?: string[]; summary?: string; fluff?: string; profileOverride?: Partial<Record<ProfileKey, string>>; shield?: boolean }
 
 const magicItems = ref<MagicItem[]>([])
 const magicLoading = ref(false)
 const magicError = ref('')
 const selectedMagicCounts = ref(new Map<string, number>())
 const magicItemDetails = ref(new Map<string, MagicItemDetail>())
-const pendingMagicItem = ref('')
 const selectedMagicPoolId = ref('')
+const selectedLores = ref(new Set<string>())
+const magicPickerOpen = ref(false)
+const magicPickerTab = ref<MagicItem['type'] | ''>('')
+const magicPickerCounts = ref(new Map<string, number>())
+const magicPickerExpanded = ref(new Set<string>())
 
 function selectionHas(id: string) { return selectedEquipmentIds.value.has(id) || selectedWeaponIds.value.has(id) }
 function isWizardParentOption(option: PrototypeEquipmentOption) { return /^Wizard$/i.test(String(option.name || '').trim()) }
@@ -204,8 +208,11 @@ async function resetSelections() {
   }
   selectedMagicCounts.value = new Map()
   magicItemDetails.value = new Map()
-  pendingMagicItem.value = ''
   selectedMagicPoolId.value = ''
+  selectedLores.value = new Set((saved?.loreSelections || []).filter((lore) => (unit.lores || []).includes(lore)))
+  magicPickerOpen.value = false
+  magicPickerCounts.value = new Map()
+  magicPickerExpanded.value = new Set()
   await loadMagicItemChoices()
   if (saved?.magicItems?.length) {
     const merged = new Map(magicItems.value.map((item) => [item.id, item]))
@@ -274,7 +281,6 @@ const selectedMagicPool = computed(() => activeMagicPools.value.find((pool) => p
 function selectMagicPool(id: string) {
   if (!activeMagicPools.value.some((pool) => pool.id === id)) return
   selectedMagicPoolId.value = id
-  pendingMagicItem.value = ''
 }
 const selectedMagicEntries = computed(() => {
   const rows: Array<{ item: MagicItem; count: number }> = []
@@ -405,8 +411,37 @@ const equipmentGroups = computed(() => {
     { key: 'mount', title: 'Mount', options: options.filter((option) => option.kind === 'mount') },
     { key: 'mount-option', title: 'Mount Options', options: options.filter((option) => option.kind === 'mount-option') },
     { key: 'special', title: 'Special Rules & Upgrades', options: options.filter((option) => option.kind === 'special' && !isWizardLevelOption(option)) },
-    { key: 'wizard', title: 'Wizard Level', options: options.filter(isWizardLevelOption) },
   ].filter((group) => group.options.length)
+})
+const loreChoices = computed(() => [...new Set((prototypeUnit.value?.lores || []).map((lore) => String(lore).trim()).filter(Boolean))])
+const isPrayerCaster = computed(() => {
+  const unit = prototypeUnit.value
+  if (!unit) return false
+  const source = [unit.name, ...unit.specialRules.map((rule) => rule.name), ...loreChoices.value].join(' ')
+  return /\b(?:priest|prayer|prayers|blessing|blessings)\b/i.test(source)
+})
+const showWizardLoreGroup = computed(() => wizardLevelOptions.value.length > 0 || loreChoices.value.length > 0)
+const loreSelectionEnabled = computed(() => isWizard.value || isPrayerCaster.value)
+function toggleLore(lore: string, selected: boolean) {
+  if (isReadOnly.value || !loreSelectionEnabled.value) return
+  const next = new Set(selectedLores.value)
+  if (selected) next.add(lore); else next.delete(lore)
+  selectedLores.value = next
+}
+function handleLoreCheckbox(lore: string, event: Event) {
+  toggleLore(lore, Boolean((event.target as HTMLInputElement | null)?.checked))
+}
+function loreRulePath(_lore: string) { return '/the-lores-of-magic' }
+const selectedLoreRules = computed<PrototypeUnit['specialRules']>(() => [...selectedLores.value].map((lore) => ({
+  name: lore,
+  path: loreRulePath(lore),
+  timing: /prayer/i.test(lore) || isPrayerCaster.value && !isWizard.value ? 'Prayer Lore' : 'Magic Lore',
+  tone: 'magic' as RuleTone,
+  summary: /prayer/i.test(lore) ? `Selected prayer lore for ${prettyUnitName.value}.` : `Selected spell lore for ${prettyUnitName.value}.`,
+  keywords: [{ label: /prayer/i.test(lore) ? 'Prayer' : 'Spell Lore', path: '/the-lores-of-magic' }],
+})))
+watch([isWizard, isPrayerCaster], ([wizard, priest]) => {
+  if (!wizard && !priest && selectedLores.value.size) selectedLores.value = new Set()
 })
 
 const bigUnsSelected = computed(() => selectedEquipment.value.some((option) => /^Big [’']Uns$/i.test(option.name)))
@@ -574,6 +609,7 @@ const optionalRosterLabels = computed(() => {
     ...selectedWeapons.value.filter((weapon) => !weapon.default && !weapon.locked).map(formattedWeaponName),
     ...selectedEquipment.value.filter((option) => !isWizardLevelOption(option) && !option.default && !option.locked).map(equipmentDisplayName),
     ...selectedMagicEntries.value.map(({ item, count }) => count > 1 ? `${item.name} ×${count}` : item.name),
+    ...selectedLores.value,
   ]
   if (!magicalMaelstromEnabled.value && wizardLevel.value > 0 && selectedWizardLevelOption.value && !selectedWizardLevelOption.value.default && !selectedWizardLevelOption.value.locked) rows.push(`Wizard Level ${wizardLevel.value}`)
   return [...new Set(rows)]
@@ -582,11 +618,12 @@ const rosterOptionLabels = computed(() => [...new Set([...includedRosterLabels.v
 const activeSpecialRules = computed(() => {
   const unit = prototypeUnit.value
   if (!unit) return []
-  return unit.specialRules.filter((rule) => (!rule.requiresSelection || selectionHas(rule.requiresSelection)) && (!rule.requiresAnySelection?.length || rule.requiresAnySelection.some(selectionHas)))
+  const sourceRules = unit.specialRules.filter((rule) => (!rule.requiresSelection || selectionHas(rule.requiresSelection)) && (!rule.requiresAnySelection?.length || rule.requiresAnySelection.some(selectionHas)))
+  return [...sourceRules, ...selectedLoreRules.value]
 })
 const magicItemCards = computed(() => selectedMagicEntries.value.map(({ item, count }) => {
   const detail = magicItemDetails.value.get(item.id)
-  return { item, count, rule: { name: `${item.ownerId === 'unit' ? '' : `${item.ownerLabel} — `}${count > 1 ? `${item.name} ×${count}` : item.name}`, path: `/magic-item/${item.slug}`, timing: magicTypeLabel(item.type), tone: 'magic' as RuleTone, summary: detail?.summary || (magicItemDetails.value.has(item.id) ? 'Open this magical item for its full rule text.' : ''), keywords: [{ label: item.name, path: `/magic-item/${item.slug}` }, { label: 'Magic Items', path: '/magic-items' }] } }
+  return { item, count, rule: { name: `${item.ownerId === 'unit' ? '' : `${item.ownerLabel} — `}${count > 1 ? `${item.name} ×${count}` : item.name}`, path: `/magic-item/${item.slug}`, timing: magicTypeLabel(item.type), tone: 'magic' as RuleTone, summary: detail?.summary || (magicItemDetails.value.has(item.id) ? 'Open this magical item for its full rule text.' : ''), fluff: detail?.fluff, keywords: [{ label: item.name, path: `/magic-item/${item.slug}` }, { label: 'Magic Items', path: '/magic-items' }] } }
 }))
 const packedSpecialRules = computed(() => [...activeSpecialRules.value].sort((a, b) => (b.summary.length + b.name.length * 2) - (a.summary.length + a.name.length * 2)))
 const canAdjustModelCount = computed(() => isEditing.value && Boolean(prototypeUnit.value) && prototypeUnit.value?.unitSize !== '1 model' && (Number(prototypeUnit.value?.maximumModels || 0) !== 1 || Number(prototypeUnit.value?.minimumModels || 1) !== 1))
@@ -756,19 +793,82 @@ function handleEquipmentCheckbox(option: PrototypeEquipmentOption, event: Event)
 function optionCost(points: number) { return points > 0 ? `+${points} pts` : '' }
 
 const magicTypeOrder: MagicItem['type'][] = ['weapon', 'armor', 'talisman', 'enchanted-item', 'arcane-item', 'banner']
-const filteredMagicItems = computed(() => {
-  const pool = selectedMagicPool.value
-  if (!pool) return []
-  return magicItems.value.filter((item) => item.ownerId === pool.id && canAddMagicItem(item))
-})
-const magicItemGroups = computed(() => magicTypeOrder.map((type) => ({
-  key: `${selectedMagicPool.value?.id || 'none'}:${type}`,
-  label: `${magicTypeLabel(type)}s`.replace('Armours', 'Armour'),
-  items: filteredMagicItems.value.filter((item) => item.type === type),
-})).filter((group) => group.items.length))
-watch(selectedMagicPoolId, () => { pendingMagicItem.value = '' })
 function magicTypeLabel(type: MagicItem['type']) { return ({ weapon: 'Magic Weapon', armor: 'Magic Armour', talisman: 'Talisman', 'enchanted-item': 'Enchanted Item', 'arcane-item': 'Arcane Item', banner: 'Magic Banner' } as const)[type] }
 function magicSlug(name: string) { return name.toLowerCase().replace(/\*/g, '').replace(/[’']/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') }
+const magicPickerPool = computed(() => selectedMagicPool.value)
+const magicPickerTabs = computed(() => magicTypeOrder.filter((type) => magicPickerPool.value?.types.includes(type)))
+const magicPickerItems = computed(() => {
+  const pool = magicPickerPool.value
+  if (!pool || !magicPickerTab.value) return []
+  return magicItems.value.filter((item) => item.ownerId === pool.id && item.type === magicPickerTab.value)
+})
+function magicPickerCount(id: string) { return magicPickerCounts.value.get(id) || 0 }
+function magicPickerSpent() {
+  const pool = magicPickerPool.value
+  if (!pool) return 0
+  return magicItems.value.filter((item) => item.ownerId === pool.id).reduce((sum, item) => sum + item.points * magicPickerCount(item.id), 0)
+}
+function magicPickerRemaining() { return Math.max(0, Number(magicPickerPool.value?.maxPoints || 0) - magicPickerSpent()) }
+function magicPickerDetail(item: MagicItem) { return magicItemDetails.value.get(item.id) }
+function magicPickerCanSelect(item: MagicItem) {
+  if (magicPickerCount(item.id) > 0) return true
+  return item.points <= magicPickerRemaining()
+}
+function openMagicPicker() {
+  const pool = selectedMagicPool.value
+  if (!isEditing.value || !pool) return
+  const next = new Map<string, number>()
+  selectedMagicEntries.value.filter(({ item }) => item.ownerId === pool.id).forEach(({ item, count }) => next.set(item.id, count))
+  magicPickerCounts.value = next
+  magicPickerExpanded.value = new Set()
+  magicPickerTab.value = pool.types.find((type) => magicItems.value.some((item) => item.ownerId === pool.id && item.type === type)) || pool.types[0] || ''
+  magicPickerOpen.value = true
+}
+function cancelMagicPicker() {
+  magicPickerOpen.value = false
+  magicPickerCounts.value = new Map()
+  magicPickerExpanded.value = new Set()
+}
+function toggleMagicPickerItem(item: MagicItem, selected: boolean) {
+  if (!selected && magicPickerCount(item.id) <= 0) return
+  if (selected && !magicPickerCanSelect(item)) return
+  const next = new Map(magicPickerCounts.value)
+  if (selected) next.set(item.id, Math.max(1, next.get(item.id) || 1)); else next.delete(item.id)
+  magicPickerCounts.value = next
+}
+function handleMagicPickerCheckbox(item: MagicItem, event: Event) {
+  toggleMagicPickerItem(item, Boolean((event.target as HTMLInputElement | null)?.checked))
+}
+function adjustMagicPickerCount(item: MagicItem, delta: number) {
+  const current = magicPickerCount(item.id)
+  const maximum = maxMagicCopies(item)
+  const nextCount = Math.max(0, Math.min(maximum, current + delta))
+  if (nextCount > current && item.points > magicPickerRemaining()) return
+  const next = new Map(magicPickerCounts.value)
+  if (nextCount > 0) next.set(item.id, nextCount); else next.delete(item.id)
+  magicPickerCounts.value = next
+}
+async function toggleMagicPickerDescription(item: MagicItem) {
+  const next = new Set(magicPickerExpanded.value)
+  if (next.has(item.id)) next.delete(item.id); else { next.add(item.id); await loadMagicItemDetail(item) }
+  magicPickerExpanded.value = next
+}
+async function finishMagicPicker() {
+  const pool = magicPickerPool.value
+  if (!pool) return
+  const next = new Map(selectedMagicCounts.value)
+  magicItems.value.filter((item) => item.ownerId === pool.id).forEach((item) => next.delete(item.id))
+  for (const [id, count] of magicPickerCounts.value) {
+    if (count <= 0) continue
+    next.set(id, count)
+    const item = magicItems.value.find((candidate) => candidate.id === id)
+    if (item) await loadMagicItemDetail(item)
+  }
+  selectedMagicCounts.value = next
+  magicPickerOpen.value = false
+  magicPickerExpanded.value = new Set()
+  applyMagicSupersession()
+}
 
 async function loadMagicItemChoices() {
   const activePools = activeMagicPools.value
@@ -792,6 +892,7 @@ async function loadMagicItemChoices() {
         id: `${pool.id}::${baseId}`, baseId, ownerId: pool.id, ownerLabel: pool.label, poolMaxPoints: pool.maxPoints,
         name, points: itemPoints, type, source, stackable: Boolean(raw.stackable), maximum: Number(raw.maximum || 0) > 0 ? Number(raw.maximum) : undefined,
         onePerArmy: raw.onePerArmy !== false, slug: magicSlug(String(raw.name || name)),
+        fluff: String(raw.fluff_en || raw.fluff || raw.flavour_en || raw.flavour || raw.flavor_en || raw.flavor || '').replace(/\s+/g, ' ').trim() || undefined,
       }))
     }))
     const selectedBefore = selectedMagicEntries.value.map(({ item }) => item)
@@ -817,7 +918,10 @@ async function loadMagicItemDetail(item: MagicItem) {
     const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
     const rows = Array.from(dom.querySelectorAll('table tr')).slice(1)
     const cells = rows.map((row) => Array.from(row.querySelectorAll('td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '')).find((row) => row.length >= 4)
-    const detail: MagicItemDetail = { summary: extractMechanicalRuleText(document.html) }
+    const detail: MagicItemDetail = { summary: extractMechanicalRuleText(document.html), fluff: item.fluff }
+    const fluffNode = dom.querySelector<HTMLElement>('.fluff, .flavour, .flavor, p em, p i')
+    const fluffText = fluffNode?.textContent?.replace(/\s+/g, ' ').trim() || ''
+    if (fluffText && fluffText !== detail.summary && fluffText.length > 12) detail.fluff = fluffText
     if (item.type === 'weapon' && cells) { detail.range = cells[0] || 'Combat'; detail.strength = cells[1] || 'See rule'; detail.ap = cells[2] || 'See rule'; detail.rules = cells[3] && !/^[-—]$/.test(cells[3]) ? cells[3].split(/,\s*/).filter(Boolean) : ['Magic Weapon']; detail.kind = detail.range.toLowerCase() === 'combat' ? 'melee' : 'missile' }
     const body = dom.body.textContent?.replace(/\s+/g, ' ').trim() || ''
     const override: Partial<Record<ProfileKey, string>> = {}
@@ -830,13 +934,7 @@ async function loadMagicItemDetail(item: MagicItem) {
     ;[[/Toughness(?: characteristic)?(?: by)? \+?1/i, 'T'], [/Wounds?(?: characteristic)?(?: by)? \+?1/i, 'W'], [/Initiative(?: characteristic)?(?: by)? \+?1/i, 'I'], [/Attacks?(?: characteristic)?(?: by)? \+?1/i, 'A'], [/Leadership(?: characteristic)?(?: by)? \+?1/i, 'Ld']].forEach(([pattern, key]) => { if ((pattern as RegExp).test(body)) override[key as ProfileKey] = incrementCharacteristic(prototypeUnit.value?.profile[key as ProfileKey] || '—', 1) })
     if (Object.keys(override).length) detail.profileOverride = override
     magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, detail)
-  } catch (error) { reportAppError(error, 'MAGIC_ITEM_DETAIL', { itemId: item.id, unitId: unitId.value }); magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, {}) }
-}
-async function addMagicItem() {
-  if (isReadOnly.value) return
-  const item = magicItems.value.find((candidate) => candidate.id === pendingMagicItem.value); if (!item || !canAddMagicItem(item)) return
-  const scrollX = window.scrollX; const scrollY = window.scrollY; const next = new Map(selectedMagicCounts.value); next.set(item.id, selectedMagicCount(item.id) + 1); selectedMagicCounts.value = next; pendingMagicItem.value = ''
-  await loadMagicItemDetail(item); applyMagicSupersession(); restoreScrollPosition(scrollX, scrollY)
+  } catch (error) { reportAppError(error, 'MAGIC_ITEM_DETAIL', { itemId: item.id, unitId: unitId.value }); magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, { fluff: item.fluff }) }
 }
 async function adjustMagicItem(id: string, delta: number) {
   if (isReadOnly.value) return
@@ -856,7 +954,6 @@ watch(() => activeMagicPools.value.map((pool) => `${pool.id}:${pool.maxPoints}:$
     if (!item || !pool || !pool.types.includes(item.type)) next.delete(id)
   }
   selectedMagicCounts.value = next
-  pendingMagicItem.value = ''
   if (!activeMagicPools.value.some((pool) => pool.id === selectedMagicPoolId.value)) selectedMagicPoolId.value = activeMagicPools.value[0]?.id || ''
   await loadMagicItemChoices()
   applyMagicSupersession()
@@ -893,6 +990,7 @@ function saveCurrentRosterConfiguration() {
     magicPools: activeMagicPools.value.map((pool) => ({ ownerId: pool.id, ownerLabel: pool.label, maxPoints: pool.maxPoints })),
     weaponCounts: Object.fromEntries(weaponCounts.value),
     equipmentCounts: Object.fromEntries(equipmentCounts.value),
+    loreSelections: [...selectedLores.value],
   })
 }
 let rosterSaveQueued = false
@@ -904,7 +1002,7 @@ function queueRosterSave() {
     saveCurrentRosterConfiguration()
   })
 }
-watch([selectedWeaponIds, selectedEquipmentIds, selectedMagicCounts, magicItemDetails, modelCount, weaponCounts, equipmentCounts], queueRosterSave)
+watch([selectedWeaponIds, selectedEquipmentIds, selectedMagicCounts, magicItemDetails, selectedLores, modelCount, weaponCounts, equipmentCounts], queueRosterSave)
 
 function toggleFavourite() { if (!army.value) return; favourite.value = setFavoriteUnit(army.value.slug, unitId.value, !favourite.value) }
 
@@ -960,7 +1058,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
 
         <section v-if="rangedWeapons.length" class="unit-card-section static-unit-section weapons-panel"><h2>Range Weapons</h2><div class="weapon-table-wrap warscroll-table-wrap"><table class="weapon-table old-world-weapon-table"><thead><tr><th>Name</th><th>Range</th><th>Strength</th><th>AP</th><th>Special Rules</th></tr></thead><tbody><tr v-for="row in rangedWeapons" :key="`${row.source}-${row.weapon.id}`"><td><span>{{ row.weapon.name }}</span><small v-if="row.weapon.note" class="weapon-note">{{ row.weapon.note }}</small></td><td>{{ row.weapon.range }}</td><td>{{ row.weapon.strength }}</td><td class="weapon-ap-cell">{{ weaponApDisplay(row) }}</td><td><div v-if="weaponRuleLabels(row.weapon).length" class="weapon-rule-labels"><RouterLink v-for="link in weaponRuleLabels(row.weapon)" :key="`${link.label}-${link.path}`" :to="`/rules/read${link.path}`" class="weapon-rule-label">{{ link.label }}</RouterLink></div><span v-else>—</span></td></tr></tbody></table></div></section>
 
-        <section v-if="optionalWeaponOptions.length || equipmentGroups.length" class="unit-card-section static-unit-section equipment-panel">
+        <section v-if="optionalWeaponOptions.length || equipmentGroups.length || showWizardLoreGroup" class="unit-card-section static-unit-section equipment-panel">
           <h2>Equipment & Options</h2>
           <div class="equipment-group-stack">
             <section v-if="optionalWeaponOptions.length" class="equipment-option-group">
@@ -1011,6 +1109,23 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
                 </template>
               </div>
             </section>
+            <section v-if="showWizardLoreGroup" class="equipment-option-group wizard-lore-group">
+              <div class="equipment-group-heading"><h3>Wizard &amp; Spell Lores</h3><span v-if="magicalMaelstromEnabled && isWizard" class="rule-kind-pill magical-maelstrom-pill">Magical Maelstrom</span></div>
+              <div v-if="wizardLevelOptions.length" class="prototype-option-grid equipment-option-grid wizard-level-grid">
+                <label v-for="option in wizardLevelOptions" :key="option.id" :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option) }">
+                  <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionEffectivelyLocked(option) || (magicalMaelstromEnabled && isWizardLevelOption(option))" @change="handleEquipmentCheckbox(option, $event)" />
+                  <span class="option-name">{{ displayOptionName(option) }}</span>
+                  <small v-if="option.note" class="option-effect">{{ option.note }}</small>
+                  <strong v-if="option.points > 0 || magicalMaelstromEnabled" class="option-cost">{{ magicalMaelstromEnabled ? 'Free' : optionCost(option.points) }}</strong>
+                </label>
+              </div>
+              <div v-if="loreChoices.length" class="lore-choice-grid" :class="{ unavailable: !loreSelectionEnabled }">
+                <label v-for="lore in loreChoices" :key="lore" :class="{ selected: selectedLores.has(lore) }">
+                  <input type="checkbox" :checked="selectedLores.has(lore)" :disabled="isReadOnly || !loreSelectionEnabled" @change="handleLoreCheckbox(lore, $event)" />
+                  <span><strong>{{ lore }}</strong><small>{{ loreSelectionEnabled ? 'Add this lore to the model profile.' : 'Select a Wizard or Priest option first.' }}</small></span>
+                </label>
+              </div>
+            </section>
           </div>
         </section>
 
@@ -1019,7 +1134,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
           <div class="magic-pool-summaries" role="group" aria-label="Magic item allowance owner">
             <button v-for="pool in activeMagicPools" :key="pool.id" type="button" class="magic-purchase-head magic-pool-card" :class="{ active: selectedMagicPool?.id === pool.id }" :disabled="!isEditing" @click="selectMagicPool(pool.id)"><div><span class="magic-allowance-label">{{ pool.label }}</span><strong>{{ magicPoolPoints(pool.id) }} / {{ pool.maxPoints }} pts</strong></div><span>{{ Math.max(0, pool.maxPoints - magicPoolPoints(pool.id)) }} pts remaining</span></button>
           </div>
-          <div v-if="isEditing" class="magic-add-row" :class="{ 'is-empty': !magicLoading && !filteredMagicItems.length }"><select v-model="pendingMagicItem" :disabled="magicLoading || !filteredMagicItems.length"><option value="">{{ magicLoading ? 'Loading magic items…' : filteredMagicItems.length ? 'Select magic item' : 'Magic item allowance fully spent or no legal items remain' }}</option><optgroup v-for="group in magicItemGroups" :key="group.key" :label="group.label"><option v-for="item in group.items" :key="item.id" :value="item.id">{{ item.name }} — {{ item.points }} pts{{ maxMagicCopies(item) > 1 ? ' · repeatable' : '' }}</option></optgroup></select><button v-if="magicLoading || filteredMagicItems.length" class="secondary-button" type="button" :disabled="!pendingMagicItem" @click="addMagicItem">Add item</button></div>
+          <div v-if="isEditing" class="magic-add-row magic-picker-launch-row"><button class="secondary-button magic-picker-launch" type="button" :disabled="magicLoading || !selectedMagicPool" @click="openMagicPicker">{{ magicLoading ? 'Loading magical items…' : 'Choose Magical Items' }}</button></div>
           <p v-if="magicError" class="magic-error">{{ magicError }}</p>
           <div v-if="magicItemCards.length" class="magic-item-card-grid">
             <div v-for="entry in magicItemCards" :key="entry.item.id" class="selected-magic-rule-card">
@@ -1033,6 +1148,30 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
             </div>
           </div>
         </section>
+
+        <div v-if="magicPickerOpen" class="unit-picker-backdrop magic-picker-backdrop" @click.self="cancelMagicPicker">
+          <section class="magic-picker-panel card-surface" role="dialog" aria-modal="true" aria-label="Select magical items">
+            <div class="unit-picker-heading magic-picker-heading"><div><p class="eyebrow">MAGICAL ITEMS</p><h2>{{ magicPickerPool?.label }}</h2><small>{{ magicPickerSpent() }} / {{ magicPickerPool?.maxPoints }} pts · {{ magicPickerRemaining() }} remaining</small></div><button type="button" class="picker-close" @click="cancelMagicPicker" aria-label="Cancel magical item changes">×</button></div>
+            <div class="magic-picker-tabs" role="tablist" aria-label="Magical item types"><button v-for="type in magicPickerTabs" :key="type" type="button" role="tab" :aria-selected="magicPickerTab === type" :class="{ active: magicPickerTab === type }" @click="magicPickerTab = type">{{ magicTypeLabel(type) }}</button></div>
+            <div class="magic-picker-list">
+              <article v-for="item in magicPickerItems" :key="item.id" class="magic-picker-item" :class="{ selected: magicPickerCount(item.id) > 0, unaffordable: !magicPickerCanSelect(item) }">
+                <div class="magic-picker-item-main" @click="toggleMagicPickerDescription(item)">
+                  <input type="checkbox" :checked="magicPickerCount(item.id) > 0" :disabled="!magicPickerCanSelect(item)" @click.stop @change="handleMagicPickerCheckbox(item, $event)" />
+                  <span><strong>{{ item.name }}</strong><small>{{ item.source }}</small></span>
+                  <b>{{ item.points }} pts</b>
+                  <span class="magic-picker-chevron" :class="{ open: magicPickerExpanded.has(item.id) }">⌄</span>
+                </div>
+                <div v-if="magicPickerExpanded.has(item.id)" class="magic-picker-description">
+                  <p v-if="magicPickerDetail(item)?.fluff" class="magic-picker-fluff">{{ magicPickerDetail(item)?.fluff }}</p>
+                  <p>{{ magicPickerDetail(item)?.summary || 'Open the item rule for the full description.' }}</p>
+                  <div v-if="maxMagicCopies(item) > 1 && magicPickerCount(item.id) > 0" class="magic-picker-quantity option-stepper"><button type="button" :disabled="magicPickerCount(item.id) <= 1" @click.stop="adjustMagicPickerCount(item, -1)">−</button><strong>{{ magicPickerCount(item.id) }}</strong><button type="button" :disabled="magicPickerCount(item.id) >= maxMagicCopies(item) || item.points > magicPickerRemaining()" @click.stop="adjustMagicPickerCount(item, 1)">+</button></div>
+                </div>
+              </article>
+              <div v-if="!magicPickerItems.length" class="picker-empty">No items of this type are available to this model.</div>
+            </div>
+            <div class="unit-picker-batch-bar magic-picker-finish-bar"><span>{{ magicPickerSpent() }} / {{ magicPickerPool?.maxPoints }} pts selected</span><div><button type="button" class="secondary-button" @click="cancelMagicPicker">Cancel</button><button type="button" class="primary-button" @click="finishMagicPicker">Finished</button></div></div>
+          </section>
+        </div>
 
         <section class="unit-card-section static-unit-section special-rules-section"><h2>Special Rules</h2><div class="old-rule-grid"><RuleAbilityCard v-for="rule in packedSpecialRules" :key="`${rule.name}-${rule.path}`" :rule="rule" /></div></section>
 

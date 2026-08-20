@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import BuilderUnitEntry from '../components/BuilderUnitEntry.vue'
 import { armies, getArmy } from '../data/armies'
-import { battleMarchLockedOptions, compositionOptions, compositionRules, compositionRuleLabel, emptyCompositionOptionState, normalizePointsForRule, pointPresetsForRule, type CompositionOptionId, type CompositionRuleId } from '../data/listBuilder'
+import { battleMarchLockedOptions, compositionOptionDescription, compositionOptions, compositionRules, compositionRuleLabel, emptyCompositionOptionState, normalizePointsForRule, pointPresetsForRule, type CompositionOptionId, type CompositionRuleId } from '../data/listBuilder'
 import { prototypeUnitsForArmy, type BuilderCategory, type PrototypeUnit } from '../data/builderPrototype'
 import { loadLiveArmyCatalog, loadLiveArmyCompositions, loadLiveUnitProfile } from '../data/liveBuilderUnits'
 import type { BuilderRosterSelection } from '../services/builderRoster'
@@ -64,6 +64,7 @@ const validationDataError = ref('')
 const settingsOpen = ref(false)
 const addingUnitId = ref('')
 const pickerSelectedIds = ref(new Set<string>())
+const pickerSelectionCategories = ref(new Map<string, BuilderCategory>())
 const pickerAdding = ref(false)
 const listLocked = ref(false)
 const settingsName = ref('')
@@ -72,6 +73,7 @@ const settingsRule = ref<CompositionRuleId>('open-war')
 const settingsPoints = ref(2000)
 const settingsPointPresets = computed(() => pointPresetsForRule(settingsRule.value))
 const settingsOptionState = ref<Record<CompositionOptionId, boolean>>(emptyCompositionOptionState())
+const settingsSelectedOptionDetails = computed(() => compositionOptions.filter((option) => settingsOptionState.value[option.value] && settingsOptionAvailable(option.value)).map((option) => ({ ...option, description: compositionOptionDescription(option.value) })).filter((option) => option.description))
 
 async function loadCompositions() {
   liveCompositions.value = selectedArmy.value.compositions
@@ -100,7 +102,9 @@ async function loadCatalog() {
       const byId = new Map(availableUnits.value.map((unit) => [unit.id, unit]))
       roster.value = roster.value.map((row) => {
         const unit = byId.get(row.unitId)
-        return unit && unit.category !== row.category ? { ...row, category: unit.category } : row
+        if (!unit || unit.category === row.category) return row
+        const preserveMonsterMashCore = selectedOptionIds.value.has('monster-mash') && row.category === 'Core' && monsterMashEligible(unit)
+        return preserveMonsterMashCore ? { ...row, troopType: row.troopType || unit.details.troopType } : { ...row, category: unit.category }
       })
       applyCompositionEffectsToRoster()
     }
@@ -134,9 +138,20 @@ onMounted(() => {
   void loadValidationData()
 })
 
+const pickerTabs = computed(() => standardCategories.value.filter((category): category is Exclude<BuilderCategory, 'General' | 'Custom Units'> => category !== 'Custom Units'))
+function switchPickerCategory(category: Exclude<BuilderCategory, 'General' | 'Custom Units'>) {
+  if (pickerAdding.value) return
+  pickerCategory.value = category
+  pickerSearch.value = ''
+}
+function monsterMashEligible(unit: PrototypeUnit) {
+  const type = String(unit.details.troopType || '')
+  return unit.category !== 'Characters' && /(?:Monstrous Creature|War Machine|Chariot)/i.test(type)
+}
+const monsterMashUsed = computed(() => roster.value.some((row) => row.category === 'Core' && /(?:Monstrous Creature|War Machine|Chariot)/i.test(String(row.troopType || ''))))
 const filteredPickerUnits = computed(() => {
   const query = pickerSearch.value.trim().toLowerCase()
-  let rows = availableUnits.value.filter((unit) => unit.category === pickerCategory.value)
+  let rows = availableUnits.value.filter((unit) => unit.category === pickerCategory.value || (pickerCategory.value === 'Core' && selectedOptionIds.value.has('monster-mash') && !monsterMashUsed.value && monsterMashEligible(unit)))
   if (query) rows = rows.filter((unit) => unit.name.toLowerCase().includes(query))
   if (favoritesOnly.value) rows = rows.filter((unit) => favoriteIds.value.has(unit.id))
   return [...rows].sort((a, b) => sortMode.value === 'points' ? startingUnitPoints(a) - startingUnitPoints(b) || a.name.localeCompare(b.name) : a.name.localeCompare(b.name))
@@ -146,6 +161,8 @@ function startingUnitPoints(unit: PrototypeUnit) {
 }
 const rosterPoints = computed(() => roster.value.reduce((sum, row) => sum + row.totalPoints, 0))
 const remainingPoints = computed(() => points.value - rosterPoints.value)
+const overUnderEnabled = computed(() => selectedOptionIds.value.has('over-under'))
+const overUnderWarning = computed(() => overUnderEnabled.value && rosterPoints.value > points.value && rosterPoints.value <= points.value + 10)
 const validationIssues = computed(() => {
   const issues = validateRoster({ roster: roster.value, points: points.value, armySlug: selectedArmy.value.slug, compositionId: selectedComposition.value.id, compositionRuleId: compositionRuleId.value, ruleCatalog: compositionRuleData.value, compositionOptionIds: selectedOptions.value.map((option) => option.value) })
   if (!catalogLoading.value && !catalogError.value && availableUnits.value.length) {
@@ -154,7 +171,7 @@ const validationIssues = computed(() => {
   }
   return issues
 })
-const validationState = computed(() => rosterPoints.value > points.value ? 'OVER LIMIT' : validationIssues.value.some((issue) => issue.severity === 'error') ? 'INVALID' : rosterPoints.value === 0 ? 'EMPTY' : 'VALID')
+const validationState = computed(() => rosterPoints.value > points.value + (overUnderEnabled.value ? 10 : 0) ? 'OVER LIMIT' : validationIssues.value.some((issue) => issue.severity === 'error') ? 'INVALID' : rosterPoints.value === 0 ? 'EMPTY' : 'VALID')
 const invalidInstanceIds = computed(() => new Set(validationIssues.value.filter((issue) => issue.severity === 'error' && issue.instanceId).map((issue) => String(issue.instanceId))))
 function rosterMagicPools(row: BuilderRosterSelection) {
   if (row.magicPools?.length) return row.magicPools.filter((pool) => Number(pool.maxPoints) > 0)
@@ -173,6 +190,7 @@ const untouchedMagicPools = computed(() => roster.value.flatMap((row) => rosterM
   return pool.maxPoints > 0 && spent === 0
 }).map((pool) => ({ row, pool }))))
 const hasMagicAllowanceWarning = computed(() => validationState.value === 'VALID' && untouchedMagicPools.value.length > 0)
+const hasRosterWarning = computed(() => validationState.value === 'VALID' && (overUnderWarning.value || hasMagicAllowanceWarning.value))
 async function loadValidationData() {
   validationDataError.value = ''
   try { compositionRuleData.value = await loadCompositionRules() } catch (error) { reportAppError(error, 'LIST_BUILDER_COMPOSITION_RULES'); validationDataError.value = error instanceof Error ? error.message : 'Battle composition rules could not be loaded.' }
@@ -214,6 +232,7 @@ function categoryPercentageState(category: DisplayCategory): CategoryPercentageS
   const allowance = categoryAllowance(category)
   if (!allowance || allowance.percent <= 0) return 'neutral'
   const current = categoryPercent(category)
+  if (current === 0) return 'neutral'
   const target = allowance.percent
   if (allowance.qualifier === 'Needed') {
     if (current >= target) return 'green'
@@ -258,27 +277,35 @@ function openPicker(category: DisplayCategory) {
   pickerCategory.value = category
   pickerSearch.value = ''
   pickerSelectedIds.value = new Set()
+  pickerSelectionCategories.value = new Map()
 }
 async function closePicker() {
   if (pickerAdding.value) return
   if (pickerSelectedIds.value.size) { await addSelectedUnits(); return }
   pickerCategory.value = null
   pickerSelectedIds.value = new Set()
+  pickerSelectionCategories.value = new Map()
 }
 function cancelPicker() {
   if (pickerAdding.value) return
   pickerCategory.value = null
   pickerSelectedIds.value = new Set()
+  pickerSelectionCategories.value = new Map()
 }
 function pickerUnitSelected(id: string) { return pickerSelectedIds.value.has(id) }
 function togglePickerUnit(id: string) {
   if (pickerAdding.value) return
   const next = new Set(pickerSelectedIds.value)
-  if (next.has(id)) next.delete(id); else next.add(id)
+  const categories = new Map(pickerSelectionCategories.value)
+  if (next.has(id)) { next.delete(id); categories.delete(id) }
+  else { next.add(id); if (pickerCategory.value) categories.set(id, pickerCategory.value) }
   pickerSelectedIds.value = next
+  pickerSelectionCategories.value = categories
 }
-function defaultRosterSelection(unit: PrototypeUnit): BuilderRosterSelection {
-  return createDefaultRosterSelection(unit, `${unit.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, { magicalMaelstrom: selectedOptionIds.value.has('magical-maelstrom') })
+function defaultRosterSelection(unit: PrototypeUnit, targetCategory?: BuilderCategory): BuilderRosterSelection {
+  const selection = createDefaultRosterSelection(unit, `${unit.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, { magicalMaelstrom: selectedOptionIds.value.has('magical-maelstrom') })
+  if (targetCategory === 'Core' && selectedOptionIds.value.has('monster-mash') && monsterMashEligible(unit)) selection.category = 'Core'
+  return selection
 }
 function removeGeneralRole(row: BuilderRosterSelection) {
   const definition = availableUnits.value.find((unit) => unit.id === row.unitId)
@@ -296,14 +323,14 @@ function appendRosterSelection(selection: BuilderRosterSelection) {
   else roster.value = [...roster.value, selection]
 }
 
-async function addUnitToRoster(unit: PrototypeUnit) {
+async function addUnitToRoster(unit: PrototypeUnit, targetCategory?: BuilderCategory) {
   addingUnitId.value = unit.id
   try {
     const detailed = await loadLiveUnitProfile(selectedArmy.value.dataKey, selectedArmy.value.name, unit.id, selectedComposition.value.id)
-    appendRosterSelection(defaultRosterSelection(detailed || unit))
+    appendRosterSelection(defaultRosterSelection(detailed || unit, targetCategory))
   } catch (error) {
     reportAppError(error, 'LIST_BUILDER_UNIT_DETAIL', { unitId: unit.id, army: selectedArmy.value.slug })
-    appendRosterSelection(defaultRosterSelection(unit))
+    appendRosterSelection(defaultRosterSelection(unit, targetCategory))
   } finally {
     addingUnitId.value = ''
   }
@@ -314,8 +341,9 @@ async function addSelectedUnits() {
   if (!selected.length) return
   pickerAdding.value = true
   try {
-    for (const unit of selected) await addUnitToRoster(unit)
+    for (const unit of selected) await addUnitToRoster(unit, pickerSelectionCategories.value.get(unit.id) || unit.category)
     pickerSelectedIds.value = new Set()
+    pickerSelectionCategories.value = new Map()
     pickerCategory.value = null
   } finally {
     pickerAdding.value = false
@@ -412,24 +440,24 @@ async function applySettings() {
         </div>
         <p v-if="description" class="builder-list-description">{{ description }}</p>
       </div>
-      <div class="builder-points-orb" :class="{ over: remainingPoints < 0 }"><strong>{{ rosterPoints }}</strong><span>/ {{ points }}</span><small>{{ remainingPoints >= 0 ? `${remainingPoints} remaining` : `${Math.abs(remainingPoints)} over` }}</small></div>
+      <div class="builder-points-orb" :class="{ over: remainingPoints < 0 && !overUnderWarning, warning: overUnderWarning }"><strong>{{ rosterPoints }}</strong><span>/ {{ points }}</span><small>{{ remainingPoints >= 0 ? `${remainingPoints} remaining` : `${Math.abs(remainingPoints)} over` }}</small></div>
     </div>
 
     <section class="builder-command-strip card-surface">
       <div class="builder-toolbar" aria-label="List tools"><button type="button" class="builder-tool" disabled title="Import is not available in this build"><span>Import</span><small>Coming later</small></button><button type="button" class="builder-tool" disabled title="Export is not available in this build"><span>Export</span><small>Coming later</small></button><button type="button" class="builder-tool" @click="duplicateCurrentList"><span>Duplicate</span><small>Copy list</small></button><button type="button" class="builder-tool" :disabled="listLocked" @click="openSettings"><span>Settings</span><small>List setup</small></button><button type="button" class="builder-tool" disabled title="Game View is not available in this build"><span>Game View</span><small>Coming later</small></button><button type="button" class="builder-tool builder-lock-tool" :class="{ active: listLocked }" @click="toggleListLock"><span>{{ listLocked ? 'Unlock Editing' : 'Lock List' }}</span><small>{{ listLocked ? 'Editing off' : 'Editing on' }}</small></button></div>
-      <div class="builder-validation-row"><span><strong>Army validation</strong><small>{{ validationIssues.length ? `${validationIssues.filter((issue) => issue.severity === 'error').length} rule issue${validationIssues.filter((issue) => issue.severity === 'error').length === 1 ? '' : 's'} to resolve.` : hasMagicAllowanceWarning ? `Roster is valid; ${untouchedMagicPools.length} magic-item allowance${untouchedMagicPools.length === 1 ? '' : 's'} remain completely unspent.` : 'General, category percentages and composition requirements are satisfied.' }}</small></span><span class="validation-state-text" :class="{ danger: validationState === 'OVER LIMIT' || validationState === 'INVALID', valid: validationState === 'VALID' && !hasMagicAllowanceWarning, warning: hasMagicAllowanceWarning }">{{ validationState }}</span></div>
+      <div class="builder-validation-row"><span><strong>Army validation</strong><small>{{ validationIssues.length ? `${validationIssues.filter((issue) => issue.severity === 'error').length} rule issue${validationIssues.filter((issue) => issue.severity === 'error').length === 1 ? '' : 's'} to resolve.` : overUnderWarning ? `Roster is valid under Over - Under at ${Math.abs(remainingPoints)} points over the selected limit.` : hasMagicAllowanceWarning ? `Roster is valid; ${untouchedMagicPools.length} magic-item allowance${untouchedMagicPools.length === 1 ? '' : 's'} remain completely unspent.` : 'General, category percentages and composition requirements are satisfied.' }}</small></span><span class="validation-state-text" :class="{ danger: validationState === 'OVER LIMIT' || validationState === 'INVALID', valid: validationState === 'VALID' && !hasRosterWarning, warning: hasRosterWarning }">{{ validationState }}</span></div>
       <div v-if="validationDataError" class="builder-validation-warning">{{ validationDataError }}</div>
       <ul v-if="validationIssues.length" class="builder-validation-list"><li v-for="(issue, index) in validationIssues" :key="`${issue.section}-${index}-${issue.message}`" :class="issue.severity"><span class="validation-section-label">{{ issue.section }}</span><span class="validation-issue-message">{{ issue.message }}</span></li></ul>
     </section>
 
     <section class="builder-roster-shell card-surface">
-      <div class="builder-roster-toolbar"><div><p class="eyebrow roster-heading">ROSTER <span v-if="hasMagicAllowanceWarning" class="roster-validation-mark warning" aria-label="Roster valid with unspent magic-item allowance">!</span><span v-else-if="validationState === 'VALID'" class="roster-validation-mark valid" aria-label="Roster valid">✓</span><span v-else-if="validationState === 'INVALID' || validationState === 'OVER LIMIT'" class="roster-validation-mark invalid" aria-label="Roster invalid">×</span></p><h2>{{ selectedArmy.name }}</h2></div><span class="builder-roster-total">{{ roster.length }} unit{{ roster.length === 1 ? '' : 's' }} · {{ rosterPoints }} pts</span></div>
+      <div class="builder-roster-toolbar"><div><p class="eyebrow roster-heading">ROSTER <span v-if="hasRosterWarning" class="roster-validation-mark warning" aria-label="Roster valid with unspent magic-item allowance">!</span><span v-else-if="validationState === 'VALID'" class="roster-validation-mark valid" aria-label="Roster valid">✓</span><span v-else-if="validationState === 'INVALID' || validationState === 'OVER LIMIT'" class="roster-validation-mark invalid" aria-label="Roster invalid">×</span></p><h2>{{ selectedArmy.name }}</h2></div><span class="builder-roster-total">{{ roster.length }} unit{{ roster.length === 1 ? '' : 's' }} · {{ rosterPoints }} pts</span></div>
       <p v-if="catalogError" class="builder-data-note danger-note">{{ catalogError }}</p>
       <p v-else class="builder-data-note">Unit names, base costs, composition availability and option lists are loaded from the current Builder dataset for {{ selectedArmy.name }}.</p>
 
       <div class="builder-category-stack">
         <details v-for="category in categories" :key="category" class="builder-category-card" :open="unitsInCategory(category).length > 0 || category === 'Characters' || category === 'Core' || category === 'Custom Units'">
-          <summary class="builder-category-summary"><span>{{ category }}</span><span v-if="!isRoleDisplayCategory(category)" class="builder-category-summary-meta"><small>{{ categorySelectedCount(category) }} Selected</small><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPoints(category) }} pts</strong><template v-if="categoryAllowance(category)"><span class="category-meta-separator" aria-hidden="true">/</span><em class="category-allowance" :class="`is-${categoryAllowance(category)?.state}`">{{ categoryAllowancePointsText(category) }} ({{ categoryAllowance(category)?.qualifier }})</em><span class="category-meta-separator" aria-hidden="true">-</span><strong class="category-percentage-status" :class="`status-${categoryPercentageState(category)}`">{{ categoryPercent(category) }}% / {{ categoryAllowance(category)?.percent }}%</strong></template><template v-else><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPercent(category) }}%</strong></template></span></summary>
+          <summary class="builder-category-summary"><span>{{ category }}</span><span v-if="!isRoleDisplayCategory(category)" class="builder-category-summary-meta"><small>{{ categorySelectedCount(category) }} Selected</small><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPoints(category) }} pts</strong><template v-if="categoryAllowance(category)"><span class="category-meta-separator" aria-hidden="true">/</span><em class="category-allowance" :class="`is-${categoryAllowance(category)?.state}`">{{ categoryAllowancePointsText(category) }} ({{ categoryAllowance(category)?.qualifier }})</em><span class="category-meta-separator" aria-hidden="true">-</span><strong class="category-percentage-readout"><span class="category-percentage-current" :class="`status-${categoryPercentageState(category)}`">{{ categoryPercent(category) }}%</span><span class="category-percentage-target"> / {{ categoryAllowance(category)?.percent }}%</span></strong></template><template v-else><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPercent(category) }}%</strong></template></span></summary>
           <div class="builder-category-body">
             <div v-if="unitsInCategory(category).length" class="builder-unit-stack">
               <BuilderUnitEntry v-for="row in unitsInCategory(category)" :key="row.instanceId" :row="row" :army-slug="selectedArmy.slug" :return-path="route.fullPath" :composition-id="selectedComposition.id" :locked="listLocked" :invalid="invalidInstanceIds.has(row.instanceId)" @remove="removeUnit(row.instanceId)" @duplicate="duplicateUnit(row)" />
@@ -445,12 +473,13 @@ async function applySettings() {
     <div v-if="pickerCategory" class="unit-picker-backdrop" @click.self="closePicker">
       <section class="unit-picker-panel card-surface" role="dialog" aria-modal="true" :aria-label="`Add ${pickerCategory}`">
         <div class="unit-picker-heading"><div><p class="eyebrow">{{ pickerCategory }}</p><h2>Select Units</h2></div><button type="button" class="picker-close" @click="closePicker" aria-label="Close unit picker">×</button></div>
+        <div class="unit-picker-tabs" role="tablist" aria-label="Unit categories"><button v-for="category in pickerTabs" :key="category" type="button" role="tab" :aria-selected="pickerCategory === category" :class="{ active: pickerCategory === category }" @click="switchPickerCategory(category)">{{ category }}</button></div>
         <div class="unit-picker-controls"><label class="picker-search"><span>Search</span><input v-model="pickerSearch" type="search" placeholder="Search units" /></label><button type="button" :class="{ active: favoritesOnly }" @click="favoritesOnly = !favoritesOnly">★ Favorites</button><button type="button" @click="sortMode = sortMode === 'name' ? 'points' : 'name'">Sort: {{ sortMode === 'name' ? 'Name' : 'Points' }}</button></div>
         <div v-if="catalogLoading" class="picker-empty">Loading current army units…</div>
         <div v-else-if="filteredPickerUnits.length" class="unit-picker-list">
           <article v-for="unit in filteredPickerUnits" :key="unit.id" class="unit-picker-row" :class="{ 'is-selected': pickerUnitSelected(unit.id) }">
             <button type="button" class="unit-picker-favourite" :class="{ active: favoriteIds.has(unit.id) }" @click.stop="toggleFavorite(unit.id)" :aria-label="`Favorite ${unit.name}`">★</button>
-            <button type="button" class="picker-unit-main" :disabled="pickerAdding" :aria-pressed="pickerUnitSelected(unit.id)" @click="togglePickerUnit(unit.id)"><span><strong>{{ unit.name }}</strong><small>{{ unit.unitSize }} · {{ unit.category }}</small><small v-if="unit.compositionNotes?.length" class="picker-composition-note">{{ unit.compositionNotes.join(' • ') }}</small></span></button><span class="unit-picker-points">{{ startingUnitPoints(unit) }} pts</span>
+            <button type="button" class="picker-unit-main" :disabled="pickerAdding" :aria-pressed="pickerUnitSelected(unit.id)" @click="togglePickerUnit(unit.id)"><span><strong>{{ unit.name }}</strong><small>{{ unit.unitSize }} · {{ pickerCategory === 'Core' && unit.category !== 'Core' && monsterMashEligible(unit) ? 'Core · Monster Mash' : unit.category }}</small><small v-if="unit.compositionNotes?.length" class="picker-composition-note">{{ unit.compositionNotes.join(' • ') }}</small></span></button><span class="unit-picker-points">{{ startingUnitPoints(unit) }} pts</span>
             <div class="unit-picker-actions"><button type="button" class="builder-mini-action primary icon-only-action" :class="{ selected: pickerUnitSelected(unit.id) }" :disabled="pickerAdding" :aria-label="`${pickerUnitSelected(unit.id) ? 'Remove' : 'Select'} ${unit.name}`" :title="pickerUnitSelected(unit.id) ? 'Selected' : 'Select'" @click="togglePickerUnit(unit.id)"><svg v-if="pickerUnitSelected(unit.id)" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg><svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button><RouterLink class="builder-mini-action icon-only-action" :to="`/army/${selectedArmy.slug}/unit/${unit.id}?return=${encodeURIComponent(route.fullPath)}&composition=${encodeURIComponent(selectedComposition.id)}&mode=view`" :aria-label="`View ${unit.name}`" title="View"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></RouterLink></div>
           </article>
         </div>
@@ -469,8 +498,9 @@ async function applySettings() {
           <label class="field-label">List name<input v-model="settingsName" class="field-control" type="text" maxlength="100" /></label>
           <label class="field-label">Army composition<select v-model="settingsComposition" class="field-control"><option v-for="composition in liveCompositions" :key="composition.id" :value="composition.id">{{ composition.name }}</option></select></label>
           <label class="field-label">Battle Composition<select v-model="settingsRule" class="field-control"><option v-for="rule in compositionRules" :key="rule.value" :value="rule.value">{{ rule.label }}</option></select></label>
-          <div class="points-field-wrap"><label class="field-label">Points limit<input v-model.number="settingsPoints" class="field-control" type="number" inputmode="numeric" :min="settingsRule === 'battle-march' ? 500 : 0" :max="settingsRule === 'battle-march' ? 750 : 10000" step="50" /></label><div class="point-presets" aria-label="Quick points presets"><button v-for="preset in settingsPointPresets" :key="preset" type="button" :class="['point-preset', { active: settingsPoints === preset }]" @click="settingsPoints = preset">{{ preset }}</button></div><p v-if="settingsRule === 'battle-march'" class="form-note points-rule-note">Battle March uses 500–750 point armies.</p></div>
           <fieldset class="composition-options" aria-label="Battle Composition Options"><legend>Battle Composition Options</legend><label v-for="option in compositionOptions" :key="option.value" class="composition-option" :class="{ locked: settingsOptionLocked(option.value), unavailable: !settingsOptionAvailable(option.value) }"><input type="checkbox" :checked="settingsOptionState[option.value]" :disabled="settingsOptionDisabled(option.value)" @change="handleSettingsOption(option.value, $event)" /><span>{{ option.label }}</span><small v-if="settingsOptionLocked(option.value)">Required</small><small v-else-if="!settingsOptionAvailable(option.value)">Not available</small></label></fieldset>
+          <details v-if="settingsSelectedOptionDetails.length" class="composition-option-details"><summary>Selected option details <span>{{ settingsSelectedOptionDetails.length }}</span></summary><div class="composition-option-detail-list"><article v-for="option in settingsSelectedOptionDetails" :key="option.value"><strong>{{ option.label }}</strong><p>{{ option.description }}</p></article></div></details>
+          <div class="points-field-wrap"><label class="field-label">Points limit<input v-model.number="settingsPoints" class="field-control" type="number" inputmode="numeric" :min="settingsRule === 'battle-march' ? 500 : 0" :max="settingsRule === 'battle-march' ? 750 : 10000" step="50" /></label><div class="point-presets" aria-label="Quick points presets"><button v-for="preset in settingsPointPresets" :key="preset" type="button" :class="['point-preset', { active: settingsPoints === preset }]" @click="settingsPoints = preset">{{ preset }}</button></div><p v-if="settingsRule === 'battle-march'" class="form-note points-rule-note">Battle March uses 500–750 point armies.</p></div>
         </div>
         <div class="list-settings-actions"><button type="button" class="secondary-button" @click="settingsOpen = false">Cancel</button><button type="button" class="primary-button" @click="applySettings">Apply settings</button></div>
       </section>

@@ -107,6 +107,7 @@ export type PrototypeUnit = {
     timing: string
     tone: RuleTone
     summary: string
+    fluff?: string
     keywords: Array<{ label: string; path: string }>
     requiresSelection?: string
     requiresAnySelection?: string[]

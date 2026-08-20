@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
-import { useSettings, type FontSize, type VisualTheme } from '../settings'
+import { useSettings, type BackgroundChoice, type FontSize, type VisualTheme } from '../settings'
 import { forceRefreshBuilderData } from '../services/armyData'
 import { forceRefreshRulePages } from '../services/ruleContent'
 import { armies } from '../data/armies'
@@ -10,7 +10,7 @@ import { armySourcePath } from '../data/ruleRepository'
 import { removeStorage, storageKeys, writeStorage } from '../services/storage'
 import { reportAppError } from '../services/appErrors'
 
-const { darkMode, compactRows, fontSize, boldText, visualTheme, reset } = useSettings()
+const { darkMode, compactRows, fontSize, boldText, visualTheme, backgroundImage, reset } = useSettings()
 const updateState = ref<'idle' | 'running' | 'success' | 'error'>('idle')
 const updateMessage = ref('')
 const dataResetState = ref<'idle' | 'running'>('idle')
@@ -22,6 +22,19 @@ const themeOptions: Array<{ value: Exclude<VisualTheme, 'default'>; label: strin
   { value: 'ravening-hordes', label: 'Ravening Hordes', note: 'Muted green, ochre and field-parchment accents.' },
 ]
 const currentThemeLabel = computed(() => themeOptions.find((option) => option.value === visualTheme.value)?.label || 'Default')
+
+const backgroundOptions: Array<{ value: Exclude<BackgroundChoice, 'none'>; label: string }> = [
+  { value: 'background-1', label: 'Background 1' },
+  { value: 'background-2', label: 'Background 2' },
+  { value: 'background-3', label: 'Background 3' },
+  { value: 'background-4', label: 'Background 4' },
+]
+const currentBackgroundLabel = computed(() => backgroundOptions.find((option) => option.value === backgroundImage.value)?.label || 'Off')
+
+function toggleBackground(value: Exclude<BackgroundChoice, 'none'>, event: Event) {
+  const checked = Boolean((event.target as HTMLInputElement | null)?.checked)
+  backgroundImage.value = checked ? value : (backgroundImage.value === value ? 'none' : backgroundImage.value)
+}
 
 function toggleVisualTheme(value: Exclude<VisualTheme, 'default'>, event: Event) {
   const checked = Boolean((event.target as HTMLInputElement | null)?.checked)
@@ -146,6 +159,18 @@ async function updateBuilderRules() {
             <label v-for="theme in themeOptions" :key="theme.value" class="theme-option-row setting-row">
               <span><strong>{{ theme.label }}</strong><small>{{ theme.note }}</small></span>
               <input :checked="visualTheme === theme.value" type="checkbox" @change="toggleVisualTheme(theme.value, $event)" />
+            </label>
+          </div>
+        </details>
+        <details class="background-settings-panel">
+          <summary>
+            <span><strong>Backgrounds</strong><small>Use one fixed background image behind Old.dex. The image stays centered as you move through the application.</small></span>
+            <span class="value-chip">{{ currentBackgroundLabel }}</span>
+          </summary>
+          <div class="background-option-list">
+            <label v-for="background in backgroundOptions" :key="background.value" class="background-option-row setting-row">
+              <span class="background-option-copy"><span class="background-preview" :class="background.value" aria-hidden="true"></span><strong>{{ background.label }}</strong></span>
+              <input :checked="backgroundImage === background.value" type="checkbox" @change="toggleBackground(background.value, $event)" />
             </label>
           </div>
         </details>

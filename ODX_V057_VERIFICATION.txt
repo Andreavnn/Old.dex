@@ -1,0 +1,38 @@
+Old.dex Alpha Build 0.57 — Verification
+========================================
+
+Delivery:
+- Direct canonical Vue/TypeScript source replacement
+- No GitHub Actions updater
+- No Python source patcher
+- No preview-layer implementation
+
+Verification performed on this source:
+- ODX static analysis: PASS
+- Source files checked: 67
+- Historical CSS version-marker layers: 0
+- TypeScript test compile (tsconfig.test.json): PASS
+- Regression/contract tests: 119 passed, 0 failed
+
+Major v0.57 coverage:
+- Roster category percentage presentation and status colors
+- VALID/INVALID centering and modal/popout/mobile fit corrections
+- Larger OLD.DEX/build/Changelog header presentation
+- Theme contrast review and darker light-theme palettes
+- Four selectable fixed background images
+- Unit picker cross-category tabs with retained multi-selection
+- Wizard & Spell Lores plus prayer/lore persistence
+- Spell/prayer/spell-like Special Rule cards
+- Popup Magical Item selector with type tabs, staged Finish/Cancel behavior,
+  affordability filtering, expandable descriptions, and magical-item fluff
+- Over - Under Battle Composition option
+- Monster Mash Battle Composition option
+- Expandable selected Battle Composition option explanations
+- Create List Cancel action
+- Initial persistent Games landing/create/match workflow based on the prepared
+  Old World Battle phase groundwork
+- Canonical GitHub/in-app changelog update to 0.57
+
+Production note:
+The connected Vercel deployment performs the final full Vue/Vite production
+compile after these files are committed to main.

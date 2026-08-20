@@ -420,6 +420,29 @@ function magicAllowance(raw: RawBuilderUnit) {
   return item ? magicAllowanceFromValue({ types: item.types, maxPoints: item.maxPoints }) : undefined
 }
 
+function spellLikeSpecialRules(raw: RawBuilderUnit) {
+  const rules: PrototypeUnit['specialRules'] = []
+  const seen = new Set<string>()
+  const push = (value: unknown, kind: 'Spell' | 'Prayer' | 'Bound Spell') => {
+    const rows = Array.isArray(value) ? value : []
+    for (const rawEntry of rows) {
+      const entry = isRecord(rawEntry) ? rawEntry : null
+      const name = entry ? text(entry) : String(rawEntry || '').trim()
+      if (!name) continue
+      const key = name.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      const summary = entry ? noteText(entry.text_en || entry.text || entry.notes || entry.effect || entry.description) : ''
+      const path = entry && typeof entry.path === 'string' && entry.path.startsWith('/') ? entry.path : '/magic/casting-spells'
+      rules.push({ name, path, timing: kind, tone: 'magic', summary, keywords: [{ label: kind, path: '/magic/casting-spells' }] })
+    }
+  }
+  push(raw.spells, 'Spell')
+  push(raw.prayers, 'Prayer')
+  push(raw.boundSpells, 'Bound Spell')
+  return rules
+}
+
 function baseSpecialRules(raw: RawBuilderUnit) {
   // Wizard level and available-lore metadata are profile configuration, not
   // standalone special rules. The current Wizard level is rendered from the
@@ -508,14 +531,14 @@ function makeCatalogUnit(raw: RawBuilderUnit, category: BuilderCategory, armyNam
     equipmentOptions: options,
     magicAllowance: magicAllowance(raw),
     details: {
-      troopType: '',
+      troopType: text(raw.troopType || raw.troop_type || raw.unitType || raw.type),
       baseSize: '',
       publication: listPublication(raw, armyName),
       army: armyName,
       unitCategory: category,
       notes: noteText(raw.notes),
     },
-    specialRules: [...baseSpecialRules(raw), ...selectedSpecialRules(raw, options)],
+    specialRules: [...baseSpecialRules(raw), ...selectedSpecialRules(raw, options), ...spellLikeSpecialRules(raw)],
     keywords: [],
     minimumModels: minimumModels(raw),
     maximumModels: maximumModels(raw),
@@ -524,7 +547,12 @@ function makeCatalogUnit(raw: RawBuilderUnit, category: BuilderCategory, armyNam
     mustBeGeneral: namedGeneralRequirement(raw, compositionId),
     cannotBeGeneral: /\bcannot be (?:your|the) general\b/i.test(noteText(raw.notes)),
     compositionNotes: (() => { const composition = isRecord(raw.armyComposition) ? raw.armyComposition : null; const entry = composition?.[compositionId]; return isRecord(entry) ? [noteText(entry.notes)].filter(Boolean) : [] })(),
-    lores: (Array.isArray(raw.lores) ? raw.lores : []).map((value: unknown) => text(value) || String(value)).filter(Boolean),
+    lores: [...new Set([
+      ...(Array.isArray(raw.lores) ? raw.lores : []),
+      ...(Array.isArray(raw.magicLores) ? raw.magicLores : []),
+      ...(Array.isArray(raw.prayerLores) ? raw.prayerLores : []),
+      ...(Array.isArray(raw.prayersLores) ? raw.prayersLores : []),
+    ].map((value: unknown) => text(value)).filter(Boolean))],
     baseWizardLevel: sourceWizardStartingLevel(raw) || undefined,
     additionalDetails: additionalUnitDetails(raw),
     mixedWeaponAllocation: weapons.some((weapon) => weapon.selectionMode === 'per-model-count'),

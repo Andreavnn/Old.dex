@@ -7,6 +7,7 @@ import { armies, getArmy, type ArmyComposition } from '../data/armies'
 import { loadLiveArmyCompositions } from '../data/liveBuilderUnits'
 import {
   battleMarchLockedOptions,
+  compositionOptionDescription,
   compositionOptions,
   emptyCompositionOptionState,
   compositionRules,
@@ -39,6 +40,7 @@ const pointMinimum = computed(() => compositionRule.value === 'battle-march' ? 5
 const pointMaximum = computed(() => compositionRule.value === 'battle-march' ? 750 : 10000)
 const listNamePlaceholder = computed(() => selectedArmy.value?.name || 'My Old World Army')
 const selectedCompositionOptions = computed(() => compositionOptions.filter((option) => compositionOptionState.value[option.value]))
+const selectedCompositionOptionDetails = computed(() => selectedCompositionOptions.value.map((option) => ({ ...option, description: compositionOptionDescription(option.value) })).filter((option) => option.description))
 const displayCompositions = computed(() => {
   const seen = new Set<string>()
   return availableCompositions.value.filter((item) => {
@@ -238,6 +240,11 @@ function createList() {
         </label>
       </fieldset>
 
+      <details v-if="selectedCompositionOptionDetails.length" class="composition-option-details">
+        <summary>Selected option details <span>{{ selectedCompositionOptionDetails.length }}</span></summary>
+        <div class="composition-option-detail-list"><article v-for="option in selectedCompositionOptionDetails" :key="option.value"><strong>{{ option.label }}</strong><p>{{ option.description }}</p></article></div>
+      </details>
+
       <div class="points-field-wrap">
         <label class="field-label">Points limit
           <input
@@ -268,6 +275,7 @@ function createList() {
         <textarea v-model="description" class="field-control field-textarea" maxlength="255" rows="3" placeholder="Optional list notes"></textarea>
       </label>
 
+      <RouterLink to="/lists" class="secondary-button create-list-cancel">Cancel</RouterLink>
       <button type="submit" class="primary-button create-list-button" :disabled="!selectedArmy || !armyComposition || !compositionRule">Create list</button>
     </form>
   </main>

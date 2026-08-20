@@ -162,6 +162,7 @@ export function parseBuilderRosterSelection(value: unknown): BuilderRosterSelect
     magicPools,
     weaponCounts: numberRecord(value.weaponCounts),
     equipmentCounts: numberRecord(value.equipmentCounts),
+    loreSelections: strings(value.loreSelections),
   }
 }
 
