@@ -179,7 +179,7 @@ function createList() {
     <div class="page-title-block">
       <p class="eyebrow">NEW LIST</p>
       <h1>Create Army List</h1>
-      <p>Choose the army, composition, composition rule and points limit. Create list opens the army builder.</p>
+      <p>Choose the army, composition, battle composition and points limit. Create list opens the army builder.</p>
     </div>
 
     <form class="form-card list-setup-card" @submit.prevent="createList">
@@ -217,15 +217,15 @@ function createList() {
         </label>
       </div>
 
-      <label class="field-label">Composition rule
+      <label class="field-label">Battle Composition
         <select v-model="compositionRule" class="field-control" :disabled="!armyComposition" required>
-          <option value="" disabled>{{ armyComposition ? 'Select a composition rule' : 'Select Army Composition first' }}</option>
+          <option value="" disabled>{{ armyComposition ? 'Select a battle composition' : 'Select Army Composition first' }}</option>
           <option v-for="rule in compositionRules" :key="rule.value" :value="rule.value">{{ rule.label }}</option>
         </select>
       </label>
 
-      <fieldset v-if="compositionRule" class="composition-options" aria-label="Composition rule options">
-        <legend>Composition options</legend>
+      <fieldset v-if="compositionRule" class="composition-options" aria-label="Battle Composition Options">
+        <legend>Battle Composition Options</legend>
         <label v-for="option in compositionOptions" :key="option.value" class="composition-option" :class="{ locked: optionLocked(option.value), unavailable: !optionAvailable(option.value) }">
           <input
             type="checkbox"
@@ -249,7 +249,7 @@ function createList() {
             :max="pointMaximum"
             step="50"
             :disabled="!compositionRule"
-            :placeholder="compositionRule ? '' : 'Select Composition Rule first'"
+            :placeholder="compositionRule ? '' : 'Select Battle Composition first'"
           />
         </label>
         <div v-if="compositionRule" class="point-presets" aria-label="Quick points presets">

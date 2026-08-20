@@ -66,10 +66,22 @@ async function updateBuilderRules() {
   <main class="page settings-page">
     <AppHeader />
     <div class="page-title-block">
-      <p class="eyebrow">LOCAL SETTINGS</p>
+      <p class="eyebrow">SETTINGS</p>
       <h1>Settings</h1>
-      <p>Display preferences are stored locally. Remote Builder data and rule content can also be manually refreshed without waiting for normal cache expiry.</p>
+      <p>Display preferences are stored on this device. Remote Builder data and rule content can also be manually refreshed without waiting for normal cache expiry.</p>
     </div>
+
+    <section class="settings-group" aria-label="Report bugs and issues">
+      <div class="settings-group-heading">
+        <p class="eyebrow settings-group-title">REPORT BUGS &amp; ISSUES</p>
+      </div>
+      <section class="settings-card">
+        <div class="setting-row static-row support-placeholder-row">
+          <span><strong>Bug &amp; issue reporting</strong><small>A direct Old.dex issue-reporting workflow will be added here in a later build.</small></span>
+          <span class="value-chip">COMING SOON</span>
+        </div>
+      </section>
+    </section>
 
     <section class="settings-group" aria-label="Display settings">
       <div class="settings-group-heading">
@@ -100,6 +112,26 @@ async function updateBuilderRules() {
           <span><strong>Bold text</strong><small>Increase the weight of normal interface and reference text.</small></span>
           <input v-model="boldText" type="checkbox" />
         </label>
+        <div class="setting-row static-row support-placeholder-row">
+          <span><strong>Themes</strong><small>Additional Old.dex visual themes will be added here in a later build.</small></span>
+          <span class="value-chip">COMING SOON</span>
+        </div>
+        <div class="setting-row reset-setting-row">
+          <span><strong>Reset local settings</strong><small>Restore the display preferences on this device to their defaults.</small></span>
+          <button class="secondary-button settings-compact-action" type="button" @click="reset">Reset</button>
+        </div>
+      </section>
+    </section>
+
+    <section class="settings-group" aria-label="Donations">
+      <div class="settings-group-heading">
+        <p class="eyebrow settings-group-title">DONATIONS</p>
+      </div>
+      <section class="settings-card">
+        <div class="setting-row static-row support-placeholder-row">
+          <span><strong>Support Old.dex</strong><small>A voluntary donation/support option will be added here later. No payment functionality is active in this build.</small></span>
+          <span class="value-chip">COMING SOON</span>
+        </div>
       </section>
     </section>
 
@@ -126,42 +158,6 @@ async function updateBuilderRules() {
         <div class="setting-row custom-data-setting-row">
           <span><strong>Custom data</strong><small>Upload custom armies, units, rules, and related Old.dex datasets. Import support will be enabled in a later build.</small></span>
           <button class="secondary-button settings-compact-action" type="button" disabled title="Custom data import is not enabled yet">Upload</button>
-        </div>
-      </section>
-    </section>
-
-    <section class="settings-group" aria-label="Report bugs and issues">
-      <div class="settings-group-heading">
-        <p class="eyebrow settings-group-title">REPORT BUGS &amp; ISSUES</p>
-      </div>
-      <section class="settings-card">
-        <div class="setting-row static-row support-placeholder-row">
-          <span><strong>Bug &amp; issue reporting</strong><small>A direct Old.dex issue-reporting workflow will be added here in a later build.</small></span>
-          <span class="value-chip">COMING SOON</span>
-        </div>
-      </section>
-    </section>
-
-    <section class="settings-group" aria-label="Donations">
-      <div class="settings-group-heading">
-        <p class="eyebrow settings-group-title">DONATIONS</p>
-      </div>
-      <section class="settings-card">
-        <div class="setting-row static-row support-placeholder-row">
-          <span><strong>Support Old.dex</strong><small>A voluntary donation/support option will be added here later. No payment functionality is active in this build.</small></span>
-          <span class="value-chip">COMING SOON</span>
-        </div>
-      </section>
-    </section>
-
-    <section class="settings-group settings-local-group" aria-label="Local settings">
-      <div class="settings-group-heading">
-        <p class="eyebrow settings-group-title">LOCAL</p>
-      </div>
-      <section class="settings-card">
-        <div class="setting-row reset-setting-row">
-          <span><strong>Reset local settings</strong><small>Restore the display preferences on this device to their defaults.</small></span>
-          <button class="secondary-button settings-compact-action" type="button" @click="reset">Reset</button>
         </div>
       </section>
     </section>

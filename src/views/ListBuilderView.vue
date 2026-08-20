@@ -177,7 +177,7 @@ const untouchedMagicPools = computed(() => roster.value.flatMap((row) => rosterM
 const hasMagicAllowanceWarning = computed(() => validationState.value === 'VALID' && untouchedMagicPools.value.length > 0)
 async function loadValidationData() {
   validationDataError.value = ''
-  try { compositionRuleData.value = await loadCompositionRules() } catch (error) { reportAppError(error, 'LIST_BUILDER_COMPOSITION_RULES'); validationDataError.value = error instanceof Error ? error.message : 'Composition rules could not be loaded.' }
+  try { compositionRuleData.value = await loadCompositionRules() } catch (error) { reportAppError(error, 'LIST_BUILDER_COMPOSITION_RULES'); validationDataError.value = error instanceof Error ? error.message : 'Battle composition rules could not be loaded.' }
 }
 
 function hasRole(row: BuilderRosterSelection, pattern: RegExp) { return (row.options || []).some((option) => pattern.test(option.replace(/\s*[×x]\d+\s*$/, '').trim())) }
@@ -211,28 +211,34 @@ function categoryRulePoints(category: DisplayCategory) {
 function categoryPercent(category: DisplayCategory) {
   return points.value > 0 ? Math.round((categoryRulePoints(category) / points.value) * 1000) / 10 : 0
 }
-function categoryAllowance(category: DisplayCategory) {
+type CategoryAllowanceDisplay = { points: number; percent: number; qualifier: 'Needed' | 'Maximum'; state: 'required' | 'met' | 'left' | 'over' }
+function categoryAllowance(category: DisplayCategory): CategoryAllowanceDisplay | null {
   if (category === 'General' || category === 'Battle Standard Bearer') return null
   const composition = compositionRuleData.value?.[selectedComposition.value.id] || compositionRuleData.value?.['grand-army']
   const rules = composition?.[categoryRuleKey(category)]
   if (!rules) return null
   const spent = categoryRulePoints(category)
-  if (category === 'Core' && typeof rules.minPercent === 'number') {
+  if (typeof rules.minPercent === 'number' && (category === 'Core' || typeof rules.maxPercent !== 'number')) {
     const minimum = Math.ceil(points.value * rules.minPercent / 100)
-    const toMinimum = Math.max(0, minimum - spent)
-    return { text: toMinimum > 0 ? `${toMinimum} pts required — ${rules.minPercent}% minimum` : `${minimum} pts minimum met — ${rules.minPercent}% minimum`, state: toMinimum > 0 ? 'required' : 'met' }
+    const left = Math.max(0, minimum - spent)
+    return { points: left, percent: rules.minPercent, qualifier: 'Needed', state: left > 0 ? 'required' : 'met' }
   }
   if (typeof rules.maxPercent === 'number') {
     const maximum = Math.floor(points.value * rules.maxPercent / 100)
     const left = maximum - spent
-    return { text: left >= 0 ? `${left} pts left — ${rules.maxPercent}% maximum` : `${Math.abs(left)} pts over — ${rules.maxPercent}% maximum`, state: left >= 0 ? 'left' : 'over' }
+    return { points: left, percent: rules.maxPercent, qualifier: 'Maximum', state: left >= 0 ? 'left' : 'over' }
   }
   if (typeof rules.minPercent === 'number') {
     const minimum = Math.ceil(points.value * rules.minPercent / 100)
-    const toMinimum = Math.max(0, minimum - spent)
-    return { text: toMinimum > 0 ? `${toMinimum} pts required — ${rules.minPercent}% minimum` : `${minimum} pts minimum met — ${rules.minPercent}% minimum`, state: toMinimum > 0 ? 'required' : 'met' }
+    const left = Math.max(0, minimum - spent)
+    return { points: left, percent: rules.minPercent, qualifier: 'Needed', state: left > 0 ? 'required' : 'met' }
   }
   return null
+}
+function categoryAllowancePointsText(category: DisplayCategory) {
+  const allowance = categoryAllowance(category)
+  if (!allowance) return ''
+  return allowance.state === 'over' ? `${Math.abs(allowance.points)} pts over` : `${Math.max(0, allowance.points)} pts left`
 }
 function openPicker(category: DisplayCategory) {
   if (listLocked.value || category === 'General' || category === 'Battle Standard Bearer' || category === 'Custom Units') return
@@ -410,7 +416,7 @@ async function applySettings() {
 
       <div class="builder-category-stack">
         <details v-for="category in categories" :key="category" class="builder-category-card" :open="unitsInCategory(category).length > 0 || category === 'Characters' || category === 'Core' || category === 'Custom Units'">
-          <summary class="builder-category-summary"><span>{{ category }}</span><span v-if="!isRoleDisplayCategory(category)" class="builder-category-summary-meta"><small>{{ categorySelectedCount(category) }} selected</small><span class="category-meta-separator" aria-hidden="true">—</span><strong>{{ categoryPoints(category) }} pts — {{ categoryPercent(category) }}%</strong><template v-if="categoryAllowance(category)"><span class="category-meta-separator" aria-hidden="true">/</span><em class="category-allowance" :class="`is-${categoryAllowance(category)?.state}`">{{ categoryAllowance(category)?.text }}</em></template></span></summary>
+          <summary class="builder-category-summary"><span>{{ category }}</span><span v-if="!isRoleDisplayCategory(category)" class="builder-category-summary-meta"><small>{{ categorySelectedCount(category) }} Selected</small><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPoints(category) }} pts</strong><template v-if="categoryAllowance(category)"><span class="category-meta-separator" aria-hidden="true">/</span><em class="category-allowance" :class="`is-${categoryAllowance(category)?.state}`">{{ categoryAllowancePointsText(category) }} ({{ categoryAllowance(category)?.qualifier }})</em><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPercent(category) }}% / {{ categoryAllowance(category)?.percent }}%</strong></template><template v-else><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPercent(category) }}%</strong></template></span></summary>
           <div class="builder-category-body">
             <div v-if="unitsInCategory(category).length" class="builder-unit-stack">
               <BuilderUnitEntry v-for="row in unitsInCategory(category)" :key="row.instanceId" :row="row" :army-slug="selectedArmy.slug" :return-path="route.fullPath" :composition-id="selectedComposition.id" :locked="listLocked" :invalid="invalidInstanceIds.has(row.instanceId)" @remove="removeUnit(row.instanceId)" @duplicate="duplicateUnit(row)" />
@@ -449,9 +455,9 @@ async function applySettings() {
         <div class="list-settings-fields">
           <label class="field-label">List name<input v-model="settingsName" class="field-control" type="text" maxlength="100" /></label>
           <label class="field-label">Army composition<select v-model="settingsComposition" class="field-control"><option v-for="composition in liveCompositions" :key="composition.id" :value="composition.id">{{ composition.name }}</option></select></label>
-          <label class="field-label">Composition rule<select v-model="settingsRule" class="field-control"><option v-for="rule in compositionRules" :key="rule.value" :value="rule.value">{{ rule.label }}</option></select></label>
+          <label class="field-label">Battle Composition<select v-model="settingsRule" class="field-control"><option v-for="rule in compositionRules" :key="rule.value" :value="rule.value">{{ rule.label }}</option></select></label>
           <div class="points-field-wrap"><label class="field-label">Points limit<input v-model.number="settingsPoints" class="field-control" type="number" inputmode="numeric" :min="settingsRule === 'battle-march' ? 500 : 0" :max="settingsRule === 'battle-march' ? 750 : 10000" step="50" /></label><div class="point-presets" aria-label="Quick points presets"><button v-for="preset in settingsPointPresets" :key="preset" type="button" :class="['point-preset', { active: settingsPoints === preset }]" @click="settingsPoints = preset">{{ preset }}</button></div><p v-if="settingsRule === 'battle-march'" class="form-note points-rule-note">Battle March uses 500–750 point armies.</p></div>
-          <fieldset class="composition-options" aria-label="Composition options"><legend>Composition options</legend><label v-for="option in compositionOptions" :key="option.value" class="composition-option" :class="{ locked: settingsOptionLocked(option.value), unavailable: !settingsOptionAvailable(option.value) }"><input type="checkbox" :checked="settingsOptionState[option.value]" :disabled="settingsOptionDisabled(option.value)" @change="handleSettingsOption(option.value, $event)" /><span>{{ option.label }}</span><small v-if="settingsOptionLocked(option.value)">Required</small><small v-else-if="!settingsOptionAvailable(option.value)">Not available</small></label></fieldset>
+          <fieldset class="composition-options" aria-label="Battle Composition Options"><legend>Battle Composition Options</legend><label v-for="option in compositionOptions" :key="option.value" class="composition-option" :class="{ locked: settingsOptionLocked(option.value), unavailable: !settingsOptionAvailable(option.value) }"><input type="checkbox" :checked="settingsOptionState[option.value]" :disabled="settingsOptionDisabled(option.value)" @change="handleSettingsOption(option.value, $event)" /><span>{{ option.label }}</span><small v-if="settingsOptionLocked(option.value)">Required</small><small v-else-if="!settingsOptionAvailable(option.value)">Not available</small></label></fieldset>
         </div>
         <div class="list-settings-actions"><button type="button" class="secondary-button" @click="settingsOpen = false">Cancel</button><button type="button" class="primary-button" @click="applySettings">Apply settings</button></div>
       </section>

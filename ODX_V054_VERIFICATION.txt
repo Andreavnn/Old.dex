@@ -1,0 +1,23 @@
+Old.dex Alpha Build 0.54 — Verification
+========================================
+
+Canonical source pass only. No standalone-preview patching was used.
+
+Local verification completed:
+- ODX static analysis: PASS
+- Source files checked: 64
+- Regression/contract tests: 102 passed, 0 failed
+- CSS historical version markers: 0
+- Existing !important declarations: 13
+
+Coverage added/confirmed in this pass:
+- Title-cased special-rule callout keyword pills
+- Special Rule / Magical Item type-pill navigation to their source page when available
+- Magical Item card layout parity with Special Rules
+- Settings section order, Themes placeholder, and Display-contained reset control
+- Header wordmark/build/changelog vertical spacing
+- Roster category Selected / points / points-left / current-target percentage presentation
+- Battle Composition / Battle Composition Options terminology
+- Existing v0.53 magical-weapon, mount-save, upgrade-profile, and rule-callout behavior retained
+
+Full vue-tsc/Vite production build is left to the connected Vercel build environment. A Ready Vercel deployment is the final production-build verification for this patch.

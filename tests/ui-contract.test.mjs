@@ -152,10 +152,11 @@ test('Dynamic profile characteristic changes preserve the user scroll position',
   assert.match(styles, /\.old-world-profile\{[^}]*overflow-anchor:none/s)
 })
 
-test('Magic-item cards use one full-width card with actions attached beneath it', () => {
+test('Magic-item cards use the same responsive two-column flow as Special Rules with actions attached beneath', () => {
   const styles = readFileSync('src/styles.css', 'utf8')
-  assert.match(styles, /\.magic-item-card-grid\{[^}]*grid-template-columns:minmax\(0,1fr\)/s)
-  assert.match(styles, /\.selected-magic-rule-card\{[^}]*display:block[^}]*width:100%/s)
+  assert.match(styles, /\.magic-item-card-grid\{[^}]*column-count:2[^}]*column-gap:10px/s)
+  assert.match(styles, /\.magic-item-card-grid>\.selected-magic-rule-card\{[^}]*display:inline-block[^}]*break-inside:avoid/s)
+  assert.match(styles, /@media\(max-width:800px\)\{\.magic-item-card-grid\{column-count:1\}\}/)
   assert.match(styles, /\.magic-item-card-actions\{[^}]*width:100%/s)
 })
 
@@ -192,7 +193,9 @@ test('Sentence-like rule callouts are split from the title and rendered as linke
   const presentation = readFileSync('src/domain/rulePresentation.ts', 'utf8')
   assert.match(card, /splitRuleCallout\(props\.rule\.name\)/)
   assert.match(presentation, /doesn\['’\]\?t/)
-  assert.match(card, /rows\.push\(\{ label: displayRule\.value\.callout, path: ownPath \}\)/)
+  assert.match(card, /rows\.push\(\{ label: ruleCalloutLabel\(displayRule\.value\.callout\), path: ownPath \}\)/)
+  assert.match(presentation, /export function ruleCalloutLabel/)
+  assert.match(card, /RouterLink v-if="ownRulePath" class="rule-kind-pill"/)
   assert.match(card, /old-rule-name">\{\{ displayRule\.title \}\}/)
 })
 
@@ -216,8 +219,32 @@ test('Roster shows percentages next to point totals and allowance requirements',
   assert.match(builder, /rosterPercentUsed/)
   assert.match(builder, /remainingPercent/)
   assert.match(builder, /categoryPercent\(category\)/)
-  assert.match(builder, /pts required — \$\{rules\.minPercent\}% minimum/)
-  assert.match(builder, /pts left — \$\{rules\.maxPercent\}% maximum/)
+  assert.match(builder, /qualifier: 'Needed'/)
+  assert.match(builder, /qualifier: 'Maximum'/)
+  assert.match(builder, /categoryAllowancePointsText\(category\)/)
+  assert.match(builder, /\{\{ categorySelectedCount\(category\) \}\} Selected/)
+  assert.match(builder, /\{\{ categoryPercent\(category\) \}\}% \/ \{\{ categoryAllowance\(category\)\?\.percent \}\}%/)
+})
+
+test('Settings hierarchy keeps Report first, reset and Themes inside Display, Donations before Data & Content, and removes Local', () => {
+  const settings = readFileSync('src/views/SettingsView.vue', 'utf8')
+  const report = settings.indexOf('REPORT BUGS &amp; ISSUES')
+  const display = settings.indexOf('>DISPLAY<')
+  const donations = settings.indexOf('>DONATIONS<')
+  const data = settings.indexOf('DATA &amp; CONTENT')
+  assert.ok(report >= 0 && display > report && donations > display && data > donations)
+  assert.match(settings, /<strong>Themes<\/strong>/)
+  assert.match(settings, /<strong>Reset local settings<\/strong>/)
+  assert.doesNotMatch(settings, />LOCAL</)
+})
+
+test('List setup uses Battle Composition and Battle Composition Options terminology', () => {
+  const create = readFileSync('src/views/CreateListView.vue', 'utf8')
+  const builder = readFileSync('src/views/ListBuilderView.vue', 'utf8')
+  assert.match(create, />Battle Composition\s*</)
+  assert.match(create, /Battle Composition Options/)
+  assert.match(builder, />Battle Composition<select/)
+  assert.match(builder, /Battle Composition Options/)
 })
 
 test('Composition option labels use the clarified magic and unit wording', () => {

@@ -50,15 +50,15 @@ button { color: inherit; }
 .page { width: min(760px, calc(100% - 28px)); margin: 0 auto; padding: 18px 0 52px; }
 
 .app-header {
-  min-height: 76px;
+  min-height: 84px;
   display: grid;
   grid-template-columns: 44px 1fr 44px;
   align-items: center;
   margin-bottom: 18px;
 }
-.app-header.compact { min-height: 62px; margin-bottom: 8px; }
+.app-header.compact { min-height: 72px; margin-bottom: 8px; }
 .header-spacer { width: 44px; }
-.brand { justify-self: center; display: inline-flex; text-decoration: none; letter-spacing: .075em; font-weight: 900; font-size: calc(27px + var(--font-offset)); line-height: 1; }
+.brand { justify-self: center; display: inline-flex; text-decoration: none; letter-spacing: .075em; font-weight: 900; font-size: calc(27px + var(--font-offset)); line-height: 1.05; }
 .brand-old { color: var(--ink); }
 .brand-dot { color: var(--accent); margin: 0 1px; }
 .brand-dex { color: var(--accent-dark); }
@@ -1530,9 +1530,9 @@ a.list-row:hover { background: #f6f3ec; }
   .builder-unit-entry{padding:11px 10px}
   .builder-unit-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-.brand{flex-direction:column;align-items:center;gap:3px}
-.brand-wordmark{display:inline-flex;align-items:baseline}
-.alpha-build{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:8px;line-height:1;letter-spacing:.16em;color:var(--ink-soft);font-weight:800}
+.brand{flex-direction:column;align-items:center;gap:5px}
+.brand-wordmark{display:inline-flex;align-items:baseline;line-height:1}
+.alpha-build{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:8px;line-height:1.25;letter-spacing:.16em;color:var(--ink-soft);font-weight:800;margin-top:1px}
 
 .app-option-label,
 .list-builder-page .builder-list-meta span,
@@ -1855,14 +1855,15 @@ a.list-row:hover { background: #f6f3ec; }
   display:grid;
   justify-items:center;
   align-content:center;
-  gap:2px;
+  gap:6px;
   min-width:0;
+  padding-block:3px;
 }
 .brand-stack .brand{margin:0}
 .changelog-link{
   font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   font-size:calc(7px + var(--font-offset));
-  line-height:1.05;
+  line-height:1.25;
   color:var(--ink-soft);
   text-decoration:underline;
   text-underline-offset:2px;
@@ -2086,7 +2087,7 @@ a.list-row:hover { background: #f6f3ec; }
   border-radius:999px;
 }
 .old-rule-pill-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
-.rule-kind-pill{min-height:24px;padding:2px 8px;border:1px solid color-mix(in srgb,var(--rule-tone) 35%,var(--line));background:color-mix(in srgb,var(--rule-tone) 9%,var(--paper));color:var(--rule-tone);font-size:calc(8px + var(--font-offset));font-weight:900;letter-spacing:.015em;white-space:nowrap}
+.rule-kind-pill{min-height:24px;padding:2px 8px;border:1px solid color-mix(in srgb,var(--rule-tone) 35%,var(--line));background:color-mix(in srgb,var(--rule-tone) 9%,var(--paper));color:var(--rule-tone);font-size:calc(8px + var(--font-offset));font-weight:900;letter-spacing:.015em;white-space:nowrap;text-decoration:none}
 .old-rule-phase{border-radius:999px}
 .old-rule-keywords a{padding:3px 7px;border:1px solid var(--line);background:var(--paper-2);color:var(--ink-soft);font-size:calc(8px + var(--font-offset));font-weight:750;text-decoration:none;line-height:1.25}
 .old-rule-keywords a:hover{border-color:var(--line-dark);color:var(--ink)}
@@ -2178,15 +2179,17 @@ a.list-row:hover { background: #f6f3ec; }
   background:var(--paper-2);
   color:var(--ink-soft);
 }
+a.rule-kind-pill:hover{border-color:var(--accent);background:var(--accent-wash);color:var(--ink)}
 
 /* Selected magical items are one full-width rule card with an attached footer. */
-.magic-item-card-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;width:100%;padding:0 12px 12px}
-.selected-magic-rule-card{display:block;width:100%;min-width:0}
+.magic-item-card-grid{display:block;column-count:2;column-gap:10px;column-fill:balance;width:100%;padding:12px}
+.magic-item-card-grid>.selected-magic-rule-card{display:inline-block;width:100%;min-width:0;margin:0 0 10px;break-inside:avoid;vertical-align:top}
 .selected-magic-rule-card>.old-rule-card{width:100%;border-bottom-left-radius:0;border-bottom-right-radius:0}
 .magic-item-card-actions{width:100%;margin-top:-1px;border-top:1px dashed var(--line);background:var(--paper-2)}
 .magic-add-row{align-items:stretch}
 .magic-add-row .secondary-button{min-height:40px}
-@media(max-width:620px){.magic-add-row{grid-template-columns:1fr}.magic-add-row .secondary-button{width:100%}}
+@media(max-width:800px){.magic-item-card-grid{column-count:1}}
+@media(max-width:620px){.magic-add-row{grid-template-columns:1fr}.magic-add-row .secondary-button{width:100%}.builder-category-summary-meta{white-space:normal}.builder-category-summary-meta strong,.builder-category-summary-meta em{white-space:normal}}
 
 /* Validation issues are readable rows, not tiny colored category pills. */
 .builder-validation-list{gap:7px}
@@ -2200,7 +2203,8 @@ a.list-row:hover { background: #f6f3ec; }
 @media(max-width:620px){.builder-validation-list li{grid-template-columns:1fr}.validation-section-label{justify-self:start}}
 
 /* Point/percentage readouts stay compact even when allowance text is longer. */
-.builder-category-summary-meta{flex-wrap:wrap;justify-content:flex-end}
+.builder-category-summary-meta{flex-wrap:wrap;justify-content:flex-end;row-gap:3px}
+.builder-category-summary-meta strong,.builder-category-summary-meta em{white-space:nowrap}
 .category-allowance{white-space:normal;text-align:right}
 .builder-points-orb small+small{margin-top:1px}
 

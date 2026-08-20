@@ -2,6 +2,14 @@
 
 This is the canonical duplicate-free project history. The in-app Changelog mirrors these same entries. Repeated correction passes are consolidated into the build or build range where the behavior became part of the application source.
 
+## Alpha Build 0.54 — Rule-card links, settings hierarchy, and roster category accounting
+
+- Capitalized special-rule callout keyword pills and linked Special Rule/Magical Item type pills directly to their underlying rule or item pages when available.
+- Matched selected Magical Item cards to the same responsive two-column card flow used by Special Rules while retaining their attached owner, points, quantity, and removal controls.
+- Reordered Settings so reporting appears first, moved reset controls and a Themes placeholder into Display, removed the separate Local section, and placed Donations immediately above Data & Content.
+- Improved OLD.DEX/build/Changelog header spacing and changed roster category summaries to show selected count, points, allowance/requirement remaining, and current-versus-target percentages in one line.
+- Renamed Composition Rule to Battle Composition and Composition Options to Battle Composition Options throughout list creation and list settings.
+
 ## Alpha Build 0.53 — Profile semantics, roster presentation, and project-history reconciliation
 
 - Cleaned Magical Item and Army validation presentation, neutralized Special Rule/Magical Item type keywords, and centered the profile favorite control.

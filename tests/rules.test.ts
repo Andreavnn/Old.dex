@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { battleMarchPointPresets, emptyCompositionOptionState, normalizePointsForRule } from '../src/data/listBuilder'
 import type { BuilderRosterSelection } from '../src/domain/rosterTypes'
 import { validateRoster } from '../src/services/rosterValidation'
+import { ruleCalloutLabel, splitRuleCallout } from '../src/domain/rulePresentation'
 
 function row(id: string, category: BuilderRosterSelection['category'], options: string[] = []): BuilderRosterSelection {
   return { instanceId: id, unitId: id, name: id, category, totalPoints: 100, basePoints: 100, unitSize: '10 models', modelCount: 10, options, specialRules: [], keywords: [], magicItems: [] }
@@ -47,4 +48,12 @@ test('Limit 1 Magic rejects a second item from the same magic-item category acro
   roster[1].magicItems = [magicItem('two', 'Two')]
   const issues = validate(roster, ['limit-one-magic'])
   assert.ok(issues.some((issue) => /Magical Category - Limit 1 allows only one Magic Weapon/i.test(issue.message)))
+})
+
+
+test('Rule callout labels are capitalized like other rule pills without changing the underlying callout text', () => {
+  const split = splitRuleCallout("Furious Charge (doesn't apply to a mount)")
+  assert.equal(split.title, 'Furious Charge')
+  assert.equal(split.callout, "doesn't apply to a mount")
+  assert.equal(ruleCalloutLabel(split.callout), "Doesn't Apply to a Mount")
 })

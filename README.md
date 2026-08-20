@@ -1,4 +1,4 @@
-# Old.dex GUI v0.53
+# Old.dex GUI v0.54
 
 Old.dex is an alpha Warhammer: The Old World army-list and rules-reference application. The Vue/TypeScript application in `src/` is the only implementation source; Vercel builds that source directly for the hosted review site.
 
@@ -6,7 +6,7 @@ Old.dex is an alpha Warhammer: The Old World army-list and rules-reference appli
 
 ## Current build
 
-Alpha Build 0.53 focuses on shared profile semantics and presentation: magic/validation UI cleanup, magical-attack keywords, mount armour-contribution display, upgrade-profile replacement, clearer composition labels and roster percentages, Settings support placeholders, application-wide WIP messaging, and changelog reconciliation.
+Alpha Build 0.54 focuses on rule-card navigation, Settings hierarchy, header spacing, Magical Item card parity, and clearer roster category accounting and battle-composition terminology.
 
 ## Canonical changelog
 
