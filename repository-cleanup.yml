@@ -1,0 +1,84 @@
+name: Repository cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply_changes:
+        description: 'Commit and push cleanup changes (leave off for a dry run)'
+        required: true
+        type: boolean
+        default: false
+      keep_verification:
+        description: 'Verification file to keep at repository root'
+        required: true
+        type: string
+        default: 'ODX_V062_VERIFICATION.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find generated patch artifacts
+        shell: bash
+        env:
+          KEEP_VERIFICATION: ${{ inputs.keep_verification }}
+        run: |
+          set -euo pipefail
+          echo "Cleanup candidates (source files are never included):"
+          find . -maxdepth 1 -type f \( \
+            -name 'ODX_V*_VERIFICATION.txt' -o \
+            -name 'README-V*-UPLOAD.txt' -o \
+            -name 'README_BUILD_FIX.txt' -o \
+            -name 'Old.dex-v*-DIRECT-SOURCE.zip' -o \
+            -name 'olddex-gui-v*.zip' -o \
+            -name 'olddex-gui-v*.tar.gz' -o \
+            -name '*-preview.html' \
+          \) -print | sort
+
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            if [ "$(basename "$file")" = "$KEEP_VERIFICATION" ]; then
+              echo "Keeping $file"
+              continue
+            fi
+            rm -f -- "$file"
+          done < <(find . -maxdepth 1 -type f \( \
+            -name 'ODX_V*_VERIFICATION.txt' -o \
+            -name 'README-V*-UPLOAD.txt' -o \
+            -name 'README_BUILD_FIX.txt' -o \
+            -name 'Old.dex-v*-DIRECT-SOURCE.zip' -o \
+            -name 'olddex-gui-v*.zip' -o \
+            -name 'olddex-gui-v*.tar.gz' -o \
+            -name '*-preview.html' \
+          \) -print)
+
+          echo
+          echo "Proposed changes:"
+          git status --short
+
+      - name: Commit cleanup
+        if: ${{ inputs.apply_changes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "Nothing to clean."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'chore: clean generated repository artifacts'
+          git push
+
+      - name: Dry-run reminder
+        if: ${{ ! inputs.apply_changes }}
+        run: echo 'Dry run only. Re-run this workflow with apply_changes enabled to commit the cleanup.'
