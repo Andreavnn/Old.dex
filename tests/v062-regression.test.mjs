@@ -6,6 +6,7 @@ const read = (path) => readFileSync(path, 'utf8')
 const index = read('index.html')
 const manifest = JSON.parse(read('public/manifest.webmanifest'))
 const main = read('src/main.ts')
+const installApp = read('src/services/installApp.ts')
 const settings = read('src/views/SettingsView.vue')
 const styles = read('src/styles.css')
 const home = read('src/views/HomeView.vue')
@@ -27,7 +28,8 @@ test('v0.62 is installable as a PWA and uses the supplied Old.dex icon assets', 
   for (const path of ['public/icons/favicon-64.png', 'public/icons/apple-touch-icon.png', 'public/icons/icon-192.png', 'public/icons/icon-512.png', 'public/sw.js']) assert.equal(existsSync(path), true, `missing ${path}`)
   assert.match(main, /navigator\.serviceWorker\.register\('\/sw\.js'\)/)
   assert.match(settings, /Install Old\.dex/)
-  assert.match(settings, /beforeinstallprompt/)
+  assert.match(installApp, /beforeinstallprompt/)
+  assert.match(settings, /useInstallApp/)
 })
 
 test('v0.62 Support actions are tightened without growing to equal fixed widths', () => {

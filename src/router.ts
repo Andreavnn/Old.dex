@@ -13,12 +13,15 @@ import ListView from './views/ListView.vue'
 import RuleReaderView from './views/RuleReaderView.vue'
 import RuleIndexGroupView from './views/RuleIndexGroupView.vue'
 import ChangelogView from './views/ChangelogView.vue'
+import WelcomeView from './views/WelcomeView.vue'
+import { hasSeenWelcome } from './services/welcome'
 
 const router = createRouter({
   history: createWebHistory(),
   scrollBehavior: () => ({ top: 0 }),
   routes: [
     { path: '/', redirect: '/lists' },
+    { path: '/welcome', name: 'welcome', component: WelcomeView },
     { path: '/lists', name: 'lists', component: HomeView },
     { path: '/lists/create', name: 'create-list', component: CreateListView },
     { path: '/lists/builder', name: 'list-builder', component: ListBuilderView },
@@ -34,6 +37,11 @@ const router = createRouter({
     { path: '/settings', name: 'settings', component: SettingsView },
     { path: '/changelog', name: 'changelog', component: ChangelogView },
   ],
+})
+
+router.beforeEach((to) => {
+  if (to.name === 'welcome' || hasSeenWelcome()) return true
+  return { name: 'welcome', query: { continue: to.fullPath } }
 })
 
 export default router

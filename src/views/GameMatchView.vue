@@ -3,9 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import { compositionOptions, compositionRuleLabel } from '../data/listBuilder'
-import { completeSavedGame, gameWorkflow, getSavedGame, updateSavedGame, type GameMagicCaster, type GameSide, type SavedGame } from '../services/games'
+import { completeSavedGame, deleteSavedGame, gameWorkflow, getSavedGame, resetSavedGame, updateSavedGame, type GameMagicCaster, type GameOutcome, type GameSide, type SavedGame } from '../services/games'
 import { getSavedArmyList } from '../services/savedLists'
-import { hydrateFriendlyMagicSetup, loadMagicChoices, magicSelectionLimit } from '../services/gameSetup'
+import { hydrateFriendlyMagicSetup, loadMagicChoices, loadScenarioGuidance, magicSelectionLimit, randomHappeningOptions } from '../services/gameSetup'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,6 +14,7 @@ const notes = ref('')
 const magicCasters = ref<GameMagicCaster[]>([])
 const magicLoading = ref(false)
 const magicChoiceLoading = ref(new Set<string>())
+const scenarioLoading = ref(false)
 
 const phase = computed(() => game.value ? gameWorkflow[Math.min(game.value.phaseIndex, gameWorkflow.length - 1)] : null)
 const step = computed(() => phase.value && game.value ? phase.value.steps[Math.min(game.value.stepIndex, phase.value.steps.length - 1)] : null)
@@ -36,6 +37,14 @@ const playerCompositionRule = computed(() => compositionRuleLabel(game.value?.pl
 const opponentCompositionRule = computed(() => { const rule = game.value?.opponentCompositionRule || opponentListFallback.value?.rule || ''; return rule ? compositionRuleLabel(rule) : '—' })
 const playerOptionLabels = computed(() => (game.value?.playerOptions || playerListFallback.value?.options || []).map((id) => compositionOptions.find((option) => option.value === id)?.label || id))
 
+const roundLimit = computed(() => Math.max(1, Number(game.value?.roundLimit || game.value?.scenarioGuidance?.roundLimit || 6)))
+const battleStarted = computed(() => Boolean(game.value?.battleStarted))
+const roundsComplete = computed(() => Boolean(game.value && game.value.roundsCompleted >= roundLimit.value))
+const battleMarchEnabled = computed(() => String(game.value?.playerCompositionRule || playerListFallback.value?.rule || '').toLowerCase() === 'battle-march' || playerCompositionRule.value.toLowerCase().includes('battle march'))
+const selectedBattlefieldConditions = computed(() => new Set(game.value?.battlefieldConditions || []))
+const battlefieldConditionRows = computed(() => randomHappeningOptions.filter((option) => selectedBattlefieldConditions.value.has(option.id)))
+const scenarioGuidance = computed(() => game.value?.scenarioGuidance || null)
+
 watch(stepKey, () => { notes.value = game.value?.stepNotes?.[stepKey.value] || '' }, { immediate: true })
 watch(() => step.value?.id, () => { if (isSetupSpellsStep.value) void preloadMagicChoices() })
 
@@ -56,16 +65,45 @@ function advance() {
   if (!game.value || !phase.value || isReadOnly.value) return
   saveNotes()
   if (game.value.stepIndex < phase.value.steps.length - 1) { persist({ stepIndex: game.value.stepIndex + 1 }); return }
+
+  // After the battle begins, Overview is a between-turn dashboard and should
+  // return to Strategy rather than re-entering Deployment.
+  if (phase.value.id === 'overview' && battleStarted.value) {
+    persist({ phaseIndex: 3, stepIndex: 0 })
+    return
+  }
+
+  // Deployment hands control to the recorded first player and begins Round 1.
+  if (phase.value.id === 'deployment') {
+    const firstSide = game.value.firstPlayerConfirmed ? game.value.firstPlayer : game.value.activeSide
+    persist({ phaseIndex: 3, stepIndex: 0, activeSide: firstSide, battleStarted: true, round: 1 })
+    return
+  }
+
   if (game.value.phaseIndex < gameWorkflow.length - 1) { persist({ phaseIndex: game.value.phaseIndex + 1, stepIndex: 0 }); return }
-  const nextSide: GameSide = game.value.activeSide === 'player' ? 'opponent' : 'player'
-  const nextRound = game.value.activeSide === 'opponent' ? game.value.round + 1 : game.value.round
-  persist({ activeSide: nextSide, round: nextRound, phaseIndex: 1, stepIndex: 0 })
+
+  // The End phase finishes one player's turn. A round is complete after the
+  // player who went second has finished their End phase.
+  const firstSide = game.value.firstPlayerConfirmed ? game.value.firstPlayer : 'player'
+  const secondSide: GameSide = firstSide === 'player' ? 'opponent' : 'player'
+  if (game.value.activeSide === firstSide) {
+    persist({ activeSide: secondSide, phaseIndex: 1, stepIndex: 0, battleStarted: true })
+    return
+  }
+
+  const completed = Math.min(roundLimit.value, game.value.roundsCompleted + 1)
+  if (completed >= roundLimit.value) {
+    persist({ roundsCompleted: completed, battleStarted: true })
+    return
+  }
+  persist({ roundsCompleted: completed, round: game.value.round + 1, activeSide: firstSide, phaseIndex: 1, stepIndex: 0, battleStarted: true })
 }
 function back() {
   if (!game.value || !phase.value || isReadOnly.value) return
   saveNotes()
   if (game.value.stepIndex > 0) { persist({ stepIndex: game.value.stepIndex - 1 }); return }
   if (game.value.phaseIndex > 0) {
+    if (battleStarted.value && phase.value.id === 'strategy') { persist({ phaseIndex: 1, stepIndex: 0 }); return }
     const previous = gameWorkflow[game.value.phaseIndex - 1]
     persist({ phaseIndex: game.value.phaseIndex - 1, stepIndex: Math.max(0, previous.steps.length - 1) })
   }
@@ -79,11 +117,34 @@ function adjustScore(side: GameSide, delta: number) {
   if (side === 'player') persist({ playerScore: Math.max(0, game.value.playerScore + delta) })
   else persist({ opponentScore: Math.max(0, game.value.opponentScore + delta) })
 }
-function finishMatch() {
+function finishMatch(outcome: GameOutcome = 'completed') {
   if (!game.value || isReadOnly.value) return
+  if (outcome === 'completed' && !roundsComplete.value) return
   saveNotes()
-  const updated = completeSavedGame(game.value.id)
+  const updated = completeSavedGame(game.value.id, outcome)
   if (updated) game.value = updated
+}
+function cancelMatch() {
+  if (!game.value || isReadOnly.value || typeof window === 'undefined') return
+  if (!window.confirm('Cancel this match? The saved match and its recorded setup will be removed from this device.')) return
+  const id = game.value.id
+  deleteSavedGame(id)
+  void router.push('/games')
+}
+async function startOver() {
+  if (!game.value || isReadOnly.value || typeof window === 'undefined') return
+  if (!window.confirm('Start this match over? Scores, round progress, notes, first-turn result and match-specific magic selections will be reset.')) return
+  const updated = resetSavedGame(game.value.id)
+  if (!updated) return
+  game.value = updated
+  magicCasters.value = []
+  await hydrateMagicSetup()
+}
+function endMatchEarly(outcome: Exclude<GameOutcome, 'completed'>) {
+  if (!game.value || isReadOnly.value || !battleStarted.value || typeof window === 'undefined') return
+  const label = outcome === 'conceded' ? 'record a concession' : outcome === 'enemy-yielded' ? 'record that the enemy yielded' : 'record this match as a draw'
+  if (!window.confirm(`End the match and ${label}?`)) return
+  finishMatch(outcome)
 }
 function returnToGames() { void router.push('/games') }
 
@@ -102,6 +163,7 @@ async function hydrateMagicSetup() {
   try {
     magicCasters.value = await hydrateFriendlyMagicSetup(game.value)
     persistMagicSetup()
+    if (isSetupSpellsStep.value) await preloadMagicChoices()
   } finally {
     magicLoading.value = false
   }
@@ -147,6 +209,24 @@ function selectedChoiceNames(caster: GameMagicCaster) {
   return (caster.choices || []).filter((choice) => selected.has(choice.id)).map((choice) => choice.name)
 }
 
+async function hydrateScenarioGuidance() {
+  if (!game.value || game.value.scenarioGuidance) return
+  scenarioLoading.value = true
+  try {
+    const guidance = await loadScenarioGuidance(game.value.scenario)
+    persist({ scenarioGuidance: guidance, roundLimit: guidance.roundLimit })
+  } finally {
+    scenarioLoading.value = false
+  }
+}
+function toggleBattlefieldCondition(id: string, checked: boolean) {
+  if (!game.value || isReadOnly.value) return
+  const next = new Set(game.value.battlefieldConditions || [])
+  if (checked) next.add(id); else next.delete(id)
+  persist({ battlefieldConditions: [...next] })
+}
+function handleBattlefieldCondition(id: string, event: Event) { toggleBattlefieldCondition(id, Boolean((event.target as HTMLInputElement).checked)) }
+
 const setupTip = computed(() => {
   if (isSetupArmiesStep.value) return 'Confirm the roster, scenario and battle-composition details before deployment. Wizard lore choices are made when the model permits a choice; changing a lore here changes this match setup only and does not rewrite the saved roster.'
   if (isSetupSpellsStep.value) return 'Generate spells before deployment. For a Wizard, roll one D6 per Wizard Level and re-roll duplicates; each result selects the matching numbered spell. One generated spell may be exchanged for the signature spell. A single Wizard cannot know the same spell twice.'
@@ -154,7 +234,7 @@ const setupTip = computed(() => {
   return ''
 })
 
-onMounted(() => { void hydrateMagicSetup() })
+onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioGuidance()]) })
 </script>
 
 <template>
@@ -178,7 +258,13 @@ onMounted(() => { void hydrateMagicSetup() })
             <article class="match-roster-summary enemy"><p class="eyebrow">ENEMY GENERAL</p><h3>{{ game.opponentName }}</h3><strong>{{ game.opponentListName || 'No enemy roster selected' }}</strong><p>{{ game.opponentArmyName || 'Opponent details only' }}</p><dl><div><dt>Points</dt><dd>{{ opponentActualPoints || game.points }} / {{ game.points }}</dd></div><div><dt>Composition</dt><dd>{{ opponentCompositionName }}</dd></div><div><dt>Battle composition</dt><dd>{{ opponentCompositionRule }}</dd></div></dl></article>
           </section>
 
-          <section class="setup-scenario-card"><span class="value-chip">SCENARIO</span><div><h3>{{ game.scenario }}</h3><p>Use the scenario selected on the Create Match screen. Scenario-specific deployment and scoring checks will be surfaced as the relevant battle steps are expanded.</p></div></section>
+          <section class="setup-scenario-card"><span class="value-chip">SCENARIO</span><div><h3>{{ game.scenario }}</h3><p v-if="scenarioLoading">Loading scenario guidance…</p><p v-else>{{ scenarioGuidance?.gameLength || 'Scenario-specific deployment and scoring checks will be surfaced as the relevant battle steps are expanded.' }}</p><RouterLink v-if="scenarioGuidance?.sourcePath" :to="`/rules/read${scenarioGuidance.sourcePath}`">Open scenario rules</RouterLink></div></section>
+
+          <section v-if="battleMarchEnabled" class="setup-caster-section battlefield-condition-picker">
+            <div class="setup-section-heading"><div><p class="eyebrow">BATTLEFIELD</p><h3>Random Happenings</h3></div><span>{{ battlefieldConditionRows.length }}</span></div>
+            <p class="setup-inline-status">Mark the Battle March random-happening tables being used for this battle. They will remain visible on Overview.</p>
+            <div class="battlefield-condition-options"><label v-for="option in randomHappeningOptions" :key="option.id"><input type="checkbox" :checked="selectedBattlefieldConditions.has(option.id)" :disabled="isReadOnly" @change="handleBattlefieldCondition(option.id, $event)" /><span><strong>{{ option.label }}</strong><RouterLink :to="`/rules/read${option.path}`">Rules</RouterLink></span></label></div>
+          </section>
 
           <section class="setup-caster-section">
             <div class="setup-section-heading"><div><p class="eyebrow">FRIENDLY MAGIC</p><h3>Wizards & Priests</h3></div><span>{{ magicCasters.length }}</span></div>
@@ -222,9 +308,18 @@ onMounted(() => { void hydrateMagicSetup() })
         <div v-else-if="isOverviewStep" class="game-overview-dashboard">
           <aside class="game-tip-card"><span class="game-tip-icon">i</span><div><strong>Tip — Battle Overview</strong><p>{{ setupTip }}</p></div></aside>
           <section class="overview-status-grid">
-            <article><small>Scenario</small><strong>{{ game.scenario }}</strong></article><article><small>Battle size</small><strong>{{ game.points }} pts</strong></article><article><small>Round</small><strong>{{ game.round }}</strong></article><article><small>First turn</small><strong>{{ game.firstPlayerConfirmed ? (game.firstPlayer === 'player' ? game.playerName : game.opponentName) : 'Resolve after deployment' }}</strong></article>
+            <article><small>Scenario</small><strong>{{ game.scenario }}</strong></article><article><small>Battle size</small><strong>{{ game.points }} pts</strong></article><article><small>Round</small><strong>{{ game.round }} / {{ roundLimit }}</strong></article><article><small>Game length</small><strong>{{ roundLimit }} rounds</strong></article><article><small>Rounds complete</small><strong>{{ game.roundsCompleted }} / {{ roundLimit }}</strong></article><article><small>First turn</small><strong>{{ game.firstPlayerConfirmed ? (game.firstPlayer === 'player' ? game.playerName : game.opponentName) : 'Resolve after deployment' }}</strong></article>
           </section>
-          <section class="overview-matchup card-inset"><div><p class="eyebrow">FRIENDLY</p><h3>{{ game.playerName }}</h3><strong>{{ game.playerListName }}</strong><p>{{ game.playerArmyName }} · {{ playerActualPoints || game.points }}/{{ game.points }} pts</p></div><span>VS</span><div><p class="eyebrow">ENEMY</p><h3>{{ game.opponentName }}</h3><strong>{{ game.opponentListName || 'No enemy roster' }}</strong><p>{{ game.opponentArmyName || 'Opponent' }} · {{ opponentActualPoints || game.points }}/{{ game.points }} pts</p></div></section>
+          <section class="overview-matchup card-inset"><div><p class="eyebrow">FRIENDLY</p><h3>{{ game.playerName }}</h3><strong>{{ game.playerListName }}</strong><p>{{ game.playerArmyName }} · {{ game.playerPoints || playerActualPoints || game.points }} pts</p></div><span>—</span><div><p class="eyebrow">ENEMY</p><h3>{{ game.opponentName }}</h3><strong>{{ game.opponentListName || 'No enemy roster' }}</strong><p>{{ game.opponentArmyName || 'Opponent' }} · {{ game.opponentPoints || opponentActualPoints || 0 }} pts</p></div></section>
+
+          <section class="overview-battlefield-panel card-inset">
+            <div class="setup-section-heading"><div><p class="eyebrow">BATTLEFIELD &amp; SCENARIO</p><h3>Battle Conditions</h3></div></div>
+            <div v-if="scenarioGuidance?.specificTerrain" class="scenario-terrain-guidance"><strong>Scenario terrain guidance</strong><p>{{ scenarioGuidance.setupText }}</p><RouterLink :to="`/rules/read${scenarioGuidance.sourcePath}`">Open scenario rules</RouterLink></div>
+            <aside v-else class="game-tip-card terrain-tip"><span class="game-tip-icon">i</span><div><strong>Tip — Battlefield Terrain</strong><p>This scenario does not call for a specific terrain layout. A varied battlefield creates more movement choices, cover, obstacles and tactical decisions for both players.</p><RouterLink to="/rules/read/battlefield-terrain">Open Battlefield Terrain rules</RouterLink></div></aside>
+            <div v-if="battlefieldConditionRows.length" class="overview-condition-list"><article v-for="condition in battlefieldConditionRows" :key="condition.id"><strong>{{ condition.label }}</strong><RouterLink :to="`/rules/read${condition.path}`">Open rules</RouterLink></article></div>
+            <div v-if="scenarioGuidance?.scenarioRules.length" class="scenario-special-rule-list"><strong>Scenario special rules</strong><p v-for="rule in scenarioGuidance.scenarioRules" :key="rule">{{ rule }}</p></div>
+            <p v-if="scenarioGuidance?.gameLength" class="scenario-game-length"><strong>Game length:</strong> {{ scenarioGuidance.gameLength }}</p>
+          </section>
           <section class="overview-magic-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">PREPARED MAGIC</p><h3>Friendly Wizards & Priests</h3></div><span>{{ magicCasters.length }}</span></div><div v-if="magicCasters.length" class="overview-caster-list"><article v-for="caster in magicCasters" :key="caster.instanceId"><strong>{{ caster.name }}</strong><span>{{ caster.selectedLore || 'No lore' }}</span><small v-if="caster.kind === 'Wizard'">{{ selectedChoiceNames(caster).length ? selectedChoiceNames(caster).join(' · ') : 'Spells not recorded yet' }}</small><small v-else>Prayers available during play</small></article></div><p v-else class="setup-inline-status">No friendly Wizards or Priests detected.</p></section>
           <section class="overview-phase-progress card-inset"><p class="eyebrow">BATTLE FLOW</p><div><span v-for="(item, index) in gameWorkflow" :key="item.id" :class="{ current: game.phaseIndex === index, complete: game.phaseIndex > index }">{{ item.label }}</span></div></section>
         </div>
@@ -239,10 +334,15 @@ onMounted(() => { void hydrateMagicSetup() })
         </section>
 
         <label class="game-step-notes"><span>Step notes</span><textarea v-model="notes" :readonly="isReadOnly" rows="5" placeholder="Record targets, results, effects, or table notes for this step." @blur="saveNotes"></textarea></label>
-        <div v-if="!isReadOnly" class="game-step-actions"><button type="button" class="secondary-button" @click="back">Back</button><button type="button" class="primary-button" @click="advance">Next</button></div>
+        <div v-if="!isReadOnly" class="game-step-actions"><button type="button" class="secondary-button" :disabled="battleStarted && isOverviewStep" @click="back">Back</button><button type="button" class="primary-button" :disabled="roundsComplete && phase?.id === 'end'" @click="advance">{{ roundsComplete && phase?.id === 'end' ? 'Round limit reached' : 'Next' }}</button></div>
       </section>
 
-      <div v-if="!isReadOnly" class="game-finish-row"><button type="button" class="secondary-button danger-button" @click="finishMatch">Complete Match</button></div>
+      <div v-if="!isReadOnly" class="game-finish-row match-lifecycle-actions">
+        <button type="button" class="secondary-button danger-button" @click="cancelMatch">Cancel Match</button>
+        <button type="button" class="secondary-button" @click="startOver">Start Over</button>
+        <template v-if="battleStarted"><button type="button" class="secondary-button" @click="endMatchEarly('conceded')">Concede</button><button type="button" class="secondary-button" @click="endMatchEarly('enemy-yielded')">Enemy Yielded</button><button type="button" class="secondary-button" @click="endMatchEarly('draw')">Draw</button></template>
+        <button v-if="roundsComplete" type="button" class="primary-button" @click="finishMatch('completed')">Complete Match</button>
+      </div>
       <div v-else class="game-finish-row"><button type="button" class="secondary-button" @click="returnToGames">Return to Match History</button></div>
     </section>
     <section v-else class="empty-state card-surface"><div class="empty-icon">!</div><h2>Match not found</h2><p>This saved match is no longer available on this device.</p><RouterLink to="/games" class="primary-button">Back to Games</RouterLink></section>

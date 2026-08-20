@@ -1,28 +1,31 @@
 Old.dex Alpha Build 0.62 — verification report
 Prepared: 20 August 2026
+Hidden patch refresh: 20 August 2026
 
 PACKAGE
 Old.dex-v0.62-DIRECT-SOURCE.zip
 
 VERIFICATION STATUS
-PASS — v0.57 + v0.58 + v0.59 + v0.60 + v0.61 + v0.62 regression suite: 55/55 tests passed.
-PASS — TypeScript syntax transpilation completed without errors for 29 TypeScript/Vue script blocks in the direct-source package.
-PASS — PWA manifest parses as valid JSON and includes 192×192 and 512×512 install icons plus Apple touch and favicon assets.
-PASS — Service worker registration and install-prompt UI are included for supported browsers; iOS/iPadOS fallback guidance uses Add to Home Screen.
-PASS — Support actions use content-sized compact buttons rather than fixed equal-width boxes.
-PASS — Army Roster import status remains in the left summary area and delete-selection rows use compact card-safe layout.
-PASS — Unaffordable Magical Items are filtered from the selection list while already-selected items remain visible for removal.
-PASS — Special-rule extraction splits flattened source text, removes source/update metadata, and requires mechanical language before fallback text is surfaced. A direct Fear of Elves transport-string check returns only the mechanical sentence and drops the metadata/flavour text.
-PASS — New matches snapshot friendly/enemy roster and composition context for stable Setup/Overview display.
-PASS — Setup detects friendly Wizards/Priests from saved roster data and army-source data, supports match-only lore changes where available, records Wizard spell selections, and exposes Priest prayers.
-PASS — Setup and Overview now include contextual Tips; Overview includes matchup, scenario, battle state, prepared magic, and battle-flow summary.
-PASS — Visible application/header version references are Alpha Build 0.62 and package.json is 0.62.0.
+PASS — v0.57 + v0.58 + v0.59 + v0.60 + v0.61 + v0.62 + hidden-patch regression suite: 65/65 tests passed.
+PASS — TypeScript syntax transpilation completed without errors for 33 TypeScript/Vue script blocks in the direct-source package.
+PASS — PWA manifest/install assets remain present and the service-worker shell cache was rotated so installed clients can receive this refresh.
+PASS — Reset Local Data is a single expandable Settings panel containing Reset All plus independent Clear controls for ongoing matches, history, friendly rosters, and enemy rosters.
+PASS — Changelog build-range headings were collapsed to single build numbers in both canonical and in-app histories; no new changelog build was created for this hidden patch.
+PASS — Settings expandable-summary typography now follows the site text-size setting, including Themes, Backgrounds, and Reset Local Data; additional fixed-size interface labels were normalized where appropriate.
+PASS — First-visit routing, Welcome screen, Background 4 presentation, fan-project disclaimer, support links, and install prompt are present.
+PASS — Global Report/Install controls and stored language-choice controls are placed above the application footer on normal pages.
+PASS — Open/History match rows show Friendly General - Enemy General and friendly/enemy roster point totals.
+PASS — Setup Step 2 exposes Wizard spell checkboxes and also preloads magic choices when a saved match opens directly on the spell step.
+PASS — Overview displays round/round-limit state, scenario game-length guidance, scenario terrain guidance where present, Battle March random-happening references, and a terrain tip/rules link where the scenario does not prescribe terrain.
+PASS — Before Round 1 begins, match lifecycle actions are limited to Cancel Match and Start Over. After battle start, Concede, Enemy Yielded and Draw become available. Complete Match is gated until the configured round limit has been completed.
+PASS — A manual, dry-run-by-default GitHub Actions repository-cleanup workflow is included at .github/workflows/repository-cleanup.yml.
+PASS — Visible application/header version references remain Alpha Build 0.62 and package.json remains 0.62.0.
 
-SOURCE-RULE DATA HANDLING
-The v0.61 weapon pipeline already treats canonical Weapons of War pages as the authority and retries incomplete live pages before using a narrowly scoped canonical weapon-page supplement. v0.62 applies the same defensive principle to Special Rules: source metadata and flavour are not accepted as mechanics merely because the transport flattened them into one text block. The extractor now scores sentence-sized candidates and the UI fallback requires mechanical language. This is a general source-quality guard rather than a Fear of Elves exception.
+HIDDEN-PATCH NOTE
+The items above extend Alpha Build 0.62 without adding a new changelog entry or build number, per project direction. The canonical changelog remains at 0.62.
 
-MATCH SETUP SCOPE
-This build intentionally starts the guided match assistant with Setup and Overview. Tips for later battle phases/subphases remain future work. Wizard spell recording is a match-state aid: the user still resolves random spell generation according to the rules and records the resulting spell set. Priests expose their available prayers without forcing a pre-game selection when the source rules do not require one.
+REPOSITORY CLEANUP WORKFLOW
+The included Repository cleanup GitHub Action is manual and dry-run by default. It targets old generated verification/upload archives and preview artifacts at repository root; it does not target application source. Run it once with apply_changes disabled to review the proposed removals, then re-run with apply_changes enabled if the list is correct.
 
 NOTES
 This is a direct-source update package. Upload its contents over the existing Old.dex repository root, replacing matching paths and adding new files/directories.

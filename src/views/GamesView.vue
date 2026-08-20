@@ -20,7 +20,7 @@ const history = computed(() => games.value.filter((game) => game.status === 'com
 function filterOptions(rows: SavedGame[]) {
   const options = [{ value: 'all', label: 'All' }]
   const armies = [...new Set(rows.flatMap((game) => [game.playerArmyName, game.opponentArmyName || '']).filter(Boolean))].sort()
-  const points = [...new Set(rows.map((game) => Number(game.points)).filter((value) => Number.isFinite(value) && value > 0))].sort((a, b) => a - b)
+  const points = [...new Set(rows.flatMap((game) => [Number(game.playerPoints || 0), Number(game.opponentPoints || 0)]).filter((value) => Number.isFinite(value) && value > 0))].sort((a, b) => a - b)
   const scenarios = [...new Set(rows.map((game) => game.scenario).filter(Boolean))].sort()
   armies.forEach((army) => options.push({ value: `army:${army}`, label: army }))
   points.forEach((value) => options.push({ value: `points:${value}`, label: `${value} pts` }))
@@ -33,7 +33,7 @@ function matchesFilter(game: SavedGame, filter: string) {
   const [type, ...rest] = filter.split(':')
   const value = rest.join(':')
   if (type === 'army') return [game.playerArmyName, game.opponentArmyName].some((army) => String(army || '').toLowerCase() === value.toLowerCase())
-  if (type === 'points') return Number(game.points) === Number(value)
+  if (type === 'points') return [game.playerPoints, game.opponentPoints].some((points) => Number(points) === Number(value))
   if (type === 'scenario') return game.scenario.toLowerCase() === value.toLowerCase()
   return true
 }
@@ -49,6 +49,8 @@ function matchesSearch(game: SavedGame, query: string) {
     game.playerArmyName,
     game.opponentArmyName,
     game.scenario,
+    String(game.playerPoints || ''),
+    String(game.opponentPoints || ''),
     String(game.points),
   ].some((value) => String(value || '').toLowerCase().includes(wanted))
 }
@@ -71,9 +73,14 @@ function toggleSearch(kind: 'open' | 'history') {
   }
 }
 function resultLabel(game: SavedGame) {
+  if (game.outcome === 'conceded') return 'Conceded'
+  if (game.outcome === 'enemy-yielded') return 'Enemy Yielded'
+  if (game.outcome === 'draw') return 'Draw'
   if (game.playerScore === game.opponentScore) return `Draw · ${game.playerScore}-${game.opponentScore}`
   return `${game.playerScore > game.opponentScore ? 'Win' : 'Loss'} · ${game.playerScore}-${game.opponentScore}`
 }
+function matchupName(game: SavedGame) { return `${game.playerName} - ${game.opponentName}` }
+function matchupPoints(game: SavedGame) { return `${game.playerPoints || game.points} pts - ${game.opponentPoints ? `${game.opponentPoints} pts` : '—'}` }
 </script>
 
 <template>
@@ -103,8 +110,8 @@ function resultLabel(game: SavedGame) {
       <label v-if="openSearchVisible" class="games-inline-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><input v-model="openSearch" type="search" placeholder="Search name, roster, faction or points" /></label>
       <div v-if="openVisible.length" class="game-list">
         <RouterLink v-for="game in openVisible" :key="game.id" :to="`/games/${game.id}`" class="game-list-row">
-          <span><strong>{{ game.name }}</strong><small>{{ game.playerArmyName }} vs {{ game.opponentArmyName || game.opponentName }} · {{ game.scenario }} · Round {{ game.round }}</small></span>
-          <span class="game-list-meta"><strong>{{ game.points }} pts</strong><small>Continue</small></span>
+          <span><strong>{{ matchupName(game) }}</strong><small>{{ game.playerArmyName }} - {{ game.opponentArmyName || game.opponentName }} · {{ game.scenario }} · Round {{ game.round }} / {{ game.roundLimit || 6 }}</small></span>
+          <span class="game-list-meta"><strong>{{ matchupPoints(game) }}</strong><small>Continue</small></span>
         </RouterLink>
       </div>
       <div v-else class="games-empty-inline">No matching open matches.</div>
@@ -123,8 +130,8 @@ function resultLabel(game: SavedGame) {
       <label v-if="historySearchVisible" class="games-inline-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><input v-model="historySearch" type="search" placeholder="Search name, roster, faction or points" /></label>
       <div v-if="historyVisible.length" class="game-list history-list">
         <RouterLink v-for="game in historyVisible" :key="game.id" :to="`/games/${game.id}`" class="game-list-row">
-          <span><strong>{{ game.name }}</strong><small>{{ game.playerArmyName }} vs {{ game.opponentArmyName || game.opponentName }} · {{ game.scenario }} · {{ new Date(game.completedAt || game.updatedAt).toLocaleDateString() }}</small></span>
-          <span class="game-list-meta"><strong>{{ resultLabel(game) }}</strong><small>Review</small></span>
+          <span><strong>{{ matchupName(game) }}</strong><small>{{ game.playerArmyName }} - {{ game.opponentArmyName || game.opponentName }} · {{ game.scenario }} · {{ new Date(game.completedAt || game.updatedAt).toLocaleDateString() }}</small></span>
+          <span class="game-list-meta"><strong>{{ matchupPoints(game) }}</strong><small>{{ resultLabel(game) }} · Review</small></span>
         </RouterLink>
       </div>
       <div v-else class="games-empty-inline">No matching completed matches.</div>

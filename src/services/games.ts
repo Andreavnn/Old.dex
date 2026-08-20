@@ -4,6 +4,16 @@ import type { BuilderRosterSelection } from '../domain/rosterTypes'
 
 export type GameStatus = 'open' | 'complete'
 export type GameSide = 'player' | 'opponent'
+export type GameOutcome = 'completed' | 'conceded' | 'enemy-yielded' | 'draw'
+
+export type GameScenarioGuidance = {
+  sourcePath: string
+  roundLimit: number
+  gameLength: string
+  setupText: string
+  scenarioRules: string[]
+  specificTerrain: boolean
+}
 
 
 export type GameMagicChoice = {
@@ -94,8 +104,16 @@ export type SavedGame = {
   opponentRoster?: BuilderRosterSelection[]
   opponentName: string
   magicSetup?: GameMagicCaster[]
+  playerPoints: number
+  opponentPoints: number
   points: number
   scenario: string
+  scenarioGuidance?: GameScenarioGuidance
+  battlefieldConditions?: string[]
+  roundLimit: number
+  roundsCompleted: number
+  battleStarted: boolean
+  outcome?: GameOutcome
   firstPlayer: GameSide
   firstPlayerConfirmed: boolean
   round: number
@@ -124,6 +142,14 @@ function parseGames(value: unknown): SavedGame[] {
     playerScore: Math.max(0, Number(row.playerScore || 0)),
     opponentScore: Math.max(0, Number(row.opponentScore || 0)),
     firstPlayerConfirmed: typeof row.firstPlayerConfirmed === 'boolean' ? row.firstPlayerConfirmed : true,
+    playerPoints: Math.max(0, Number(row.playerPoints || row.points || 0)),
+    opponentPoints: Math.max(0, Number(row.opponentPoints || 0)),
+    roundLimit: Math.max(1, Number(row.roundLimit || row.scenarioGuidance?.roundLimit || 6)),
+    roundsCompleted: Math.max(0, Number(row.roundsCompleted || 0)),
+    battleStarted: Boolean(row.battleStarted || Number(row.roundsCompleted || 0) > 0 || Number(row.round || 1) > 1),
+    battlefieldConditions: Array.isArray(row.battlefieldConditions) ? [...row.battlefieldConditions] : [],
+    scenarioGuidance: row.scenarioGuidance ? { ...row.scenarioGuidance, scenarioRules: [...(row.scenarioGuidance.scenarioRules || [])] } : undefined,
+    outcome: ['completed', 'conceded', 'enemy-yielded', 'draw'].includes(String(row.outcome)) ? row.outcome : undefined,
     playerName: String(row.playerName || 'Friendly General'),
     playerOptions: Array.isArray(row.playerOptions) ? [...row.playerOptions] : [],
     opponentOptions: Array.isArray(row.opponentOptions) ? [...row.opponentOptions] : [],
@@ -150,6 +176,14 @@ export function clearSavedGamesByStatus(status: GameStatus) {
 
 export function getSavedGame(id: string) { return getSavedGames().find((game) => game.id === id) || null }
 
+function rosterActualPoints(list: SavedArmyList | null | undefined) {
+  if (!list) return 0
+  const saved = Number(list.actualPoints || 0)
+  if (saved > 0) return saved
+  const roster = (list.roster || []).reduce((sum, row) => sum + Number(row.totalPoints || 0), 0)
+  return roster > 0 ? roster : Math.max(0, Number(list.points || 0))
+}
+
 export function createSavedGame(input: {
   playerList: SavedArmyList
   opponentList?: SavedArmyList | null
@@ -163,7 +197,7 @@ export function createSavedGame(input: {
   const game: SavedGame = {
     id: `game-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     status: 'open',
-    name: `${playerName} vs ${opponentName}`,
+    name: `${playerName} - ${opponentName}`,
     playerListId: input.playerList.id,
     playerListName: input.playerList.name,
     playerArmyName: input.playerList.armyName,
@@ -183,8 +217,14 @@ export function createSavedGame(input: {
     opponentRoster: (input.opponentList?.roster || []).map((entry) => ({ ...entry })),
     opponentName,
     magicSetup: [],
+    playerPoints: rosterActualPoints(input.playerList),
+    opponentPoints: rosterActualPoints(input.opponentList),
     points: Math.max(input.playerList.points, input.opponentList?.points || 0),
     scenario: input.scenario || 'Open Battle',
+    battlefieldConditions: [],
+    roundLimit: 6,
+    roundsCompleted: 0,
+    battleStarted: false,
     firstPlayer: 'player',
     firstPlayerConfirmed: false,
     round: 1,
@@ -210,6 +250,33 @@ export function updateSavedGame(id: string, patch: Partial<Omit<SavedGame, 'id' 
   return game
 }
 
-export function completeSavedGame(id: string) {
-  return updateSavedGame(id, { status: 'complete', completedAt: new Date().toISOString() })
+export function completeSavedGame(id: string, outcome: GameOutcome = 'completed') {
+  return updateSavedGame(id, { status: 'complete', outcome, completedAt: new Date().toISOString() })
+}
+
+export function deleteSavedGame(id: string) {
+  const rows = readAll()
+  const next = rows.filter((game) => game.id !== id)
+  writeAll(next)
+  return next.length !== rows.length
+}
+
+export function resetSavedGame(id: string) {
+  return updateSavedGame(id, {
+    status: 'open',
+    outcome: undefined,
+    completedAt: undefined,
+    firstPlayer: 'player',
+    firstPlayerConfirmed: false,
+    round: 1,
+    roundsCompleted: 0,
+    battleStarted: false,
+    activeSide: 'player',
+    phaseIndex: 0,
+    stepIndex: 0,
+    stepNotes: {},
+    playerScore: 0,
+    opponentScore: 0,
+    magicSetup: [],
+  })
 }

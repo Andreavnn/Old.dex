@@ -3,7 +3,7 @@ import type { RawBuilderItem, RawBuilderUnit } from '../domain/rawArmyData'
 import { loadArmyData } from './armyData'
 import { fetchRuleDocument } from './ruleContent'
 import { getSavedArmyList } from './savedLists'
-import type { GameMagicCaster, GameMagicChoice, SavedGame } from './games'
+import type { GameMagicCaster, GameMagicChoice, GameScenarioGuidance, SavedGame } from './games'
 import { reportAppError } from './appErrors'
 
 function sourceName(value: unknown) {
@@ -200,23 +200,35 @@ function followingText(heading: Element) {
 
 function wizardChoices(dom: Document, lore: string): GameMagicChoice[] {
   const choices: GameMagicChoice[] = []
-  const headings = Array.from(dom.querySelectorAll<HTMLElement>('h2,h3,h4,h5'))
-  for (const heading of headings) {
+  const candidates = Array.from(dom.querySelectorAll<HTMLElement>('h2,h3,h4,h5,h6'))
+  for (const heading of candidates) {
     const raw = heading.textContent?.replace(/\s+/g, ' ').trim() || ''
     const signature = /\(Signature Spell\)/i.test(raw)
     const numbered = raw.match(/^([1-6])\.\s*(.+)$/)
     if (!signature && !numbered) continue
     const name = (numbered ? numbered[2] : raw.replace(/\s*\(Signature Spell\)\s*/i, '')).trim()
     if (!name) continue
-    choices.push({
-      id: signature ? `signature-${slug(name)}` : `${numbered?.[1] || choices.length + 1}-${slug(name)}`,
-      name,
-      summary: followingText(heading),
-      path: `/the-lores-of-magic/${slug(lore)}`,
-      signature,
-    })
+    const id = signature ? `signature-${slug(name)}` : `${numbered?.[1] || choices.length + 1}-${slug(name)}`
+    if (choices.some((choice) => choice.id === id)) continue
+    choices.push({ id, name, summary: followingText(heading), path: `/the-lores-of-magic/${slug(lore)}`, signature })
   }
-  return choices
+  // Some source transports flatten heading markup but preserve linked spell labels.
+  if (!choices.length) {
+    for (const anchor of Array.from(dom.querySelectorAll<HTMLAnchorElement>('a[href],a[data-rule-path],a[data-app-path]'))) {
+      const raw = anchor.textContent?.replace(/\s+/g, ' ').trim() || ''
+      const signature = /\(Signature Spell\)/i.test(raw)
+      const numbered = raw.match(/^([1-6])\.\s*(.+)$/)
+      if (!signature && !numbered) continue
+      const name = (numbered ? numbered[2] : raw.replace(/\s*\(Signature Spell\)\s*/i, '')).trim()
+      const id = signature ? `signature-${slug(name)}` : `${numbered?.[1] || choices.length + 1}-${slug(name)}`
+      if (!name || choices.some((choice) => choice.id === id)) continue
+      choices.push({ id, name, path: `/the-lores-of-magic/${slug(lore)}`, signature })
+    }
+  }
+  return choices.sort((a, b) => {
+    if (a.signature !== b.signature) return a.signature ? -1 : 1
+    return a.id.localeCompare(b.id, undefined, { numeric: true })
+  })
 }
 
 function prayerChoices(dom: Document, lore: string): GameMagicChoice[] {
@@ -249,3 +261,70 @@ export async function loadMagicChoices(caster: GameMagicCaster): Promise<GameMag
 export function magicSelectionLimit(caster: GameMagicCaster) {
   return caster.kind === 'Wizard' ? Math.max(1, caster.level || 1) : 0
 }
+
+
+const scenarioPathOverrides: Record<string, string> = {
+  'open-battle': '/warhammer-battles/open-battle',
+  'meeting-engagement': '/warhammer-battles/meeting-engagement',
+  'flank-attack': '/warhammer-battles/flank-attack',
+  'command-and-control': '/warhammer-battles/command-and-control',
+  'mountain-pass': '/warhammer-battles/mountain-pass',
+  'break-point': '/warhammer-battles/break-point',
+}
+
+function sectionBlocks(dom: Document, labels: string[]) {
+  const headings = Array.from(dom.querySelectorAll<HTMLElement>('h2,h3,h4,h5,h6'))
+  const heading = headings.find((candidate) => labels.some((label) => (candidate.textContent?.replace(/\s+/g, ' ').trim() || '').toLowerCase() === label.toLowerCase()))
+  if (!heading) return [] as string[]
+  const level = Number(heading.tagName.slice(1))
+  const rows: string[] = []
+  let cursor: Element | null = heading.nextElementSibling
+  while (cursor) {
+    if (/^H[1-6]$/.test(cursor.tagName) && Number(cursor.tagName.slice(1)) <= level) break
+    const value = cursor.textContent?.replace(/\s+/g, ' ').trim() || ''
+    if (value && !rows.includes(value)) rows.push(value)
+    cursor = cursor.nextElementSibling
+  }
+  return rows
+}
+
+function parseRoundLimit(value: string) {
+  const numeric = value.match(/(?:last|for)\s+(\d+)\s+rounds?/i)
+  if (numeric) return Math.max(1, Number(numeric[1]))
+  const words: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 }
+  const written = value.match(/(?:last|for)\s+(one|two|three|four|five|six|seven|eight|nine|ten)\s+rounds?/i)
+  return written ? words[written[1].toLowerCase()] : 6
+}
+
+export async function loadScenarioGuidance(scenario: string): Promise<GameScenarioGuidance> {
+  const scenarioSlug = slug(scenario)
+  const sourcePath = scenarioPathOverrides[scenarioSlug] || `/warhammer-battles/${scenarioSlug}`
+  const fallback: GameScenarioGuidance = { sourcePath, roundLimit: 6, gameLength: 'Most battles last for six rounds.', setupText: '', scenarioRules: [], specificTerrain: false }
+  try {
+    const document = await fetchRuleDocument(sourcePath)
+    const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
+    const setupRows = sectionBlocks(dom, ['Set-up', 'Setup'])
+    const lengthRows = sectionBlocks(dom, ['Game Length'])
+    const ruleRows = sectionBlocks(dom, ['Scenario Special Rules'])
+    const setupText = setupRows.join(' ').slice(0, 1800)
+    const gameLength = lengthRows.join(' ').slice(0, 1300) || fallback.gameLength
+    const specificTerrain = Boolean(setupText && !/^Place terrain as described\.?$/i.test(setupText) && /(?:terrain|feature|hill|wood|woods|building|road|river|stream|marsh|ruin|tower|objective|impassable|battlefield|centre|center|zone)/i.test(setupText))
+    return {
+      sourcePath,
+      roundLimit: parseRoundLimit(gameLength),
+      gameLength,
+      setupText,
+      scenarioRules: ruleRows.filter((row) => !/^This scenario has no special rules\.?$/i.test(row)).slice(0, 6),
+      specificTerrain,
+    }
+  } catch (error) {
+    reportAppError(error, 'GAME_SCENARIO_GUIDANCE', { scenario, sourcePath })
+    return fallback
+  }
+}
+
+export const randomHappeningOptions = [
+  { id: 'disruptive-weather', label: 'Disruptive Weather', path: '/battle-march/disruptive-weather' },
+  { id: 'wilderness-terrain', label: 'Wilderness Terrain', path: '/battle-march/wilderness-terrain' },
+  { id: 'chaos-of-war', label: 'Chaos of War', path: '/battle-march/the-chaos-of-war' },
+] as const

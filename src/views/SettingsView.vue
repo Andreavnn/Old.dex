@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
 import { useSettings, type BackgroundChoice, type FontSize, type VisualTheme } from '../settings'
 import { forceRefreshBuilderData } from '../services/armyData'
@@ -11,41 +11,20 @@ import { removeStorage, storageKeys, writeStorage } from '../services/storage'
 import { reportAppError } from '../services/appErrors'
 import { clearSavedGamesByStatus } from '../services/games'
 import { clearSavedArmyListsByType } from '../services/savedLists'
+import { useInstallApp } from '../services/installApp'
 
 const { darkMode, compactRows, fontSize, boldText, visualTheme, backgroundImage, reset } = useSettings()
 const updateState = ref<'idle' | 'running' | 'success' | 'error'>('idle')
 const updateMessage = ref('')
 const dataResetState = ref<'idle' | 'running'>('idle')
 
-type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
-const installPrompt = ref<InstallPrompt | null>(null)
-const installedApp = ref(false)
-function refreshInstalledState() {
-  if (typeof window === 'undefined') return
-  installedApp.value = window.matchMedia?.('(display-mode: standalone)').matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
-}
-function captureInstallPrompt(event: Event) {
-  event.preventDefault()
-  installPrompt.value = event as InstallPrompt
-}
+const { installPrompt, installedApp, requestInstall: requestOldDexInstall } = useInstallApp()
 async function installOldDex() {
-  if (!installPrompt.value) return
-  await installPrompt.value.prompt()
-  const choice = await installPrompt.value.userChoice
-  if (choice.outcome === 'accepted') installPrompt.value = null
-  refreshInstalledState()
+  const result = await requestOldDexInstall()
+  if (result.outcome === 'unavailable' && typeof window !== 'undefined') {
+    window.alert('Use your browser menu and choose “Install app” or “Add to Home Screen” to install Old.dex on this device.')
+  }
 }
-function appInstalled() { installPrompt.value = null; installedApp.value = true }
-onMounted(() => {
-  refreshInstalledState()
-  window.addEventListener('beforeinstallprompt', captureInstallPrompt)
-  window.addEventListener('appinstalled', appInstalled)
-})
-onBeforeUnmount(() => {
-  if (typeof window === 'undefined') return
-  window.removeEventListener('beforeinstallprompt', captureInstallPrompt)
-  window.removeEventListener('appinstalled', appInstalled)
-})
 
 const themeOptions: Array<{ value: Exclude<VisualTheme, 'default'>; label: string; note: string }> = [
   { value: 'forces-of-fantasy', label: 'Forces of Fantasy', note: 'Cool blue and heraldic parchment accents.' },
@@ -156,6 +135,18 @@ async function updateBuilderRules() {
       <p>Display preferences are stored on this device. Remote Builder data and rule content can also be manually refreshed without waiting for normal cache expiry.</p>
     </div>
 
+    <section class="settings-group" aria-label="Install Old.dex">
+      <div class="settings-group-heading">
+        <p class="eyebrow settings-group-title">INSTALL</p>
+      </div>
+      <section class="settings-card">
+        <div class="setting-row install-setting-row">
+          <span><strong>Install Old.dex</strong><small>{{ installedApp ? 'Old.dex is running as an installed app on this device.' : installPrompt ? 'Install Old.dex as an app on this phone, tablet, or computer.' : 'Old.dex is installable. If the direct prompt is unavailable, use your browser menu and choose Install app or Add to Home Screen.' }}</small></span>
+          <button class="secondary-button settings-compact-action" type="button" :disabled="installedApp" @click="installOldDex">{{ installedApp ? 'Installed' : 'Install' }}</button>
+        </div>
+      </section>
+    </section>
+
     <section class="settings-group" aria-label="Report bugs and issues">
       <div class="settings-group-heading">
         <p class="eyebrow settings-group-title">REPORT BUGS &amp; ISSUES</p>
@@ -221,10 +212,6 @@ async function updateBuilderRules() {
             </label>
           </div>
         </details>
-        <div class="setting-row install-setting-row">
-          <span><strong>Install Old.dex</strong><small>{{ installedApp ? 'Old.dex is running as an installed app on this device.' : installPrompt ? 'Install Old.dex as an app on this phone, tablet, or computer.' : 'Old.dex is installable. If the button is unavailable, use your browser menu and choose Install app or Add to Home Screen.' }}</small></span>
-          <button class="secondary-button settings-compact-action" type="button" :disabled="installedApp || !installPrompt" @click="installOldDex">{{ installedApp ? 'Installed' : 'Install' }}</button>
-        </div>
         <div class="setting-row reset-setting-row">
           <span><strong>Reset local settings</strong><small>Restore the display preferences on this device to their defaults.</small></span>
           <button class="secondary-button settings-compact-action" type="button" @click="reset">Reset</button>
@@ -252,26 +239,34 @@ async function updateBuilderRules() {
         <p class="eyebrow settings-group-title">DATA &amp; CONTENT</p>
       </div>
       <section class="settings-card">
-        <div class="setting-row reset-data-row">
-          <span><strong>Reset local data</strong><small>Remove saved army lists, favorites, cached content, and other locally added Old.dex data while preserving Display settings.</small></span>
-          <button class="secondary-button settings-compact-action" type="button" :disabled="dataResetState === 'running'" @click="resetLocalData">{{ dataResetState === 'running' ? 'Resetting…' : 'Reset data' }}</button>
-        </div>
-        <div class="setting-row local-clear-row">
-          <span><strong>Clear ongoing matches</strong><small>Remove all matches that are still in progress. Completed match history is kept.</small></span>
-          <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('open-games')">Clear</button>
-        </div>
-        <div class="setting-row local-clear-row">
-          <span><strong>Clear match history</strong><small>Remove completed matches while keeping any ongoing matches.</small></span>
-          <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('history')">Clear</button>
-        </div>
-        <div class="setting-row local-clear-row">
-          <span><strong>Clear friendly rosters</strong><small>Remove rosters in the normal Army Rosters section. Enemy rosters are kept.</small></span>
-          <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('friendly-rosters')">Clear</button>
-        </div>
-        <div class="setting-row local-clear-row">
-          <span><strong>Clear enemy rosters</strong><small>Remove all rosters currently flagged as Enemy Army Rosters.</small></span>
-          <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('enemy-rosters')">Clear</button>
-        </div>
+        <details class="reset-data-settings-panel">
+          <summary>
+            <span><strong>Reset local data</strong><small>Manage saved matches, rosters, caches, favorites, and other locally stored Old.dex data.</small></span>
+            <span class="value-chip">MANAGE</span>
+          </summary>
+          <div class="reset-data-option-list">
+            <div class="setting-row reset-data-row">
+              <span><strong>Reset all local data</strong><small>Remove saved army lists, matches, favorites, cached content, and other locally added Old.dex data while preserving Display settings.</small></span>
+              <button class="secondary-button settings-compact-action" type="button" :disabled="dataResetState === 'running'" @click="resetLocalData">{{ dataResetState === 'running' ? 'Resetting…' : 'Reset data' }}</button>
+            </div>
+            <div class="setting-row local-clear-row">
+              <span><strong>Clear ongoing matches</strong><small>Remove all matches that are still in progress. Completed match history is kept.</small></span>
+              <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('open-games')">Clear</button>
+            </div>
+            <div class="setting-row local-clear-row">
+              <span><strong>Clear match history</strong><small>Remove completed matches while keeping any ongoing matches.</small></span>
+              <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('history')">Clear</button>
+            </div>
+            <div class="setting-row local-clear-row">
+              <span><strong>Clear friendly rosters</strong><small>Remove rosters in the normal Army Rosters section. Enemy rosters are kept.</small></span>
+              <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('friendly-rosters')">Clear</button>
+            </div>
+            <div class="setting-row local-clear-row">
+              <span><strong>Clear enemy rosters</strong><small>Remove all rosters currently flagged as Enemy Army Rosters.</small></span>
+              <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('enemy-rosters')">Clear</button>
+            </div>
+          </div>
+        </details>
         <div class="setting-row update-setting-row">
           <span><strong>Update Builder rules</strong><small>Force Old.dex to discard current remote caches and request fresh Builder data plus all configured rule and army reference pages.</small></span>
           <button class="secondary-button update-button settings-compact-action" type="button" :disabled="updateState === 'running'" @click="updateBuilderRules">

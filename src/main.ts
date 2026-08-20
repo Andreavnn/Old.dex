@@ -2,7 +2,11 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import { reportAppError } from './services/appErrors'
+import { initializeInstallApp } from './services/installApp'
+import './services/language'
 import './styles.css'
+
+initializeInstallApp()
 
 const app = createApp(App)
 
