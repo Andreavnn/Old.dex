@@ -42,12 +42,12 @@ export type CompositionOptionId =
 
 export const compositionOptions: Array<{ value: CompositionOptionId; label: string }> = [
   { value: 'battle-march-magical-items', label: 'Battle March Magical Items' },
-  { value: 'limit-magical-items-75', label: 'Magic Items Under 75 pts' },
-  { value: 'limit-magical-items-50', label: 'Magic Items 50 pts or Less' },
-  { value: 'limit-one-magic', label: 'Limit 1 Magic' },
+  { value: 'limit-magical-items-75', label: 'Magical Item - Point Limit 75 pts' },
+  { value: 'limit-magical-items-50', label: 'Magical Item - Point Limit 50 pts' },
+  { value: 'limit-one-magic', label: 'Magical Category - Limit 1' },
   { value: 'magical-maelstrom', label: 'Magical Maelstrom' },
-  { value: 'allow-allies', label: 'Allow Allies' },
-  { value: 'allow-mercenaries', label: 'Allow Mercenaries' },
+  { value: 'allow-allies', label: 'Allow Allied Units' },
+  { value: 'allow-mercenaries', label: 'Allow Mercenary Units' },
   { value: 'allow-custom-units', label: 'Allow Custom Units' },
 ]
 

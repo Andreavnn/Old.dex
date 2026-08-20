@@ -2152,3 +2152,60 @@ a.list-row:hover { background: #f6f3ec; }
   .characteristic-icon{width:24px;height:24px;top:-12px}
   .characteristic-icon img{width:18px;height:18px}
 }
+
+
+/* Source-wide review normalization */
+.wip-banner{
+  width:100%;
+  margin:0 0 8px;
+  padding:6px 12px;
+  border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));
+  border-radius:8px;
+  background:color-mix(in srgb,var(--accent-wash) 45%,var(--paper));
+  color:var(--ink-soft);
+  font-size:calc(8px + var(--font-offset));
+  font-weight:700;
+  line-height:1.35;
+  text-align:center;
+}
+.brand{font-size:calc(32px + var(--font-offset));letter-spacing:.08em}
+.app-header.compact .brand{font-size:calc(30px + var(--font-offset))}
+@media(max-width:540px){.brand{font-size:calc(29px + var(--font-offset))}.app-header.compact .brand{font-size:calc(27px + var(--font-offset))}.wip-banner{padding-inline:9px}}
+
+/* Type markers and rule-callout keywords use the same neutral keyword language. */
+.old-rule-keywords .rule-kind-pill{
+  border-color:var(--line);
+  background:var(--paper-2);
+  color:var(--ink-soft);
+}
+
+/* Selected magical items are one full-width rule card with an attached footer. */
+.magic-item-card-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;width:100%;padding:0 12px 12px}
+.selected-magic-rule-card{display:block;width:100%;min-width:0}
+.selected-magic-rule-card>.old-rule-card{width:100%;border-bottom-left-radius:0;border-bottom-right-radius:0}
+.magic-item-card-actions{width:100%;margin-top:-1px;border-top:1px dashed var(--line);background:var(--paper-2)}
+.magic-add-row{align-items:stretch}
+.magic-add-row .secondary-button{min-height:40px}
+@media(max-width:620px){.magic-add-row{grid-template-columns:1fr}.magic-add-row .secondary-button{width:100%}}
+
+/* Validation issues are readable rows, not tiny colored category pills. */
+.builder-validation-list{gap:7px}
+.builder-validation-list li{grid-template-columns:minmax(78px,auto) minmax(0,1fr);align-items:center;padding:9px 11px}
+.validation-section-label{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:70px;padding:3px 7px;border:1px solid var(--line);border-radius:6px;
+  background:var(--paper-2);color:var(--ink-soft);font-size:calc(8px + var(--font-offset));font-weight:800;line-height:1.2;
+}
+.validation-issue-message{min-width:0;color:inherit;line-height:1.4}
+@media(max-width:620px){.builder-validation-list li{grid-template-columns:1fr}.validation-section-label{justify-self:start}}
+
+/* Point/percentage readouts stay compact even when allowance text is longer. */
+.builder-category-summary-meta{flex-wrap:wrap;justify-content:flex-end}
+.category-allowance{white-space:normal;text-align:right}
+.builder-points-orb small+small{margin-top:1px}
+
+/* Center the profile favourite glyph inside its square button. */
+.warscroll-favourite{padding:0;line-height:0;align-items:center;justify-items:center}
+.warscroll-favourite svg{display:block;width:22px;height:22px;margin:0;transform:translateY(-.25px);transform-origin:center}
+
+.support-placeholder-row .value-chip{white-space:nowrap}

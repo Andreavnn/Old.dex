@@ -146,6 +146,8 @@ function startingUnitPoints(unit: PrototypeUnit) {
 }
 const rosterPoints = computed(() => roster.value.reduce((sum, row) => sum + row.totalPoints, 0))
 const remainingPoints = computed(() => points.value - rosterPoints.value)
+const rosterPercentUsed = computed(() => points.value > 0 ? Math.round((rosterPoints.value / points.value) * 1000) / 10 : 0)
+const remainingPercent = computed(() => points.value > 0 ? Math.round((Math.abs(remainingPoints.value) / points.value) * 1000) / 10 : 0)
 const validationIssues = computed(() => {
   const issues = validateRoster({ roster: roster.value, points: points.value, armySlug: selectedArmy.value.slug, compositionId: selectedComposition.value.id, compositionRuleId: compositionRuleId.value, ruleCatalog: compositionRuleData.value, compositionOptionIds: selectedOptions.value.map((option) => option.value) })
   if (!catalogLoading.value && !catalogError.value && availableUnits.value.length) {
@@ -206,6 +208,9 @@ function categoryRulePoints(category: DisplayCategory) {
   if (category === 'Characters') return roster.value.filter(isCharacter).reduce((sum, row) => sum + row.totalPoints, 0)
   return categoryPoints(category)
 }
+function categoryPercent(category: DisplayCategory) {
+  return points.value > 0 ? Math.round((categoryRulePoints(category) / points.value) * 1000) / 10 : 0
+}
 function categoryAllowance(category: DisplayCategory) {
   if (category === 'General' || category === 'Battle Standard Bearer') return null
   const composition = compositionRuleData.value?.[selectedComposition.value.id] || compositionRuleData.value?.['grand-army']
@@ -215,17 +220,17 @@ function categoryAllowance(category: DisplayCategory) {
   if (category === 'Core' && typeof rules.minPercent === 'number') {
     const minimum = Math.ceil(points.value * rules.minPercent / 100)
     const toMinimum = Math.max(0, minimum - spent)
-    return { text: toMinimum > 0 ? `${toMinimum} pts required` : `${minimum} pts minimum met`, state: toMinimum > 0 ? 'required' : 'met' }
+    return { text: toMinimum > 0 ? `${toMinimum} pts required — ${rules.minPercent}% minimum` : `${minimum} pts minimum met — ${rules.minPercent}% minimum`, state: toMinimum > 0 ? 'required' : 'met' }
   }
   if (typeof rules.maxPercent === 'number') {
     const maximum = Math.floor(points.value * rules.maxPercent / 100)
     const left = maximum - spent
-    return { text: left >= 0 ? `${left} pts left` : `${Math.abs(left)} pts over`, state: left >= 0 ? 'left' : 'over' }
+    return { text: left >= 0 ? `${left} pts left — ${rules.maxPercent}% maximum` : `${Math.abs(left)} pts over — ${rules.maxPercent}% maximum`, state: left >= 0 ? 'left' : 'over' }
   }
   if (typeof rules.minPercent === 'number') {
     const minimum = Math.ceil(points.value * rules.minPercent / 100)
     const toMinimum = Math.max(0, minimum - spent)
-    return { text: toMinimum > 0 ? `${toMinimum} pts required` : `${minimum} pts minimum met`, state: toMinimum > 0 ? 'required' : 'met' }
+    return { text: toMinimum > 0 ? `${toMinimum} pts required — ${rules.minPercent}% minimum` : `${minimum} pts minimum met — ${rules.minPercent}% minimum`, state: toMinimum > 0 ? 'required' : 'met' }
   }
   return null
 }
@@ -388,14 +393,14 @@ async function applySettings() {
         </div>
         <p v-if="description" class="builder-list-description">{{ description }}</p>
       </div>
-      <div class="builder-points-orb" :class="{ over: remainingPoints < 0 }"><strong>{{ rosterPoints }}</strong><span>/ {{ points }}</span><small>{{ remainingPoints >= 0 ? `${remainingPoints} remaining` : `${Math.abs(remainingPoints)} over` }}</small></div>
+      <div class="builder-points-orb" :class="{ over: remainingPoints < 0 }"><strong>{{ rosterPoints }}</strong><span>/ {{ points }}</span><small>{{ rosterPercentUsed }}% used</small><small>{{ remainingPoints >= 0 ? `${remainingPoints} remaining — ${remainingPercent}%` : `${Math.abs(remainingPoints)} over — ${remainingPercent}%` }}</small></div>
     </div>
 
     <section class="builder-command-strip card-surface">
       <div class="builder-toolbar" aria-label="List tools"><button type="button" class="builder-tool" disabled title="Import is not available in this build"><span>Import</span><small>Coming later</small></button><button type="button" class="builder-tool" disabled title="Export is not available in this build"><span>Export</span><small>Coming later</small></button><button type="button" class="builder-tool" @click="duplicateCurrentList"><span>Duplicate</span><small>Copy list</small></button><button type="button" class="builder-tool" :disabled="listLocked" @click="openSettings"><span>Settings</span><small>List setup</small></button><button type="button" class="builder-tool" disabled title="Game View is not available in this build"><span>Game View</span><small>Coming later</small></button><button type="button" class="builder-tool builder-lock-tool" :class="{ active: listLocked }" @click="toggleListLock"><span>{{ listLocked ? 'Unlock Editing' : 'Lock List' }}</span><small>{{ listLocked ? 'Editing off' : 'Editing on' }}</small></button></div>
       <div class="builder-validation-row"><span><strong>Army validation</strong><small>{{ validationIssues.length ? `${validationIssues.filter((issue) => issue.severity === 'error').length} rule issue${validationIssues.filter((issue) => issue.severity === 'error').length === 1 ? '' : 's'} to resolve.` : hasMagicAllowanceWarning ? `Roster is valid; ${untouchedMagicPools.length} magic-item allowance${untouchedMagicPools.length === 1 ? '' : 's'} remain completely unspent.` : 'General, category percentages and composition requirements are satisfied.' }}</small></span><span class="validation-state-text" :class="{ danger: validationState === 'OVER LIMIT' || validationState === 'INVALID', valid: validationState === 'VALID' && !hasMagicAllowanceWarning, warning: hasMagicAllowanceWarning }">{{ validationState }}</span></div>
       <div v-if="validationDataError" class="builder-validation-warning">{{ validationDataError }}</div>
-      <ul v-if="validationIssues.length" class="builder-validation-list"><li v-for="(issue, index) in validationIssues" :key="`${issue.section}-${index}-${issue.message}`" :class="issue.severity"><span class="app-option-label">{{ issue.section }}</span>{{ issue.message }}</li></ul>
+      <ul v-if="validationIssues.length" class="builder-validation-list"><li v-for="(issue, index) in validationIssues" :key="`${issue.section}-${index}-${issue.message}`" :class="issue.severity"><span class="validation-section-label">{{ issue.section }}</span><span class="validation-issue-message">{{ issue.message }}</span></li></ul>
     </section>
 
     <section class="builder-roster-shell card-surface">
@@ -405,7 +410,7 @@ async function applySettings() {
 
       <div class="builder-category-stack">
         <details v-for="category in categories" :key="category" class="builder-category-card" :open="unitsInCategory(category).length > 0 || category === 'Characters' || category === 'Core' || category === 'Custom Units'">
-          <summary class="builder-category-summary"><span>{{ category }}</span><span v-if="!isRoleDisplayCategory(category)" class="builder-category-summary-meta"><small>{{ categorySelectedCount(category) }} selected</small><span class="category-meta-separator" aria-hidden="true">—</span><strong>{{ categoryPoints(category) }} pts</strong><template v-if="categoryAllowance(category)"><span class="category-meta-separator" aria-hidden="true">/</span><em class="category-allowance" :class="`is-${categoryAllowance(category)?.state}`">{{ categoryAllowance(category)?.text }}</em></template></span></summary>
+          <summary class="builder-category-summary"><span>{{ category }}</span><span v-if="!isRoleDisplayCategory(category)" class="builder-category-summary-meta"><small>{{ categorySelectedCount(category) }} selected</small><span class="category-meta-separator" aria-hidden="true">—</span><strong>{{ categoryPoints(category) }} pts — {{ categoryPercent(category) }}%</strong><template v-if="categoryAllowance(category)"><span class="category-meta-separator" aria-hidden="true">/</span><em class="category-allowance" :class="`is-${categoryAllowance(category)?.state}`">{{ categoryAllowance(category)?.text }}</em></template></span></summary>
           <div class="builder-category-body">
             <div v-if="unitsInCategory(category).length" class="builder-unit-stack">
               <BuilderUnitEntry v-for="row in unitsInCategory(category)" :key="row.instanceId" :row="row" :army-slug="selectedArmy.slug" :return-path="route.fullPath" :composition-id="selectedComposition.id" :locked="listLocked" :invalid="invalidInstanceIds.has(row.instanceId)" @remove="removeUnit(row.instanceId)" @duplicate="duplicateUnit(row)" />

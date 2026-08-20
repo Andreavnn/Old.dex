@@ -9,11 +9,11 @@ import { changelogEntries } from '../data/changelog'
     <div class="page-title-block">
       <p class="eyebrow">BUILD HISTORY</p>
       <h1>Changelog</h1>
-      <p>Old.dex alpha build history. Open a build below to review its player-facing changes and major internal milestones.</p>
+      <p>Canonical Old.dex alpha history. Duplicate iterations are consolidated into the build where the behavior became part of the application source.</p>
     </div>
 
     <section class="changelog-stack" aria-label="Old.dex changelog">
-      <details v-for="entry in changelogEntries" :key="entry.version" class="changelog-entry card-surface" :open="entry.version === '0.52'">
+      <details v-for="entry in changelogEntries" :key="entry.version" class="changelog-entry card-surface" :open="entry === changelogEntries[0]">
         <summary>
           <span><strong>Alpha Build {{ entry.version }}</strong><small>{{ entry.title }}</small></span>
           <span class="changelog-chevron" aria-hidden="true">⌄</span>

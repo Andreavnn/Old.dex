@@ -18,6 +18,7 @@ function goBack() {
 
 <template>
   <header class="app-header-wrap">
+    <div class="wip-banner" role="status">Old.dex is a work in progress. Some features may be incomplete or produce errors.</div>
     <div class="app-header" :class="{ compact }">
       <button v-if="backTo" type="button" class="icon-button back-button" :aria-label="backLabel || 'Back'" @click="goBack">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5 8.5 12l7 7" /></svg>
@@ -27,7 +28,7 @@ function goBack() {
       <div class="brand-stack">
         <RouterLink to="/lists" class="brand" aria-label="Old.dex Army Lists">
           <span class="brand-wordmark"><span class="brand-old">OLD</span><span class="brand-dot">.</span><span class="brand-dex">DEX</span></span>
-          <small class="alpha-build">ALPHA BUILD 0.52</small>
+          <small class="alpha-build">ALPHA BUILD 0.53</small>
         </RouterLink>
         <RouterLink to="/changelog" class="changelog-link">Changelog</RouterLink>
       </div>

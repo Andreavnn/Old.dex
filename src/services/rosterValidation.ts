@@ -79,7 +79,7 @@ function validateLimitOneMagic(roster: BuilderRosterSelection[], issues: RosterV
     current.count += Math.max(1, Number(item.count || 1))
     counts.set(key, current)
   }
-  for (const entry of counts.values()) if (entry.count > 1) issues.push({ severity: 'error', section: 'Army', message: `Limit 1 Magic allows only one ${entry.label} across the entire roster.` })
+  for (const entry of counts.values()) if (entry.count > 1) issues.push({ severity: 'error', section: 'Army', message: `Magical Category - Limit 1 allows only one ${entry.label} across the entire roster.` })
 }
 
 function validateUniqueMagicItems(roster: BuilderRosterSelection[], issues: RosterValidationIssue[]) {

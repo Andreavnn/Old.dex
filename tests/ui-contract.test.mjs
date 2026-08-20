@@ -99,7 +99,7 @@ test('Weapon Special Rules render as rounded pills from every weapon rule', () =
 
 test('Special-rule and magical-item cards carry explicit kind pills', () => {
   const card = readFileSync('src/components/RuleAbilityCard.vue', 'utf8')
-  assert.match(card, /kindLabel \|\| 'Special Rule'/)
+  assert.match(card, /props\.kindLabel \|\| 'Special Rule'/)
   assert.match(unitView, /kind-label="Magical Item"/)
   assert.match(card, /old-rule-keywords[\s\S]*rule-kind-pill/)
   const summary = card.match(/<div class="old-rule-summary[\s\S]*?<\/div>/)?.[0] || ''
@@ -154,9 +154,9 @@ test('Dynamic profile characteristic changes preserve the user scroll position',
 
 test('Magic-item cards use one full-width card with actions attached beneath it', () => {
   const styles = readFileSync('src/styles.css', 'utf8')
-  assert.match(styles, /\.magic-item-card-grid\{grid-template-columns:1fr;/)
-  assert.match(styles, /\.selected-magic-rule-card\{[^}]*grid-template-columns:minmax\(0,1fr\)/s)
-  assert.match(styles, /\.magic-item-card-actions\{grid-column:1;/)
+  assert.match(styles, /\.magic-item-card-grid\{[^}]*grid-template-columns:minmax\(0,1fr\)/s)
+  assert.match(styles, /\.selected-magic-rule-card\{[^}]*display:block[^}]*width:100%/s)
+  assert.match(styles, /\.magic-item-card-actions\{[^}]*width:100%/s)
 })
 
 test('Unit Details shows the starting unit size rather than the edited model count', () => {
@@ -177,4 +177,91 @@ test('The expanded icon pack includes all six spell-category icons', () => {
   }
   assert.match(icon, /magical\\s\+vortex|magical\\s\+vortex/)
   assert.match(icon, /magic\\s\+missile|magic\\s\+missile/)
+})
+
+
+test('Special Rule and Magical Item type keywords are neutral footer pills', () => {
+  const card = readFileSync('src/components/RuleAbilityCard.vue', 'utf8')
+  const styles = readFileSync('src/styles.css', 'utf8')
+  assert.match(card, /old-rule-keywords[\s\S]*rule-kind-pill/)
+  assert.match(styles, /\.old-rule-keywords \.rule-kind-pill\{[^}]*border-color:var\(--line\)[^}]*background:var\(--paper-2\)[^}]*color:var\(--ink-soft\)/s)
+})
+
+test('Sentence-like rule callouts are split from the title and rendered as linked keywords', () => {
+  const card = readFileSync('src/components/RuleAbilityCard.vue', 'utf8')
+  const presentation = readFileSync('src/domain/rulePresentation.ts', 'utf8')
+  assert.match(card, /splitRuleCallout\(props\.rule\.name\)/)
+  assert.match(presentation, /doesn\['’\]\?t/)
+  assert.match(card, /rows\.push\(\{ label: displayRule\.value\.callout, path: ownPath \}\)/)
+  assert.match(card, /old-rule-name">\{\{ displayRule\.title \}\}/)
+})
+
+test('Equipped magical weapons add Magical Attacks to profile keywords', () => {
+  assert.match(unitView, /const hasMagicalAttacks = selectedMagicWeapons\.value\.length > 0/)
+  assert.match(unitView, /label: 'Magical Attacks', path: '\/special-rules\/magical-attacks'/)
+})
+
+test('Mount armour characteristic displays rider contribution instead of a standalone save', () => {
+  assert.match(unitView, /if \(isMountProfileName\(sourceName\)\)[\s\S]*7 - save[\s\S]*profile\.Sv = contribution > 0 \? `\+\$\{contribution\}` : '—'/)
+})
+
+test('Explicit Big Uns profile replaces the ordinary base profile when selected', () => {
+  assert.match(unitView, /const explicitBigUns = baseProfiles\.some/)
+  assert.match(unitView, /if \(bigUnsSelected\.value\)[\s\S]*baseProfiles = baseProfiles\.filter/)
+  assert.match(unitView, /baseProfiles = baseProfiles\.filter\(\(row\) => !\/\\bBig/)
+})
+
+test('Roster shows percentages next to point totals and allowance requirements', () => {
+  const builder = readFileSync('src/views/ListBuilderView.vue', 'utf8')
+  assert.match(builder, /rosterPercentUsed/)
+  assert.match(builder, /remainingPercent/)
+  assert.match(builder, /categoryPercent\(category\)/)
+  assert.match(builder, /pts required — \$\{rules\.minPercent\}% minimum/)
+  assert.match(builder, /pts left — \$\{rules\.maxPercent\}% maximum/)
+})
+
+test('Composition option labels use the clarified magic and unit wording', () => {
+  const data = readFileSync('src/data/listBuilder.ts', 'utf8')
+  assert.match(data, /Magical Category - Limit 1/)
+  assert.match(data, /Magical Item - Point Limit 75 pts/)
+  assert.match(data, /Magical Item - Point Limit 50 pts/)
+  assert.match(data, /Allow Allied Units/)
+  assert.match(data, /Allow Mercenary Units/)
+})
+
+test('Settings contains bug-reporting and donation placeholders', () => {
+  const settings = readFileSync('src/views/SettingsView.vue', 'utf8')
+  assert.match(settings, /REPORT BUGS &amp; ISSUES/)
+  assert.match(settings, /DONATIONS/)
+  assert.match(settings, /No payment functionality is active in this build/)
+})
+
+test('Every page header carries the WIP banner and enlarged Old.dex brand', () => {
+  const header = readFileSync('src/components/AppHeader.vue', 'utf8')
+  const styles = readFileSync('src/styles.css', 'utf8')
+  assert.match(header, /wip-banner[\s\S]*work in progress/)
+  assert.match(styles, /\.brand\{font-size:calc\(32px \+ var\(--font-offset\)\)/)
+})
+
+test('In-app and GitHub changelogs share the same canonical entries', () => {
+  const data = readFileSync('src/data/changelog.ts', 'utf8')
+  const markdown = readFileSync('CHANGELOG.md', 'utf8')
+  const entries = [...data.matchAll(/\{ version: '([^']+)', title: '([^']+)', notes: \[([\s\S]*?)\n  \] \},/g)]
+  assert.ok(entries.length >= 10)
+  for (const [, version, title, noteBlock] of entries) {
+    assert.match(markdown, new RegExp(`## Alpha Build ${version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} —`))
+    assert.ok(markdown.includes(title))
+    for (const note of [...noteBlock.matchAll(/'([^']*(?:’[^']*)*)',/g)].map((match) => match[1])) assert.ok(markdown.includes(note))
+  }
+})
+
+test('Rule callout cleanup is shared with roster/profile keyword labels', () => {
+  const presentation = readFileSync('src/domain/rulePresentation.ts', 'utf8')
+  const card = readFileSync('src/components/RuleAbilityCard.vue', 'utf8')
+  const unit = readFileSync('src/views/UnitView.vue', 'utf8')
+  assert.match(presentation, /export function splitRuleCallout/)
+  assert.match(presentation, /export function ruleDisplayName/)
+  assert.match(card, /from '\.\.\/domain\/rulePresentation'/)
+  assert.match(unit, /label: ruleDisplayName\(rule\.name\)/)
+  assert.doesNotMatch(card, /function splitRuleCallout\(value: string\)/)
 })

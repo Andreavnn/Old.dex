@@ -130,6 +130,30 @@ async function updateBuilderRules() {
       </section>
     </section>
 
+    <section class="settings-group" aria-label="Report bugs and issues">
+      <div class="settings-group-heading">
+        <p class="eyebrow settings-group-title">REPORT BUGS &amp; ISSUES</p>
+      </div>
+      <section class="settings-card">
+        <div class="setting-row static-row support-placeholder-row">
+          <span><strong>Bug &amp; issue reporting</strong><small>A direct Old.dex issue-reporting workflow will be added here in a later build.</small></span>
+          <span class="value-chip">COMING SOON</span>
+        </div>
+      </section>
+    </section>
+
+    <section class="settings-group" aria-label="Donations">
+      <div class="settings-group-heading">
+        <p class="eyebrow settings-group-title">DONATIONS</p>
+      </div>
+      <section class="settings-card">
+        <div class="setting-row static-row support-placeholder-row">
+          <span><strong>Support Old.dex</strong><small>A voluntary donation/support option will be added here later. No payment functionality is active in this build.</small></span>
+          <span class="value-chip">COMING SOON</span>
+        </div>
+      </section>
+    </section>
+
     <section class="settings-group settings-local-group" aria-label="Local settings">
       <div class="settings-group-heading">
         <p class="eyebrow settings-group-title">LOCAL</p>

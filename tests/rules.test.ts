@@ -46,5 +46,5 @@ test('Limit 1 Magic rejects a second item from the same magic-item category acro
   roster[0].magicItems = [magicItem('one', 'One')]
   roster[1].magicItems = [magicItem('two', 'Two')]
   const issues = validate(roster, ['limit-one-magic'])
-  assert.ok(issues.some((issue) => /Limit 1 Magic allows only one Magic Weapon/i.test(issue.message)))
+  assert.ok(issues.some((issue) => /Magical Category - Limit 1 allows only one Magic Weapon/i.test(issue.message)))
 })

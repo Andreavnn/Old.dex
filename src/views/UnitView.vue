@@ -27,6 +27,7 @@ import { applyMagicalMaelstromSelections, magicalMaelstromWizardLevel, wizardLev
 import { magicItemPointLimit as resolveMagicItemPointLimit } from '../domain/magicItems'
 import { equipmentRequirementsMet, normalizeUnitSelections, selectExclusiveEquipment, selectExclusiveWeapon } from '../domain/selection'
 import { applyProfileEffects, incrementCharacteristic, isMountProfileName, normalizedModelName } from '../domain/profileEffects'
+import { ruleDisplayName } from '../domain/rulePresentation'
 import { reportAppError } from '../services/appErrors'
 
 const route = useRoute()
@@ -379,7 +380,7 @@ function magicProfileOverridesFor(profileName: string) {
   })
   return override
 }
-function effectiveProfileFor(baseProfile: Record<ProfileKey, string>, profileName: string, optionalSelectionId?: string) {
+function effectiveProfileFor(baseProfile: Record<ProfileKey, string>, profileName: string, optionalSelectionId?: string, applyBigUns = true) {
   const unit = prototypeUnit.value
   if (!unit) return { ...baseProfile }
   const selectedMount = selectedMountOption.value
@@ -392,7 +393,7 @@ function effectiveProfileFor(baseProfile: Record<ProfileKey, string>, profileNam
     equipmentCount,
     modelCount: modelCount.value,
     activeRules: activeSpecialRules.value,
-    bigUnsSelected: bigUnsSelected.value,
+    bigUnsSelected: bigUnsSelected.value && applyBigUns,
     magicOverride: magicProfileOverridesFor(profileName),
     mountedRider: { active: Boolean(selectedMount) && !selectedMountProfile, modifiers: selectedMount?.riderProfileModifiers },
   })
@@ -461,8 +462,24 @@ function loadoutForProfile(profileName: string, profileIndex: number, allNames: 
 const profileRows = computed(() => {
   const unit = prototypeUnit.value
   if (!unit) return []
-  const baseProfiles = (unit.profiles?.length ? unit.profiles : [{ name: unit.name, profile: unit.profile }]).map((row) => ({ ...row, optionalEquipment: undefined as string[] | undefined, selectionId: undefined as string | undefined }))
+  let baseProfiles = (unit.profiles?.length ? unit.profiles : [{ name: unit.name, profile: unit.profile }]).map((row) => ({ ...row, optionalEquipment: undefined as string[] | undefined, selectionId: undefined as string | undefined }))
   const optional = (unit.optionalProfiles || []).filter((row) => selectedEquipmentIds.value.has(row.selectionId)).map((row) => ({ name: row.name, profile: row.profile, optionalEquipment: row.equipment, selectionId: row.selectionId }))
+
+  // Reference pages can contain both the ordinary model and an upgraded model
+  // profile (Big 'Uns is the common example). Show only the version actually
+  // selected instead of presenting both characteristic rows at once.
+  const explicitBigUns = baseProfiles.some((row) => /\bBig\s*[’']?Uns?\b/i.test(row.name || ''))
+  if (explicitBigUns) {
+    if (bigUnsSelected.value) {
+      baseProfiles = baseProfiles.filter((row) => {
+        const name = row.name || unit.name
+        return /\bBig\s*[’']?Uns?\b/i.test(name) || isMountProfileName(name) || /\b(?:champion|boss|captain|sergeant|champ|musician|standard bearer)\b/i.test(name)
+      })
+    } else {
+      baseProfiles = baseProfiles.filter((row) => !/\bBig\s*[’']?Uns?\b/i.test(row.name || ''))
+    }
+  }
+
   const profiles = [...baseProfiles, ...optional]
     .map((row, index) => ({ ...row, originalIndex: index }))
     .sort((a, b) => {
@@ -478,8 +495,15 @@ const profileRows = computed(() => {
   const names = profiles.map((row) => row.name || unit.name)
   return profiles.map((row, index) => {
     const sourceName = row.name || unit.name
-    const bigUns = bigUnsSelected.value && !isMountProfileName(sourceName)
-    return { name: `${sourceName}${bigUns ? " - Big 'Uns" : ''}`, sourceName, profile: effectiveProfileFor(row.profile, sourceName, row.selectionId), loadout: loadoutForProfile(sourceName, index, names, row.optionalEquipment, row.selectionId) }
+    const explicitUpgradeRow = /\bBig\s*[’']?Uns?\b/i.test(sourceName)
+    const bigUns = bigUnsSelected.value && !explicitBigUns && !isMountProfileName(sourceName)
+    const profile = effectiveProfileFor(row.profile, sourceName, row.selectionId, !explicitUpgradeRow)
+    if (isMountProfileName(sourceName)) {
+      const save = Number.parseInt(profile.Sv, 10)
+      const contribution = Number.isFinite(save) ? Math.max(0, 7 - save) : 0
+      profile.Sv = contribution > 0 ? `+${contribution}` : '—'
+    }
+    return { name: `${sourceName}${bigUns && !explicitUpgradeRow ? " - Big 'Uns" : ''}`, sourceName, profile, loadout: loadoutForProfile(sourceName, index, names, row.optionalEquipment, row.selectionId) }
   })
 })
 
@@ -581,7 +605,9 @@ const unitKeywordLinks = computed(() => {
   const wizardLinks = isWizard.value ? [{ label: 'Wizard', path: '/characters/wizards' }, { label: `Wizard Level ${wizardLevel.value}`, path: '/characters/wizards' }] : []
   const sourceKeywords = unit.keywords.filter((row) => !/^(?:Level\s*\d+\s*Wizard|Wizard\s*Level\s*\d+)$/i.test(String(row.label || '').trim()))
   const sourceRules = activeSpecialRules.value.filter((rule) => !/^(?:Level\s*\d+\s*Wizard|Wizard\s*Level\s*\d+)$/i.test(String(rule.name || '').trim()))
-  const rows = [...sourceKeywords, ...wizardLinks, ...sourceRules.map((rule) => ({ label: rule.name, path: rule.path || rule.keywords[0]?.path || '/' })), ...selectedMagicEntries.value.map(({ item }) => ({ label: item.name, path: `/magic-item/${item.slug}` }))]
+  const hasMagicalAttacks = selectedMagicWeapons.value.length > 0 || [...meleeWeapons.value, ...rangedWeapons.value].some(({ weapon }) => weaponRuleLabels(weapon).some((rule) => /^Magical Attacks$/i.test(rule.label)))
+  const magicalAttackLink = hasMagicalAttacks ? [{ label: 'Magical Attacks', path: '/special-rules/magical-attacks' }] : []
+  const rows = [...sourceKeywords, ...wizardLinks, ...sourceRules.map((rule) => ({ label: ruleDisplayName(rule.name), path: rule.path || rule.keywords[0]?.path || '/' })), ...selectedMagicEntries.value.map(({ item }) => ({ label: item.name, path: `/magic-item/${item.slug}` })), ...magicalAttackLink]
   const seen = new Set<string>()
   return rows.filter((row) => { const key = row.label.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true })
 })
@@ -813,7 +839,7 @@ function saveCurrentRosterConfiguration() {
     options: rosterOptionLabels.value,
     includedEquipment: includedRosterLabels.value,
     optionalSelections: optionalRosterLabels.value,
-    specialRules: activeSpecialRules.value.map((rule) => ({ label: rule.name, path: rule.path || rule.keywords[0]?.path || '/special-rules/what-are-special-rules' })),
+    specialRules: activeSpecialRules.value.map((rule) => ({ label: ruleDisplayName(rule.name), path: rule.path || rule.keywords[0]?.path || '/special-rules/what-are-special-rules' })),
     keywords: unitKeywordLinks.value,
     weaponIds: [...selectedWeaponIds.value],
     equipmentIds: [...selectedEquipmentIds.value],
@@ -947,7 +973,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
           </div>
           <div v-if="isEditing" class="magic-add-row" :class="{ 'is-empty': !magicLoading && !filteredMagicItems.length }"><select v-model="pendingMagicItem" :disabled="magicLoading || !filteredMagicItems.length"><option value="">{{ magicLoading ? 'Loading magic items…' : filteredMagicItems.length ? 'Select magic item' : 'Magic item allowance fully spent or no legal items remain' }}</option><optgroup v-for="group in magicItemGroups" :key="group.key" :label="group.label"><option v-for="item in group.items" :key="item.id" :value="item.id">{{ item.name }} — {{ item.points }} pts{{ maxMagicCopies(item) > 1 ? ' · repeatable' : '' }}</option></optgroup></select><button v-if="magicLoading || filteredMagicItems.length" class="secondary-button" type="button" :disabled="!pendingMagicItem" @click="addMagicItem">Add item</button></div>
           <p v-if="magicError" class="magic-error">{{ magicError }}</p>
-          <div v-if="magicItemCards.length" class="magic-item-card-grid old-rule-grid">
+          <div v-if="magicItemCards.length" class="magic-item-card-grid">
             <div v-for="entry in magicItemCards" :key="entry.item.id" class="selected-magic-rule-card">
               <RuleAbilityCard :rule="entry.rule" kind-label="Magical Item" />
               <div class="magic-item-card-actions">
