@@ -1,0 +1,31 @@
+Old.dex Alpha Build 0.56 — Verification
+========================================
+
+Delivery type:
+- Direct canonical source replacement files
+- No GitHub Actions updater
+- No Python patch script
+- No preview-layer implementation
+
+Local verification completed:
+- ODX static analysis: PASS
+- Source files checked: 64
+- Historical CSS version markers: 0
+- Regression/contract tests: 110 passed, 0 failed
+
+v0.56 coverage:
+- Validation issue divider cleanup
+- Melee/Range special-rule pill parity
+- Requirement-aware red/yellow/green category percentage status
+- Current-General context label
+- Centered roster unit/model point badge above controls
+- Reset local user data while preserving display settings
+- Forces of Fantasy theme
+- Powers of Chaos theme
+- Legions of Undead theme
+- Ravening Hordes theme
+- Dark-mode compatibility for all four faction themes
+- Canonical GitHub/in-app changelog parity
+
+Final production TypeScript/Vite compilation is performed by the connected
+Vercel deployment after these source files are committed to main.

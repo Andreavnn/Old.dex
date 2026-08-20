@@ -209,6 +209,21 @@ function categoryRulePoints(category: DisplayCategory) {
 function categoryPercent(category: DisplayCategory) {
   return points.value > 0 ? Math.round((categoryRulePoints(category) / points.value) * 100) : 0
 }
+type CategoryPercentageState = 'neutral' | 'green' | 'yellow' | 'red'
+function categoryPercentageState(category: DisplayCategory): CategoryPercentageState {
+  const allowance = categoryAllowance(category)
+  if (!allowance || allowance.percent <= 0) return 'neutral'
+  const current = categoryPercent(category)
+  const target = allowance.percent
+  if (allowance.qualifier === 'Needed') {
+    if (current >= target) return 'green'
+    if (current >= Math.ceil(target * 0.75)) return 'yellow'
+    return 'red'
+  }
+  if (current >= target) return 'red'
+  if (current >= Math.ceil(target * 0.75)) return 'yellow'
+  return 'green'
+}
 type CategoryAllowanceDisplay = { points: number; percent: number; qualifier: 'Needed' | 'Maximum'; state: 'required' | 'met' | 'left' | 'over' }
 function categoryAllowance(category: DisplayCategory): CategoryAllowanceDisplay | null {
   if (category === 'General' || category === 'Battle Standard Bearer') return null
@@ -414,7 +429,7 @@ async function applySettings() {
 
       <div class="builder-category-stack">
         <details v-for="category in categories" :key="category" class="builder-category-card" :open="unitsInCategory(category).length > 0 || category === 'Characters' || category === 'Core' || category === 'Custom Units'">
-          <summary class="builder-category-summary"><span>{{ category }}</span><span v-if="!isRoleDisplayCategory(category)" class="builder-category-summary-meta"><small>{{ categorySelectedCount(category) }} Selected</small><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPoints(category) }} pts</strong><template v-if="categoryAllowance(category)"><span class="category-meta-separator" aria-hidden="true">/</span><em class="category-allowance" :class="`is-${categoryAllowance(category)?.state}`">{{ categoryAllowancePointsText(category) }} ({{ categoryAllowance(category)?.qualifier }})</em><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPercent(category) }}% / {{ categoryAllowance(category)?.percent }}%</strong></template><template v-else><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPercent(category) }}%</strong></template></span></summary>
+          <summary class="builder-category-summary"><span>{{ category }}</span><span v-if="!isRoleDisplayCategory(category)" class="builder-category-summary-meta"><small>{{ categorySelectedCount(category) }} Selected</small><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPoints(category) }} pts</strong><template v-if="categoryAllowance(category)"><span class="category-meta-separator" aria-hidden="true">/</span><em class="category-allowance" :class="`is-${categoryAllowance(category)?.state}`">{{ categoryAllowancePointsText(category) }} ({{ categoryAllowance(category)?.qualifier }})</em><span class="category-meta-separator" aria-hidden="true">-</span><strong class="category-percentage-status" :class="`status-${categoryPercentageState(category)}`">{{ categoryPercent(category) }}% / {{ categoryAllowance(category)?.percent }}%</strong></template><template v-else><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPercent(category) }}%</strong></template></span></summary>
           <div class="builder-category-body">
             <div v-if="unitsInCategory(category).length" class="builder-unit-stack">
               <BuilderUnitEntry v-for="row in unitsInCategory(category)" :key="row.instanceId" :row="row" :army-slug="selectedArmy.slug" :return-path="route.fullPath" :composition-id="selectedComposition.id" :locked="listLocked" :invalid="invalidInstanceIds.has(row.instanceId)" @remove="removeUnit(row.instanceId)" @duplicate="duplicateUnit(row)" />

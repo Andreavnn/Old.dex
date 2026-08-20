@@ -2277,3 +2277,29 @@ a.rule-kind-pill:hover{border-color:var(--accent);background:var(--accent-wash);
   font-size:calc(8px + var(--font-offset));
 }
 .warscroll-unit-size .unit-size-controls{margin:1px 0}
+
+/* Roster status, controls, validation, and faction themes */
+.builder-validation-list{border-top:0;margin-top:8px;padding-top:4px}
+.old-world-weapon-table .weapon-rule-labels{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:5px}
+.old-world-weapon-table .weapon-rule-label{display:inline-flex;align-items:center;justify-content:center;min-height:25px;padding:3px 8px;border:1px solid var(--line-dark);border-radius:999px;background:var(--paper);color:var(--ink);font-size:calc(8.5px + var(--font-offset));font-weight:650;letter-spacing:0;line-height:1.2;text-decoration:none;text-transform:none}
+.old-world-weapon-table .weapon-rule-label:hover{border-color:var(--accent);background:var(--accent-wash)}
+.builder-unit-control-column{display:grid;justify-items:center;align-content:center;gap:7px;min-width:216px}
+.builder-unit-points-box{display:inline-flex;align-items:center;justify-content:center;min-width:88px;min-height:29px;padding:4px 11px;border:1px solid var(--line-dark);border-radius:7px;background:var(--paper);color:var(--accent-dark);font-size:calc(10px + var(--font-offset));font-weight:850;font-variant-numeric:tabular-nums}
+.builder-unit-control-column .builder-unit-actions{justify-content:center}
+.current-general-note{color:var(--ink-soft);font-size:.86em;font-weight:500;white-space:nowrap}
+.category-percentage-status{transition:color .15s ease}
+.category-percentage-status.status-green{color:#2f7d46}.category-percentage-status.status-yellow{color:#9a6a18}.category-percentage-status.status-red{color:#b3261e}
+:root[data-theme="dark"] .category-percentage-status.status-green{color:#67c884}:root[data-theme="dark"] .category-percentage-status.status-yellow{color:#e0b85f}:root[data-theme="dark"] .category-percentage-status.status-red{color:#ee8278}
+.theme-settings-panel{border-bottom:1px solid #e6e1d8;background:var(--paper)}
+.theme-settings-panel>summary{list-style:none;min-height:69px;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;gap:15px;cursor:pointer}
+.theme-settings-panel>summary::-webkit-details-marker{display:none}.theme-settings-panel>summary>span:first-child{display:grid;gap:3px}.theme-settings-panel>summary small{color:var(--ink-soft);font-weight:500;line-height:1.35}.theme-settings-panel>summary::after{content:'›';color:var(--ink-soft);font-size:1.25rem;transform:rotate(90deg);transition:transform .15s ease}.theme-settings-panel[open]>summary::after{transform:rotate(-90deg)}.theme-settings-panel>summary .value-chip{margin-left:auto}.theme-option-list{border-top:1px solid var(--line);background:var(--paper-2)}.theme-option-row{min-height:61px;padding-left:28px;background:transparent}.theme-option-row:last-child{border-bottom:0}
+:root[data-faction-theme="forces-of-fantasy"]{--paper:#fbfcfd;--paper-2:#edf2f7;--line:#c8d2df;--line-dark:#9fb1c6;--accent:#4f6f98;--accent-dark:#2f4e76;--accent-wash:#dce7f3;--page-bg:#e9edf2;--page-gradient:linear-gradient(180deg,#f5f7fa 0,#e9edf2 420px)}
+:root[data-theme="dark"][data-faction-theme="forces-of-fantasy"]{--ink:#edf3fa;--ink-soft:#a7b5c5;--paper:#1d2530;--paper-2:#24303d;--line:#334457;--line-dark:#516b86;--accent:#82a8d3;--accent-dark:#adc8e7;--accent-wash:#283c52;--page-bg:#141a22;--page-gradient:linear-gradient(180deg,#1c2530 0,#141a22 420px)}
+:root[data-faction-theme="powers-of-chaos"]{--paper:#fcf9f7;--paper-2:#f3eae5;--line:#ddcbc2;--line-dark:#c19e8d;--accent:#9a4939;--accent-dark:#6d2e24;--accent-wash:#efdcd5;--danger:#8e2f2f;--page-bg:#eee9e6;--page-gradient:linear-gradient(180deg,#f8f3f0 0,#eee9e6 420px)}
+:root[data-theme="dark"][data-faction-theme="powers-of-chaos"]{--ink:#f3e9e5;--ink-soft:#bca39a;--paper:#261c19;--paper-2:#30231f;--line:#4b3730;--line-dark:#704c40;--accent:#d67863;--accent-dark:#eda08f;--accent-wash:#492a24;--danger:#ec7a70;--page-bg:#1c1513;--page-gradient:linear-gradient(180deg,#261c19 0,#1c1513 420px)}
+:root[data-faction-theme="legions-of-undead"]{--paper:#f8fbf9;--paper-2:#edf2ef;--line:#c7d2cc;--line-dark:#9dafaa;--accent:#5e766f;--accent-dark:#3e5750;--accent-wash:#dae6e1;--page-bg:#e8ecea;--page-gradient:linear-gradient(180deg,#f2f6f4 0,#e8ecea 420px)}
+:root[data-theme="dark"][data-faction-theme="legions-of-undead"]{--ink:#e9f1ee;--ink-soft:#9fb3ad;--paper:#1c2522;--paper-2:#24302c;--line:#354942;--line-dark:#526d64;--accent:#88b2a6;--accent-dark:#b0d1c7;--accent-wash:#284039;--page-bg:#131a18;--page-gradient:linear-gradient(180deg,#1d2824 0,#131a18 420px)}
+:root[data-faction-theme="ravening-hordes"]{--paper:#fbfbf5;--paper-2:#f1f0df;--line:#d6d4b8;--line-dark:#ada977;--accent:#737238;--accent-dark:#53531f;--accent-wash:#e5e4c4;--page-bg:#edede5;--page-gradient:linear-gradient(180deg,#f7f7ef 0,#edede5 420px)}
+:root[data-theme="dark"][data-faction-theme="ravening-hordes"]{--ink:#f0f0e4;--ink-soft:#b2b19a;--paper:#222319;--paper-2:#2b2d20;--line:#444631;--line-dark:#666846;--accent:#b0b16e;--accent-dark:#d0d18f;--accent-wash:#3c3e25;--page-bg:#191a12;--page-gradient:linear-gradient(180deg,#242519 0,#191a12 420px)}
+@media(max-width:620px){.builder-unit-control-column{min-width:0;width:100%;margin-top:11px}.builder-unit-control-column .builder-unit-actions{margin-top:0}.theme-settings-panel>summary{align-items:flex-start}.theme-settings-panel>summary .value-chip{display:none}.theme-option-row{padding-left:18px}}
+

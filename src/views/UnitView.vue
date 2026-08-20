@@ -143,6 +143,9 @@ function contextualOptionName(option: PrototypeEquipmentOption) {
   if (!/^General$/i.test(option.name.trim()) || selectedEquipmentIds.value.has(option.id) || !otherGeneralName.value) return label
   return `${label} - ${otherGeneralName.value}`
 }
+function showOtherGeneralCurrent(option: PrototypeEquipmentOption) {
+  return /^General$/i.test(option.name.trim()) && !selectedEquipmentIds.value.has(option.id) && Boolean(otherGeneralName.value)
+}
 
 const wizardLevelOptions = computed(() => (prototypeUnit.value?.equipmentOptions || []).filter(isWizardLevelOption).sort((a, b) => wizardLevelFromName(a.name) - wizardLevelFromName(b.name)))
 const startingWizardLevel = computed(() => {
@@ -989,7 +992,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
               <div class="prototype-option-grid equipment-option-grid">
                 <template v-for="option in group.options" :key="option.id">
                   <div v-if="isPerModelEquipmentSelection(option)" class="weapon-equipment-option count-option-card" :class="{ selected: selectedEquipmentIds.has(option.id), superseded: mundaneEquipmentSuperseded(option) }">
-                    <span class="option-name">{{ contextualOptionName(option) }}</span>
+                    <span class="option-name">{{ contextualOptionName(option) }}<small v-if="showOtherGeneralCurrent(option)" class="current-general-note"> (Current)</small></span>
                     <small v-if="option.note" class="option-effect">{{ option.note }}</small>
                     <strong v-if="option.points > 0" class="option-cost">{{ optionCost(option.points) }} / model</strong>
                     <span class="equipment-quantity-controls option-stepper">
@@ -1001,7 +1004,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
                   </div>
                   <label v-else :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option), superseded: mundaneEquipmentSuperseded(option) }">
                     <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionEffectivelyLocked(option) || mundaneEquipmentSuperseded(option) || (magicalMaelstromEnabled && isWizardLevelOption(option))" @change="handleEquipmentCheckbox(option, $event)" />
-                    <span class="option-name">{{ contextualOptionName(option) }}</span>
+                    <span class="option-name">{{ contextualOptionName(option) }}<small v-if="showOtherGeneralCurrent(option)" class="current-general-note"> (Current)</small></span>
                     <small v-if="option.note" class="option-effect">{{ option.note }}</small>
                     <strong v-if="option.points > 0 || (magicalMaelstromEnabled && isWizardLevelOption(option))" class="option-cost">{{ magicalMaelstromEnabled && isWizardLevelOption(option) ? 'Free' : optionCost(option.points) }}<small v-if="!magicalMaelstromEnabled && (option.costMode === 'per-model' || option.perModel)"> / model</small></strong>
                   </label>

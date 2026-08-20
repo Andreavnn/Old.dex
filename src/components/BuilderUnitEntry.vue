@@ -68,7 +68,6 @@ const displayRules = computed(() => {
     <div class="builder-unit-main">
       <div class="builder-unit-name-row">
         <RouterLink class="builder-unit-name" :to="viewPath">{{ row.name }}</RouterLink>
-        <span class="builder-unit-points">{{ row.totalPoints }} pts</span>
       </div>
       <div class="builder-unit-subline" aria-label="Unit summary">
         <span>{{ displayUnitSize }}</span>
@@ -83,11 +82,14 @@ const displayRules = computed(() => {
         <RouterLink v-for="rule in displayRules" :key="`${rule.label}-${rule.path}`" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink>
       </div>
     </div>
-    <div class="builder-unit-actions" aria-label="Unit controls">
-      <RouterLink v-if="!locked" class="builder-mini-action primary" :to="editPath">Edit</RouterLink><span v-else class="builder-mini-action disabled" aria-disabled="true">Edit</span>
-      <RouterLink class="builder-mini-action icon-only-action" :to="viewPath" aria-label="View unit" title="View"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></RouterLink>
-      <button type="button" class="builder-mini-action icon-only-action" :disabled="locked" aria-label="Copy unit" title="Copy" @click="emit('duplicate')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1.5"/><path d="M16 8V5H5v11h3"/></svg></button>
-      <button type="button" class="builder-mini-action danger" :disabled="locked" @click="emit('remove')">Remove</button>
+    <div class="builder-unit-control-column">
+      <span class="builder-unit-points-box">{{ row.totalPoints }} pts</span>
+      <div class="builder-unit-actions" aria-label="Unit controls">
+        <RouterLink v-if="!locked" class="builder-mini-action primary" :to="editPath">Edit</RouterLink><span v-else class="builder-mini-action disabled" aria-disabled="true">Edit</span>
+        <RouterLink class="builder-mini-action icon-only-action" :to="viewPath" aria-label="View unit" title="View"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></RouterLink>
+        <button type="button" class="builder-mini-action icon-only-action" :disabled="locked" aria-label="Copy unit" title="Copy" @click="emit('duplicate')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1.5"/><path d="M16 8V5H5v11h3"/></svg></button>
+        <button type="button" class="builder-mini-action danger" :disabled="locked" @click="emit('remove')">Remove</button>
+      </div>
     </div>
   </article>
 </template>

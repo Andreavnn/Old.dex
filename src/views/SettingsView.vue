@@ -1,18 +1,43 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
-import { useSettings, type FontSize } from '../settings'
+import { useSettings, type FontSize, type VisualTheme } from '../settings'
 import { forceRefreshBuilderData } from '../services/armyData'
 import { forceRefreshRulePages } from '../services/ruleContent'
 import { armies } from '../data/armies'
 import { battleScenarioEntries, nonReaderRuleSourcePaths, ruleSections, supportPages } from '../data/rules'
 import { armySourcePath } from '../data/ruleRepository'
-import { writeStorage } from '../services/storage'
+import { removeStorage, storageKeys, writeStorage } from '../services/storage'
 import { reportAppError } from '../services/appErrors'
 
-const { darkMode, compactRows, fontSize, boldText, reset } = useSettings()
+const { darkMode, compactRows, fontSize, boldText, visualTheme, reset } = useSettings()
 const updateState = ref<'idle' | 'running' | 'success' | 'error'>('idle')
 const updateMessage = ref('')
+const dataResetState = ref<'idle' | 'running'>('idle')
+
+const themeOptions: Array<{ value: Exclude<VisualTheme, 'default'>; label: string; note: string }> = [
+  { value: 'forces-of-fantasy', label: 'Forces of Fantasy', note: 'Cool blue and heraldic parchment accents.' },
+  { value: 'powers-of-chaos', label: 'Powers of Chaos', note: 'Crimson, brass and dark iron accents.' },
+  { value: 'legions-of-undead', label: 'Legions of Undead', note: 'Cold bone, grave-green and ancient metal accents.' },
+  { value: 'ravening-hordes', label: 'Ravening Hordes', note: 'Muted green, ochre and field-parchment accents.' },
+]
+const currentThemeLabel = computed(() => themeOptions.find((option) => option.value === visualTheme.value)?.label || 'Default')
+
+function toggleVisualTheme(value: Exclude<VisualTheme, 'default'>, event: Event) {
+  const checked = Boolean((event.target as HTMLInputElement | null)?.checked)
+  visualTheme.value = checked ? value : (visualTheme.value === value ? 'default' : visualTheme.value)
+}
+
+function resetLocalData() {
+  if (typeof window === 'undefined' || dataResetState.value === 'running') return
+  const confirmed = window.confirm('Reset Old.dex local data? This removes saved army lists, favorites, cached rule/army content, and other locally added app data. Display settings and themes are preserved.')
+  if (!confirmed) return
+  dataResetState.value = 'running'
+  storageKeys()
+    .filter((key) => key.startsWith('olddex.') && !key.startsWith('olddex.settings.'))
+    .forEach((key) => removeStorage(key))
+  window.setTimeout(() => window.location.reload(), 120)
+}
 
 const fontOptions: Array<{ value: FontSize; label: string }> = [
   { value: 'smallest', label: 'Smallest' },
@@ -112,10 +137,18 @@ async function updateBuilderRules() {
           <span><strong>Bold text</strong><small>Increase the weight of normal interface and reference text.</small></span>
           <input v-model="boldText" type="checkbox" />
         </label>
-        <div class="setting-row static-row support-placeholder-row">
-          <span><strong>Themes</strong><small>Additional Old.dex visual themes will be added here in a later build.</small></span>
-          <span class="value-chip">COMING SOON</span>
-        </div>
+        <details class="theme-settings-panel">
+          <summary>
+            <span><strong>Themes</strong><small>Faction themes change the Old.dex palette while preserving the selected light or dark mode.</small></span>
+            <span class="value-chip">{{ currentThemeLabel }}</span>
+          </summary>
+          <div class="theme-option-list">
+            <label v-for="theme in themeOptions" :key="theme.value" class="theme-option-row setting-row">
+              <span><strong>{{ theme.label }}</strong><small>{{ theme.note }}</small></span>
+              <input :checked="visualTheme === theme.value" type="checkbox" @change="toggleVisualTheme(theme.value, $event)" />
+            </label>
+          </div>
+        </details>
         <div class="setting-row reset-setting-row">
           <span><strong>Reset local settings</strong><small>Restore the display preferences on this device to their defaults.</small></span>
           <button class="secondary-button settings-compact-action" type="button" @click="reset">Reset</button>
@@ -140,6 +173,10 @@ async function updateBuilderRules() {
         <p class="eyebrow settings-group-title">DATA &amp; CONTENT</p>
       </div>
       <section class="settings-card">
+        <div class="setting-row reset-data-row">
+          <span><strong>Reset local data</strong><small>Remove saved army lists, favorites, cached content, and other locally added Old.dex data while preserving Display settings.</small></span>
+          <button class="secondary-button settings-compact-action" type="button" :disabled="dataResetState === 'running'" @click="resetLocalData">{{ dataResetState === 'running' ? 'Resetting…' : 'Reset data' }}</button>
+        </div>
         <div class="setting-row update-setting-row">
           <span><strong>Update Builder rules</strong><small>Force Old.dex to discard current remote caches and request fresh Builder data plus all configured rule and army reference pages.</small></span>
           <button class="secondary-button update-button settings-compact-action" type="button" :disabled="updateState === 'running'" @click="updateBuilderRules">
