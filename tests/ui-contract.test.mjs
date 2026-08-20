@@ -128,3 +128,13 @@ test('Magic items remain removable while editing', () => {
   assert.match(unitView, /magic-remove-button[\s\S]*adjustMagicItem\(entry\.item\.id, -entry\.count\)/)
   assert.match(unitView, /aria-label="Remove one copy"[\s\S]*adjustMagicItem\(entry\.item\.id, -1\)/)
 })
+
+
+test('Roster edit autosave is a pure snapshot and cannot normalize watched refs', () => {
+  const start = unitView.indexOf('function saveCurrentRosterConfiguration()')
+  const end = unitView.indexOf('let rosterSaveQueued', start)
+  assert.ok(start >= 0 && end > start)
+  const autosave = unitView.slice(start, end)
+  assert.doesNotMatch(autosave, /normalizeSelections\(\)|normalizeWeaponCounts\(\)|normalizeEquipmentCounts\(\)/)
+  assert.match(unitView, /let rosterSaveQueued = false[\s\S]*function queueRosterSave\(\)[\s\S]*watch\(\[selectedWeaponIds, selectedEquipmentIds, selectedMagicCounts, magicItemDetails, modelCount, weaponCounts, equipmentCounts\], queueRosterSave\)/)
+})

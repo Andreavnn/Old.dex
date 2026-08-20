@@ -763,9 +763,8 @@ function rosterMagicItems(): BuilderRosterMagicItem[] {
 }
 function saveCurrentRosterConfiguration() {
   if (!isEditing.value || !hydratedFromRoster.value || !instanceId.value) return
-  normalizeSelections()
-  normalizeWeaponCounts()
-  normalizeEquipmentCounts()
+  // Autosave must be a pure snapshot. Mutating the watched selection refs here
+  // creates a reactive feedback loop because normalization replaces Sets/Maps.
   updateBuilderRosterSelection(backPath.value, instanceId.value, {
     totalPoints: totalPoints.value,
     basePoints: baseUnitPoints.value,
@@ -792,10 +791,16 @@ function saveCurrentRosterConfiguration() {
     equipmentCounts: Object.fromEntries(equipmentCounts.value),
   })
 }
-watch([selectedWeaponIds, selectedEquipmentIds, selectedMagicCounts, magicItemDetails, modelCount, weaponCounts, equipmentCounts], () => {
-  if (!isEditing.value || !hydratedFromRoster.value) return
-  void nextTick(saveCurrentRosterConfiguration)
-})
+let rosterSaveQueued = false
+function queueRosterSave() {
+  if (!isEditing.value || !hydratedFromRoster.value || rosterSaveQueued) return
+  rosterSaveQueued = true
+  void nextTick(() => {
+    rosterSaveQueued = false
+    saveCurrentRosterConfiguration()
+  })
+}
+watch([selectedWeaponIds, selectedEquipmentIds, selectedMagicCounts, magicItemDetails, modelCount, weaponCounts, equipmentCounts], queueRosterSave)
 
 function toggleFavourite() { if (!army.value) return; favourite.value = setFavoriteUnit(army.value.slug, unitId.value, !favourite.value) }
 
