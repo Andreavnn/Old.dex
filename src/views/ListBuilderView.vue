@@ -146,8 +146,6 @@ function startingUnitPoints(unit: PrototypeUnit) {
 }
 const rosterPoints = computed(() => roster.value.reduce((sum, row) => sum + row.totalPoints, 0))
 const remainingPoints = computed(() => points.value - rosterPoints.value)
-const rosterPercentUsed = computed(() => points.value > 0 ? Math.round((rosterPoints.value / points.value) * 1000) / 10 : 0)
-const remainingPercent = computed(() => points.value > 0 ? Math.round((Math.abs(remainingPoints.value) / points.value) * 1000) / 10 : 0)
 const validationIssues = computed(() => {
   const issues = validateRoster({ roster: roster.value, points: points.value, armySlug: selectedArmy.value.slug, compositionId: selectedComposition.value.id, compositionRuleId: compositionRuleId.value, ruleCatalog: compositionRuleData.value, compositionOptionIds: selectedOptions.value.map((option) => option.value) })
   if (!catalogLoading.value && !catalogError.value && availableUnits.value.length) {
@@ -209,7 +207,7 @@ function categoryRulePoints(category: DisplayCategory) {
   return categoryPoints(category)
 }
 function categoryPercent(category: DisplayCategory) {
-  return points.value > 0 ? Math.round((categoryRulePoints(category) / points.value) * 1000) / 10 : 0
+  return points.value > 0 ? Math.round((categoryRulePoints(category) / points.value) * 100) : 0
 }
 type CategoryAllowanceDisplay = { points: number; percent: number; qualifier: 'Needed' | 'Maximum'; state: 'required' | 'met' | 'left' | 'over' }
 function categoryAllowance(category: DisplayCategory): CategoryAllowanceDisplay | null {
@@ -399,7 +397,7 @@ async function applySettings() {
         </div>
         <p v-if="description" class="builder-list-description">{{ description }}</p>
       </div>
-      <div class="builder-points-orb" :class="{ over: remainingPoints < 0 }"><strong>{{ rosterPoints }}</strong><span>/ {{ points }}</span><small>{{ rosterPercentUsed }}% used</small><small>{{ remainingPoints >= 0 ? `${remainingPoints} remaining — ${remainingPercent}%` : `${Math.abs(remainingPoints)} over — ${remainingPercent}%` }}</small></div>
+      <div class="builder-points-orb" :class="{ over: remainingPoints < 0 }"><strong>{{ rosterPoints }}</strong><span>/ {{ points }}</span><small>{{ remainingPoints >= 0 ? `${remainingPoints} remaining` : `${Math.abs(remainingPoints)} over` }}</small></div>
     </div>
 
     <section class="builder-command-strip card-surface">

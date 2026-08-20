@@ -2,6 +2,13 @@
 
 This is the canonical duplicate-free project history. The in-app Changelog mirrors these same entries. Repeated correction passes are consolidated into the build or build range where the behavior became part of the application source.
 
+## Alpha Build 0.55 — Roster totals, profile sizing, weapon AP, and publication completeness
+
+- Removed percentages from the top roster point total while keeping category percentages as rounded whole numbers and preserving the selected/points/allowance percentage format within category summaries.
+- Moved unit-size information beneath the profile points badge, placed model add/remove controls directly beneath the current model count, and removed the duplicate Unit Size field from Unit Details.
+- Changed selected Magical Item cards to true two-column grid rows, centered melee/range weapon table content, reserved more width for Special Rule pills, and added conditional AP presentation for profile-level AP improvements such as Choppas and Armour Bane.
+- Added contextual General labels that identify the other roster model currently selected as General, guaranteed a list-publication fallback for every live unit, and added spacing above roster validation issue rows.
+
 ## Alpha Build 0.54 — Rule-card links, settings hierarchy, and roster category accounting
 
 - Capitalized special-rule callout keyword pills and linked Special Rule/Magical Item type pills directly to their underlying rule or item pages when available.

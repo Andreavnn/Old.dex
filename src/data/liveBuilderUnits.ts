@@ -446,6 +446,18 @@ function displayScalar(value: unknown) {
   return ''
 }
 
+function listPublication(raw: RawBuilderUnit, armyName: string) {
+  const explicit = displayScalar(raw.publication || raw.sourceBook || raw.sourcePublication || raw.book)
+  if (explicit) return explicit
+  const coreForces = new Set(['Dwarfen Mountain Holds', 'Empire of Man', 'High Elf Realms', 'Kingdom of Bretonnia', 'Wood Elf Realms'])
+  const coreHordes = new Set(['Beastmen Brayherds', 'Orc & Goblin Tribes', 'Tomb Kings of Khemri', 'Warriors of Chaos'])
+  if (coreForces.has(armyName)) return 'Forces of Fantasy'
+  if (coreHordes.has(armyName)) return 'Ravening Hordes'
+  if (armyName === 'Grand Cathay') return 'Arcane Journal: Grand Cathay'
+  if (armyName === 'Renegade Crowns') return "Arcane Journal: The War of Settra's Fury"
+  return `Legacy Army List: ${armyName}`
+}
+
 function additionalUnitDetails(raw: RawBuilderUnit) {
   const fields: Array<[string, string]> = [
     ['Regimental Unit', 'regimentalUnit'],
@@ -498,7 +510,7 @@ function makeCatalogUnit(raw: RawBuilderUnit, category: BuilderCategory, armyNam
     details: {
       troopType: '',
       baseSize: '',
-      publication: '',
+      publication: listPublication(raw, armyName),
       army: armyName,
       unitCategory: category,
       notes: noteText(raw.notes),

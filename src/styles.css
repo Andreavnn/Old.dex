@@ -2213,3 +2213,67 @@ a.rule-kind-pill:hover{border-color:var(--accent);background:var(--accent-wash);
 .warscroll-favourite svg{display:block;width:22px;height:22px;margin:0;transform:translateY(-.25px);transform-origin:center}
 
 .support-placeholder-row .value-chip{white-space:nowrap}
+
+/* Roster/profile presentation refinements */
+.builder-points-orb{gap:2px}
+.builder-points-orb small{margin-top:2px}
+.builder-validation-list{margin-top:12px}
+
+.magic-item-card-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  width:100%;
+  padding:12px;
+  column-count:initial;
+  column-gap:10px;
+}
+.magic-item-card-grid>.selected-magic-rule-card{
+  display:grid;
+  grid-template-rows:auto auto;
+  width:100%;
+  min-width:0;
+  margin:0;
+  break-inside:auto;
+}
+@media(max-width:800px){
+  .magic-item-card-grid{grid-template-columns:1fr}
+}
+
+.old-world-weapon-table{min-width:840px;table-layout:auto}
+.old-world-weapon-table th,
+.old-world-weapon-table td,
+.old-world-weapon-table th:first-child,
+.old-world-weapon-table td:first-child,
+.old-world-weapon-table th:last-child,
+.old-world-weapon-table td:last-child{text-align:center}
+.old-world-weapon-table th:nth-child(1){width:22%}
+.old-world-weapon-table th:nth-child(2){width:11%}
+.old-world-weapon-table th:nth-child(3){width:11%}
+.old-world-weapon-table th:nth-child(4){width:12%}
+.old-world-weapon-table th:nth-child(5){width:44%}
+.weapon-rule-labels{justify-content:center}
+.weapon-ap-cell{font-weight:750;white-space:nowrap}
+
+.warscroll-unit-size{
+  display:grid;
+  justify-items:center;
+  gap:4px;
+  margin-top:8px;
+}
+.warscroll-unit-size-label{
+  color:var(--ink-soft);
+  font-size:calc(8px + var(--font-offset));
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.warscroll-unit-size>strong{
+  font-family:Georgia,'Times New Roman',serif;
+  font-size:calc(14px + var(--font-offset));
+}
+.warscroll-unit-size>small{
+  color:var(--ink-soft);
+  font-size:calc(8px + var(--font-offset));
+}
+.warscroll-unit-size .unit-size-controls{margin:1px 0}

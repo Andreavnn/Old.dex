@@ -291,7 +291,7 @@ export async function enrichLiveUnitReference(unit: PrototypeUnit, raw: RawBuild
       const general = unit.equipmentOptions.find((option) => option.kind === 'role' && /^General$/i.test(option.name))
       if (general) { general.default = true; general.locked = true }
     }
-    unit.details = { ...unit.details, ...metadata }
+    unit.details = { ...unit.details, ...metadata, publication: metadata.publication || unit.details.publication }
     const paths = anchorMap(dom)
     unit.specialRules = await Promise.all(unit.specialRules.map(async (rule) => {
       const path = matchingPath(paths, rule.name, rule.path)

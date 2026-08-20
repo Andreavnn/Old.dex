@@ -1,0 +1,21 @@
+Old.dex Alpha Build 0.55 — Verification
+========================================
+
+Canonical source pass only. No standalone-preview patching was used.
+
+Local verification completed:
+- ODX static analysis: PASS
+- Regression/contract tests: 106 passed, 0 failed
+- CSS historical version markers: 0
+
+Coverage added/updated in this pass:
+- Point-only top roster total and whole-number category percentages
+- Two-column Magical Item grid rows
+- Contextual General option label
+- Publication fallback retention
+- Unit-size placement beneath profile points
+- Centered weapon tables with expanded Special Rule column
+- Conditional AP improvement notation
+- Validation issue spacing
+
+Full vue-tsc/Vite production build is left to the connected Vercel build environment.

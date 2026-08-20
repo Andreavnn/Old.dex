@@ -152,17 +152,18 @@ test('Dynamic profile characteristic changes preserve the user scroll position',
   assert.match(styles, /\.old-world-profile\{[^}]*overflow-anchor:none/s)
 })
 
-test('Magic-item cards use the same responsive two-column flow as Special Rules with actions attached beneath', () => {
+test('Magic-item cards render as actual two-column rows with actions attached beneath', () => {
   const styles = readFileSync('src/styles.css', 'utf8')
-  assert.match(styles, /\.magic-item-card-grid\{[^}]*column-count:2[^}]*column-gap:10px/s)
-  assert.match(styles, /\.magic-item-card-grid>\.selected-magic-rule-card\{[^}]*display:inline-block[^}]*break-inside:avoid/s)
-  assert.match(styles, /@media\(max-width:800px\)\{\.magic-item-card-grid\{column-count:1\}\}/)
+  assert.match(styles, /\/\* Roster\/profile presentation refinements \*\/[\s\S]*\.magic-item-card-grid\{[\s\S]*display:grid;[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/)
+  assert.match(styles, /\.magic-item-card-grid>\.selected-magic-rule-card\{[\s\S]*display:grid;[\s\S]*width:100%/)
+  assert.match(styles, /@media\(max-width:800px\)\{[\s\S]*\.magic-item-card-grid\{grid-template-columns:1fr\}/)
   assert.match(styles, /\.magic-item-card-actions\{[^}]*width:100%/s)
 })
 
-test('Unit Details shows the starting unit size rather than the edited model count', () => {
+test('Unit size sits directly beneath the profile points badge and controls stay between count and bounds', () => {
   assert.match(unitView, /function startingUnitSize\(\)/)
-  assert.match(unitView, /<small>Unit size<\/small><strong>\{\{ startingUnitSize\(\) \}\}<\/strong>/)
+  assert.match(unitView, /warscroll-points-badge[\s\S]*warscroll-unit-size[\s\S]*\{\{ formatUnitSize\(\) \}\}[\s\S]*unit-size-controls[\s\S]*Minimum \{\{ prototypeUnit\.minimumModels/)
+  assert.doesNotMatch(unitView, /<small>Unit size<\/small>/)
 })
 
 test('Unit picker point values use the same default-roster calculator as units added to the roster', () => {
@@ -214,16 +215,50 @@ test('Explicit Big Uns profile replaces the ordinary base profile when selected'
   assert.match(unitView, /baseProfiles = baseProfiles\.filter\(\(row\) => !\/\\bBig/)
 })
 
-test('Roster shows percentages next to point totals and allowance requirements', () => {
+test('Roster keeps percentages on categories but removes them from the top list point total', () => {
   const builder = readFileSync('src/views/ListBuilderView.vue', 'utf8')
-  assert.match(builder, /rosterPercentUsed/)
-  assert.match(builder, /remainingPercent/)
-  assert.match(builder, /categoryPercent\(category\)/)
+  assert.doesNotMatch(builder, /rosterPercentUsed|remainingPercent/)
+  assert.match(builder, /function categoryPercent\(category: DisplayCategory\)[\s\S]*Math\.round\(\(categoryRulePoints\(category\) \/ points\.value\) \* 100\)/)
   assert.match(builder, /qualifier: 'Needed'/)
   assert.match(builder, /qualifier: 'Maximum'/)
   assert.match(builder, /categoryAllowancePointsText\(category\)/)
   assert.match(builder, /\{\{ categorySelectedCount\(category\) \}\} Selected/)
   assert.match(builder, /\{\{ categoryPercent\(category\) \}\}% \/ \{\{ categoryAllowance\(category\)\?\.percent \}\}%/)
+  assert.match(builder, /builder-points-orb[\s\S]*\{\{ rosterPoints \}\}[\s\S]*\/ \{\{ points \}\}[\s\S]*remaining/)
+})
+
+
+test('General option identifies the other roster model currently assigned as General', () => {
+  assert.match(unitView, /loadBuilderRoster/)
+  assert.match(unitView, /const otherGeneralName = computed/)
+  assert.match(unitView, /return `\$\{label\} - \$\{otherGeneralName\.value\}`/)
+  assert.match(unitView, /\{\{ contextualOptionName\(option\) \}\}/)
+})
+
+test('Live profiles always retain a list publication fallback when the reference page omits one', () => {
+  const liveUnits = readFileSync('src/data/liveBuilderUnits.ts', 'utf8')
+  const reference = readFileSync('src/services/liveUnitReference.ts', 'utf8')
+  assert.match(liveUnits, /function listPublication\(raw: RawBuilderUnit, armyName: string\)/)
+  assert.match(liveUnits, /publication: listPublication\(raw, armyName\)/)
+  assert.match(reference, /publication: metadata\.publication \|\| unit\.details\.publication/)
+})
+
+test('Weapon tables center all columns, reserve space for rule pills, and show external AP improvements', () => {
+  const styles = readFileSync('src/styles.css', 'utf8')
+  assert.match(styles, /\.old-world-weapon-table th,[\s\S]*\.old-world-weapon-table td:first-child,[\s\S]*text-align:center/)
+  assert.match(styles, /\.old-world-weapon-table th:nth-child\(5\)\{width:44%\}/)
+  assert.match(styles, /\.weapon-rule-labels\{justify-content:center\}/)
+  assert.match(unitView, /function externalWeaponApBonus\(row: WeaponRow\)/)
+  assert.match(unitView, /Armou\?r Bane/)
+  assert.match(unitView, /\^Choppas/)
+  assert.match(unitView, /if \(base <= 0\) return `-\$\{bonus\}\*`/)
+  assert.match(unitView, /return `-\$\{base\}\(\+\$\{bonus\}\)`/)
+  assert.match(unitView, /weapon-ap-cell\">\{\{ weaponApDisplay\(row\) \}\}/)
+})
+
+test('Roster validation issues have breathing room above the issue list', () => {
+  const styles = readFileSync('src/styles.css', 'utf8')
+  assert.match(styles, /\.builder-validation-list\{margin-top:12px\}/)
 })
 
 test('Settings hierarchy keeps Report first, reset and Themes inside Display, Donations before Data & Content, and removes Local', () => {

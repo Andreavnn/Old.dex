@@ -10,7 +10,7 @@ import { loadLiveUnitProfile } from '../data/liveBuilderUnits'
 import { loadArmyData } from '../services/armyData'
 import { fetchRuleDocument } from '../services/ruleContent'
 import { extractMechanicalRuleText } from '../services/ruleText'
-import { findBuilderRosterSelection, updateBuilderRosterSelection, type BuilderRosterMagicItem } from '../services/builderRoster'
+import { findBuilderRosterSelection, loadBuilderRoster, updateBuilderRosterSelection, type BuilderRosterMagicItem } from '../services/builderRoster'
 import { isFavoriteUnit, setFavoriteUnit } from '../services/favorites'
 import { getSavedArmyList } from '../services/savedLists'
 import {
@@ -128,6 +128,20 @@ function isWizardLevelOption(option: PrototypeEquipmentOption) { return wizardLe
 function displayOptionName(option: PrototypeEquipmentOption) {
   const level = wizardLevelFromName(option.name)
   return level ? `Wizard Level ${level}` : option.name
+}
+
+function rosterRowHasGeneral(row: { options?: string[] }) {
+  return (row.options || []).some((value) => /^General$/i.test(String(value).replace(/\s*[×x]\d+\s*$/, '').trim()))
+}
+const otherGeneralName = computed(() => {
+  if (!backPath.value.startsWith('/lists/builder')) return ''
+  const row = loadBuilderRoster(backPath.value).find((candidate) => candidate.instanceId !== instanceId.value && rosterRowHasGeneral(candidate))
+  return row?.name || ''
+})
+function contextualOptionName(option: PrototypeEquipmentOption) {
+  const label = displayOptionName(option)
+  if (!/^General$/i.test(option.name.trim()) || selectedEquipmentIds.value.has(option.id) || !otherGeneralName.value) return label
+  return `${label} - ${otherGeneralName.value}`
 }
 
 const wizardLevelOptions = computed(() => (prototypeUnit.value?.equipmentOptions || []).filter(isWizardLevelOption).sort((a, b) => wizardLevelFromName(a.name) - wizardLevelFromName(b.name)))
@@ -323,6 +337,35 @@ function weaponRuleLabels(weapon: PrototypeWeapon) {
   if (weapon.hasUniqueRule && weapon.path) rows.push({ label: weapon.name.replace(/^.*? — /, '').replace(/\s+×\d+$/, ''), path: weapon.path })
   const seen = new Set<string>()
   return rows.filter((row) => { const key = `${row.label.toLowerCase()}:${row.path}`; if (seen.has(key)) return false; seen.add(key); return true })
+}
+
+
+function armourBaneValue(label: string) {
+  const match = String(label || '').match(/Armou?r Bane\s*\(\s*(\d+)\s*\)/i)
+  return match ? Math.max(0, Number(match[1]) || 0) : 0
+}
+function weaponBaseApMagnitude(weapon: PrototypeWeapon) {
+  const raw = String(weapon.ap || '').trim()
+  const match = raw.match(/-?\s*(\d+)/)
+  return match ? Math.max(0, Number(match[1]) || 0) : 0
+}
+function externalWeaponApBonus(row: WeaponRow) {
+  const weapon = row.weapon
+  let bonus = activeSpecialRules.value.reduce((sum, rule) => sum + armourBaneValue(rule.name), 0)
+  if (row.source === 'base' && weapon.kind === 'melee' && activeSpecialRules.value.some((rule) => /^Choppas(?:\s|$)/i.test(rule.name))) bonus += 1
+  if (row.source === 'base' && /^Hand weapons?$/i.test(weapon.name.trim()) && activeSpecialRules.value.some((rule) => /^Ensorcelled Weapons?(?:\s|$)/i.test(rule.name))) bonus = Math.max(bonus, 1)
+  return bonus
+}
+function weaponApDisplay(row: WeaponRow) {
+  const bonus = externalWeaponApBonus(row)
+  const base = weaponBaseApMagnitude(row.weapon)
+  if (bonus <= 0) {
+    const raw = String(row.weapon.ap || '').trim()
+    if (/^\d+$/.test(raw)) return `-${raw}`
+    return raw || '—'
+  }
+  if (base <= 0) return `-${bonus}*`
+  return `-${base}(+${bonus})`
 }
 
 function mundaneWeaponSuperseded(_weapon: PrototypeWeapon) { return false }
@@ -882,14 +925,16 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
         <p class="eyebrow">{{ army?.name || 'OLD WORLD UNIT' }}</p>
         <h1>{{ prettyUnitName }}</h1>
         <span class="warscroll-points-badge">{{ totalPoints }} pts</span>
-      </section>
-
-      <section v-if="canAdjustModelCount" class="unit-size-editor card-surface" aria-label="Unit size editor">
-        <div><span class="eyebrow">UNIT SIZE</span><strong>{{ modelCount }} models</strong><small>Minimum {{ prototypeUnit.minimumModels || 1 }}<template v-if="prototypeUnit.maximumModels"> · Maximum {{ prototypeUnit.maximumModels }}</template></small></div>
-        <div class="unit-size-controls">
-          <button type="button" :disabled="modelCount <= (prototypeUnit.minimumModels || 1)" @click="adjustModelCount(-1)">−</button>
-          <input :value="modelCount" type="number" inputmode="numeric" :min="prototypeUnit.minimumModels || 1" :max="prototypeUnit.maximumModels || 999" @change="handleModelCountEvent" />
-          <button type="button" :disabled="Boolean(prototypeUnit.maximumModels && modelCount >= prototypeUnit.maximumModels)" @click="adjustModelCount(1)">+</button>
+        <div class="warscroll-unit-size" aria-label="Unit size">
+          <span class="warscroll-unit-size-label">Unit Size</span>
+          <strong>{{ formatUnitSize() }}</strong>
+          <div v-if="canAdjustModelCount" class="unit-size-controls">
+            <button type="button" :disabled="modelCount <= (prototypeUnit.minimumModels || 1)" @click="adjustModelCount(-1)">−</button>
+            <input :value="modelCount" type="number" inputmode="numeric" :min="prototypeUnit.minimumModels || 1" :max="prototypeUnit.maximumModels || 999" @change="handleModelCountEvent" />
+            <button type="button" :disabled="Boolean(prototypeUnit.maximumModels && modelCount >= prototypeUnit.maximumModels)" @click="adjustModelCount(1)">+</button>
+          </div>
+          <small v-if="canAdjustModelCount">Minimum {{ prototypeUnit.minimumModels || 1 }}<template v-if="prototypeUnit.maximumModels"> · Maximum {{ prototypeUnit.maximumModels }}</template></small>
+          <small v-else>{{ startingUnitSize() }}</small>
         </div>
       </section>
 
@@ -908,9 +953,9 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
       </section>
 
       <div class="warscroll-section-stack static-unit-stack">
-        <section v-if="meleeWeapons.length" class="unit-card-section static-unit-section weapons-panel"><h2>Melee Weapons</h2><div class="weapon-table-wrap warscroll-table-wrap"><table class="weapon-table old-world-weapon-table"><thead><tr><th>Name</th><th>Range</th><th>Strength</th><th>AP</th><th>Special Rules</th></tr></thead><tbody><tr v-for="row in meleeWeapons" :key="`${row.source}-${row.weapon.id}`"><td><span>{{ row.weapon.name }}</span><small v-if="row.weapon.note" class="weapon-note">{{ row.weapon.note }}</small></td><td>{{ row.weapon.range }}</td><td>{{ row.weapon.strength }}</td><td>{{ row.weapon.ap }}</td><td><div v-if="weaponRuleLabels(row.weapon).length" class="weapon-rule-labels"><RouterLink v-for="link in weaponRuleLabels(row.weapon)" :key="`${link.label}-${link.path}`" :to="`/rules/read${link.path}`" class="weapon-rule-label">{{ link.label }}</RouterLink></div><span v-else>—</span></td></tr></tbody></table></div></section>
+        <section v-if="meleeWeapons.length" class="unit-card-section static-unit-section weapons-panel"><h2>Melee Weapons</h2><div class="weapon-table-wrap warscroll-table-wrap"><table class="weapon-table old-world-weapon-table"><thead><tr><th>Name</th><th>Range</th><th>Strength</th><th>AP</th><th>Special Rules</th></tr></thead><tbody><tr v-for="row in meleeWeapons" :key="`${row.source}-${row.weapon.id}`"><td><span>{{ row.weapon.name }}</span><small v-if="row.weapon.note" class="weapon-note">{{ row.weapon.note }}</small></td><td>{{ row.weapon.range }}</td><td>{{ row.weapon.strength }}</td><td class="weapon-ap-cell">{{ weaponApDisplay(row) }}</td><td><div v-if="weaponRuleLabels(row.weapon).length" class="weapon-rule-labels"><RouterLink v-for="link in weaponRuleLabels(row.weapon)" :key="`${link.label}-${link.path}`" :to="`/rules/read${link.path}`" class="weapon-rule-label">{{ link.label }}</RouterLink></div><span v-else>—</span></td></tr></tbody></table></div></section>
 
-        <section v-if="rangedWeapons.length" class="unit-card-section static-unit-section weapons-panel"><h2>Range Weapons</h2><div class="weapon-table-wrap warscroll-table-wrap"><table class="weapon-table old-world-weapon-table"><thead><tr><th>Name</th><th>Range</th><th>Strength</th><th>AP</th><th>Special Rules</th></tr></thead><tbody><tr v-for="row in rangedWeapons" :key="`${row.source}-${row.weapon.id}`"><td><span>{{ row.weapon.name }}</span><small v-if="row.weapon.note" class="weapon-note">{{ row.weapon.note }}</small></td><td>{{ row.weapon.range }}</td><td>{{ row.weapon.strength }}</td><td>{{ row.weapon.ap }}</td><td><div v-if="weaponRuleLabels(row.weapon).length" class="weapon-rule-labels"><RouterLink v-for="link in weaponRuleLabels(row.weapon)" :key="`${link.label}-${link.path}`" :to="`/rules/read${link.path}`" class="weapon-rule-label">{{ link.label }}</RouterLink></div><span v-else>—</span></td></tr></tbody></table></div></section>
+        <section v-if="rangedWeapons.length" class="unit-card-section static-unit-section weapons-panel"><h2>Range Weapons</h2><div class="weapon-table-wrap warscroll-table-wrap"><table class="weapon-table old-world-weapon-table"><thead><tr><th>Name</th><th>Range</th><th>Strength</th><th>AP</th><th>Special Rules</th></tr></thead><tbody><tr v-for="row in rangedWeapons" :key="`${row.source}-${row.weapon.id}`"><td><span>{{ row.weapon.name }}</span><small v-if="row.weapon.note" class="weapon-note">{{ row.weapon.note }}</small></td><td>{{ row.weapon.range }}</td><td>{{ row.weapon.strength }}</td><td class="weapon-ap-cell">{{ weaponApDisplay(row) }}</td><td><div v-if="weaponRuleLabels(row.weapon).length" class="weapon-rule-labels"><RouterLink v-for="link in weaponRuleLabels(row.weapon)" :key="`${link.label}-${link.path}`" :to="`/rules/read${link.path}`" class="weapon-rule-label">{{ link.label }}</RouterLink></div><span v-else>—</span></td></tr></tbody></table></div></section>
 
         <section v-if="optionalWeaponOptions.length || equipmentGroups.length" class="unit-card-section static-unit-section equipment-panel">
           <h2>Equipment & Options</h2>
@@ -944,7 +989,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
               <div class="prototype-option-grid equipment-option-grid">
                 <template v-for="option in group.options" :key="option.id">
                   <div v-if="isPerModelEquipmentSelection(option)" class="weapon-equipment-option count-option-card" :class="{ selected: selectedEquipmentIds.has(option.id), superseded: mundaneEquipmentSuperseded(option) }">
-                    <span class="option-name">{{ displayOptionName(option) }}</span>
+                    <span class="option-name">{{ contextualOptionName(option) }}</span>
                     <small v-if="option.note" class="option-effect">{{ option.note }}</small>
                     <strong v-if="option.points > 0" class="option-cost">{{ optionCost(option.points) }} / model</strong>
                     <span class="equipment-quantity-controls option-stepper">
@@ -956,7 +1001,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
                   </div>
                   <label v-else :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option), superseded: mundaneEquipmentSuperseded(option) }">
                     <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionEffectivelyLocked(option) || mundaneEquipmentSuperseded(option) || (magicalMaelstromEnabled && isWizardLevelOption(option))" @change="handleEquipmentCheckbox(option, $event)" />
-                    <span class="option-name">{{ displayOptionName(option) }}</span>
+                    <span class="option-name">{{ contextualOptionName(option) }}</span>
                     <small v-if="option.note" class="option-effect">{{ option.note }}</small>
                     <strong v-if="option.points > 0 || (magicalMaelstromEnabled && isWizardLevelOption(option))" class="option-cost">{{ magicalMaelstromEnabled && isWizardLevelOption(option) ? 'Free' : optionCost(option.points) }}<small v-if="!magicalMaelstromEnabled && (option.costMode === 'per-model' || option.perModel)"> / model</small></strong>
                   </label>
@@ -988,7 +1033,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
 
         <section class="unit-card-section static-unit-section special-rules-section"><h2>Special Rules</h2><div class="old-rule-grid"><RuleAbilityCard v-for="rule in packedSpecialRules" :key="`${rule.name}-${rule.path}`" :rule="rule" /></div></section>
 
-        <section class="unit-details-panel card-surface"><div class="unit-details-heading-row"><h2>Unit Details</h2></div><div class="unit-details-grid"><div><small>Army</small><strong>{{ prototypeUnit.details.army || army?.name || '—' }}</strong></div><div><small>Unit category</small><strong>{{ prototypeUnit.details.unitCategory || prototypeUnit.category }}</strong></div><div><small>Unit size</small><strong>{{ startingUnitSize() }}</strong></div><div><small>Troop type</small><strong>{{ prototypeUnit.details.troopType || '—' }}</strong></div><div><small>Base size</small><strong>{{ prototypeUnit.details.baseSize || '—' }}</strong></div><div><small>Publication</small><strong>{{ prototypeUnit.details.publication || '—' }}<template v-if="prototypeUnit.details.page">, p. {{ prototypeUnit.details.page }}</template></strong></div><div v-for="detail in prototypeUnit.additionalDetails || []" :key="detail.label"><small>{{ detail.label }}</small><strong>{{ detail.value }}</strong></div></div></section>
+        <section class="unit-details-panel card-surface"><div class="unit-details-heading-row"><h2>Unit Details</h2></div><div class="unit-details-grid"><div><small>Army</small><strong>{{ prototypeUnit.details.army || army?.name || '—' }}</strong></div><div><small>Unit category</small><strong>{{ prototypeUnit.details.unitCategory || prototypeUnit.category }}</strong></div><div><small>Troop type</small><strong>{{ prototypeUnit.details.troopType || '—' }}</strong></div><div><small>Base size</small><strong>{{ prototypeUnit.details.baseSize || '—' }}</strong></div><div><small>Publication</small><strong>{{ prototypeUnit.details.publication || '—' }}<template v-if="prototypeUnit.details.page">, p. {{ prototypeUnit.details.page }}</template></strong></div><div v-for="detail in prototypeUnit.additionalDetails || []" :key="detail.label"><small>{{ detail.label }}</small><strong>{{ detail.value }}</strong></div></div></section>
 
         <section class="unit-keywords-section"><div class="unit-keyword-heading"><h2>Keywords</h2></div><div class="unit-keyword-bar"><RouterLink v-for="keyword in unitKeywordLinks" :key="keyword.label" :to="`/rules/read${keyword.path}`">{{ keyword.label }}</RouterLink></div><p class="keyword-helper-note">Old.dex helper links. These are navigation aids, not an official Warhammer: The Old World keyword system.</p></section>
       </div>

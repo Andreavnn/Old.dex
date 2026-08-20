@@ -6,6 +6,12 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.55', title: 'Roster totals, profile sizing, weapon AP, and publication completeness', notes: [
+    'Removed percentages from the top roster point total while keeping category percentages as rounded whole numbers and preserving the selected/points/allowance percentage format within category summaries.',
+    'Moved unit-size information beneath the profile points badge, placed model add/remove controls directly beneath the current model count, and removed the duplicate Unit Size field from Unit Details.',
+    'Changed selected Magical Item cards to true two-column grid rows, centered melee/range weapon table content, reserved more width for Special Rule pills, and added conditional AP presentation for profile-level AP improvements such as Choppas and Armour Bane.',
+    'Added contextual General labels that identify the other roster model currently selected as General, guaranteed a list-publication fallback for every live unit, and added spacing above roster validation issue rows.',
+  ] },
   { version: '0.54', title: 'Rule-card links, settings hierarchy, and roster category accounting', notes: [
     'Capitalized special-rule callout keyword pills and linked Special Rule/Magical Item type pills directly to their underlying rule or item pages when available.',
     'Matched selected Magical Item cards to the same responsive two-column card flow used by Special Rules while retaining their attached owner, points, quantity, and removal controls.',
