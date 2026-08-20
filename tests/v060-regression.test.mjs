@@ -63,17 +63,15 @@ test('v0.60 roster View and Export actions are icons rather than visible words',
   assert.doesNotMatch(home, />Export<\/button>/)
 })
 
-test('v0.60 magical item picker keeps unaffordable items visible and preloads descriptions', () => {
+test('v0.60 magical item picker preloads descriptions and preserves item detail fallbacks', () => {
   assert.match(unit, /preloadMagicPickerDetails/)
   assert.match(unit, /fallbackMagicItemText/)
-  assert.match(unit, /unaffordable: !magicPickerCanSelect\(item\)/)
-  assert.match(styles, /\.magic-picker-item\.unaffordable:not\(\.selected\)\{display:block!important;opacity:/)
   assert.match(unit, /magicPickerDetail\(item\)\?\.summary \|\| magicPickerDetail\(item\)\?\.fluff \|\| item\.source/)
 })
 
 test('v0.60 missing rule-card information has a secondary document-text fallback', () => {
   assert.match(reference, /fallbackReferenceText/)
-  assert.match(reference, /extractMechanicalRuleText\(document\.html\) \|\| fallbackReferenceText/)
+  assert.match(reference, /extractMechanicalRuleText\(document\.html\)/)
   assert.match(card, /fallbackDocumentText/)
   assert.match(card, /fetchRuleDocument\(ownRulePath\.value\)/)
   assert.match(card, /const ruleSummary = computed/)

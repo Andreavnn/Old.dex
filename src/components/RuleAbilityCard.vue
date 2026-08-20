@@ -19,9 +19,12 @@ function fallbackDocumentText(html: string) {
   const title = displayRule.value.title.toLowerCase()
   const rows = Array.from(dom.querySelectorAll('p, li'))
     .map((node) => node.textContent?.replace(/\s+/g, ' ').trim() || '')
-    .filter((text) => text.length >= 18 && text.toLowerCase() !== title && !/^(publication|source|page)\b/i.test(text))
+    .filter((text) => text.length >= 18 && text.toLowerCase() !== title)
+    .filter((text) => !/^(publication|source|page|last update|url copied|back source)\b/i.test(text))
   const seen = new Set<string>()
-  return rows.filter((text) => { const key = text.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true }).slice(0, 4).join(' ').slice(0, 1800)
+  const unique = rows.filter((text) => { const key = text.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true })
+  const mechanical = unique.filter((text) => /\b(?:may|must|can(?:not|'t)?|cannot|cause|causes|fear|terror|panic|test|roll|re-?roll|save|attack|attacks|wound|wounds|phase|turn|special rule|characteristic|modifier|within|range)\b/i.test(text))
+  return mechanical.slice(-2).join(' ').slice(0, 1800)
 }
 
 watch(() => [props.rule.summary, ownRulePath.value], async () => {

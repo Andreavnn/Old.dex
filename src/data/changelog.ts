@@ -6,6 +6,15 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.62', title: 'Installable app, source-rule cleanup, and guided match setup', notes: [
+    'Added Progressive Web App installation support for phones, tablets, and desktop browsers, using the supplied Old.dex artwork for browser, home-screen, and installed-app icons.',
+    'Tightened the Support action buttons, stabilized roster-list controls by moving import status into the fixed left summary area, and rebuilt delete-selection rows so roster names and labels remain compact instead of collapsing into oversized cards.',
+    'Reworked special-rule text extraction to split flattened source pages into individual sentences, reject source/update metadata and flavour-only sentences, retry incomplete rule pages, and require mechanical language before fallback text can appear. This addresses cases such as Fear of Elves without creating a rule-specific exception.',
+    'Changed the Magical Item picker to hide items that cannot currently be afforded while keeping already-selected items visible for removal.',
+    'Snapshotted friendly and enemy roster/composition details into new matches so Setup and Overview remain stable even if the saved roster changes later.',
+    'Expanded Setup with friendly/enemy roster details plus a friendly Wizard/Priest list, match-only lore selection where source options allow it, and a second step for recording generated Wizard spells or reviewing available prayers.',
+    'Added contextual Tips to both Setup steps and the initial Overview, including spell-generation guidance and direct access to the relevant rules reference, and replaced the bare Overview with an at-a-glance battle dashboard for matchup, scenario, score state, prepared magic, and battle-flow progress.',
+  ] },
   { version: '0.61', title: 'Read-only enemy rosters, local data controls, and authoritative weapon references', notes: [
     'Made rosters flagged as Enemy Army Rosters view-only: normal navigation opens the roster overview, direct Builder/profile edit routes are locked, and enemy rows no longer expose Copy or Export actions until the roster is moved back to the friendly list.',
     'Corrected the Support action dimensions and aligned the Games title, Start New Match, Open Matches, and Match History panels to the same page column width.',

@@ -28,7 +28,7 @@ function goBack() {
       <div class="brand-stack">
         <RouterLink to="/lists" class="brand" aria-label="Old.dex Army Lists">
           <span class="brand-wordmark"><span class="brand-old">OLD</span><span class="brand-dot">.</span><span class="brand-dex">DEX</span></span>
-          <small class="alpha-build">ALPHA BUILD 0.61</small>
+          <small class="alpha-build">ALPHA BUILD 0.62</small>
         </RouterLink>
         <RouterLink to="/changelog" class="changelog-link">Changelog</RouterLink>
       </div>

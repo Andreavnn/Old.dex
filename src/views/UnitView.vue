@@ -863,7 +863,9 @@ const magicPickerTabs = computed(() => magicTypeOrder.filter((type) => magicPick
 const magicPickerItems = computed(() => {
   const pool = magicPickerPool.value
   if (!pool || !magicPickerTab.value) return []
-  return magicItems.value.filter((item) => item.ownerId === pool.id && item.type === magicPickerTab.value)
+  return magicItems.value
+    .filter((item) => item.ownerId === pool.id && item.type === magicPickerTab.value)
+    .filter((item) => magicPickerCount(item.id) > 0 || item.points <= magicPickerRemaining())
 })
 function magicPickerCount(id: string) { return magicPickerCounts.value.get(id) || 0 }
 function magicPickerSpent() {
@@ -1245,7 +1247,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
             <div class="unit-picker-heading magic-picker-heading"><div><p class="eyebrow">MAGICAL ITEMS</p><h2>{{ magicPickerPool?.label }}</h2><small>{{ magicPickerSpent() }} / {{ magicPickerPool?.maxPoints }} pts · {{ magicPickerRemaining() }} remaining</small></div><button type="button" class="picker-close" @click="cancelMagicPicker" aria-label="Cancel magical item changes">×</button></div>
             <div class="magic-picker-tabs" role="tablist" aria-label="Magical item types"><button v-for="type in magicPickerTabs" :key="type" type="button" role="tab" :aria-selected="magicPickerTab === type" :class="{ active: magicPickerTab === type }" @click="magicPickerTab = type">{{ magicTypeLabel(type) }}</button></div>
             <div class="magic-picker-list">
-              <article v-for="item in magicPickerItems" :key="item.id" class="magic-picker-item" :class="{ selected: magicPickerCount(item.id) > 0, unaffordable: !magicPickerCanSelect(item) }">
+              <article v-for="item in magicPickerItems" :key="item.id" class="magic-picker-item" :class="{ selected: magicPickerCount(item.id) > 0 }">
                 <div class="magic-picker-item-main" @click="toggleMagicPickerDescription(item)">
                   <input type="checkbox" :checked="magicPickerCount(item.id) > 0" :disabled="!magicPickerCanSelect(item)" @click.stop @change="handleMagicPickerCheckbox(item, $event)" />
                   <span><strong>{{ item.name }}</strong><small>{{ magicPickerDetail(item)?.summary || magicPickerDetail(item)?.fluff || item.source }}</small></span>
@@ -1258,7 +1260,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
                   <div v-if="maxMagicCopies(item) > 1 && magicPickerCount(item.id) > 0" class="magic-picker-quantity option-stepper"><button type="button" :disabled="magicPickerCount(item.id) <= 1" @click.stop="adjustMagicPickerCount(item, -1)">−</button><strong>{{ magicPickerCount(item.id) }}</strong><button type="button" :disabled="magicPickerCount(item.id) >= maxMagicCopies(item) || item.points > magicPickerRemaining()" @click.stop="adjustMagicPickerCount(item, 1)">+</button></div>
                 </div>
               </article>
-              <div v-if="!magicPickerItems.length" class="picker-empty">No items of this type are available to this model.</div>
+              <div v-if="!magicPickerItems.length" class="picker-empty">No affordable items of this type are currently available to this model.</div>
             </div>
             <div class="unit-picker-batch-bar magic-picker-finish-bar"><span>{{ magicPickerSpent() }} / {{ magicPickerPool?.maxPoints }} pts selected</span><div><button type="button" class="secondary-button" @click="cancelMagicPicker">Cancel</button><button type="button" class="primary-button" @click="finishMagicPicker">Finished</button></div></div>
           </section>

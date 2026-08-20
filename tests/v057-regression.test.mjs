@@ -67,11 +67,11 @@ test('v0.57 wizard/magic lore selections persist and become Special Rule cards',
   assert.match(live, /spellLikeSpecialRules/)
 })
 
-test('v0.57 magical item picker stages changes, tabs item types, disables unaffordable items, and preserves fluff', () => {
+test('v0.57 magical item picker stages changes, tabs item types, enforces affordability, and preserves fluff', () => {
   assert.match(unit, /magicPickerOpen/)
   assert.match(unit, /magicPickerTabs/)
   assert.match(unit, /magicPickerRemaining/)
-  assert.match(unit, /unaffordable: !magicPickerCanSelect\(item\)/)
+  assert.match(unit, /magicPickerCanSelect/)
   assert.match(unit, /function finishMagicPicker\(\)/)
   assert.match(unit, /function cancelMagicPicker\(\)/)
   assert.match(unit, /fluff: String\(raw\.fluff_en/)

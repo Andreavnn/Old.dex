@@ -1,8 +1,31 @@
 import { readJson, writeJson } from './storage'
 import type { SavedArmyList } from './savedLists'
+import type { BuilderRosterSelection } from '../domain/rosterTypes'
 
 export type GameStatus = 'open' | 'complete'
 export type GameSide = 'player' | 'opponent'
+
+
+export type GameMagicChoice = {
+  id: string
+  name: string
+  summary?: string
+  path?: string
+  signature?: boolean
+}
+
+export type GameMagicCaster = {
+  instanceId: string
+  unitId: string
+  name: string
+  kind: 'Wizard' | 'Priest'
+  level: number
+  availableLores: string[]
+  selectedLore: string
+  selectedSpellIds: string[]
+  choices?: GameMagicChoice[]
+  sourceLoaded?: boolean
+}
 
 export type GameWorkflowStep = { id: string; label: string; description: string }
 export type GameWorkflowPhase = { id: string; label: string; steps: GameWorkflowStep[] }
@@ -56,10 +79,21 @@ export type SavedGame = {
   playerListName: string
   playerArmyName: string
   playerName: string
+  playerArmyId?: string
+  playerCompositionName?: string
+  playerCompositionRule?: string
+  playerOptions?: string[]
+  playerRoster?: BuilderRosterSelection[]
   opponentListId?: string
   opponentListName?: string
   opponentArmyName?: string
+  opponentArmyId?: string
+  opponentCompositionName?: string
+  opponentCompositionRule?: string
+  opponentOptions?: string[]
+  opponentRoster?: BuilderRosterSelection[]
   opponentName: string
+  magicSetup?: GameMagicCaster[]
   points: number
   scenario: string
   firstPlayer: GameSide
@@ -91,6 +125,11 @@ function parseGames(value: unknown): SavedGame[] {
     opponentScore: Math.max(0, Number(row.opponentScore || 0)),
     firstPlayerConfirmed: typeof row.firstPlayerConfirmed === 'boolean' ? row.firstPlayerConfirmed : true,
     playerName: String(row.playerName || 'Friendly General'),
+    playerOptions: Array.isArray(row.playerOptions) ? [...row.playerOptions] : [],
+    opponentOptions: Array.isArray(row.opponentOptions) ? [...row.opponentOptions] : [],
+    playerRoster: Array.isArray(row.playerRoster) ? row.playerRoster.map((entry) => ({ ...entry })) : [],
+    opponentRoster: Array.isArray(row.opponentRoster) ? row.opponentRoster.map((entry) => ({ ...entry })) : [],
+    magicSetup: Array.isArray(row.magicSetup) ? row.magicSetup.map((entry) => ({ ...entry, availableLores: [...(entry.availableLores || [])], selectedSpellIds: [...(entry.selectedSpellIds || [])], choices: entry.choices?.map((choice) => ({ ...choice })) })) : [],
   }))
 }
 
@@ -129,10 +168,21 @@ export function createSavedGame(input: {
     playerListName: input.playerList.name,
     playerArmyName: input.playerList.armyName,
     playerName,
+    playerArmyId: input.playerList.army,
+    playerCompositionName: input.playerList.compositionName,
+    playerCompositionRule: input.playerList.rule,
+    playerOptions: [...(input.playerList.options || [])],
+    playerRoster: (input.playerList.roster || []).map((entry) => ({ ...entry })),
     opponentListId: input.opponentList?.id,
     opponentListName: input.opponentList?.name,
     opponentArmyName: input.opponentList?.armyName,
+    opponentArmyId: input.opponentList?.army,
+    opponentCompositionName: input.opponentList?.compositionName,
+    opponentCompositionRule: input.opponentList?.rule,
+    opponentOptions: [...(input.opponentList?.options || [])],
+    opponentRoster: (input.opponentList?.roster || []).map((entry) => ({ ...entry })),
     opponentName,
+    magicSetup: [],
     points: Math.max(input.playerList.points, input.opponentList?.points || 0),
     scenario: input.scenario || 'Open Battle',
     firstPlayer: 'player',

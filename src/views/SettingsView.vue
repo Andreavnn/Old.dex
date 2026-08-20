@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
 import { useSettings, type BackgroundChoice, type FontSize, type VisualTheme } from '../settings'
 import { forceRefreshBuilderData } from '../services/armyData'
@@ -16,6 +16,36 @@ const { darkMode, compactRows, fontSize, boldText, visualTheme, backgroundImage,
 const updateState = ref<'idle' | 'running' | 'success' | 'error'>('idle')
 const updateMessage = ref('')
 const dataResetState = ref<'idle' | 'running'>('idle')
+
+type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
+const installPrompt = ref<InstallPrompt | null>(null)
+const installedApp = ref(false)
+function refreshInstalledState() {
+  if (typeof window === 'undefined') return
+  installedApp.value = window.matchMedia?.('(display-mode: standalone)').matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+}
+function captureInstallPrompt(event: Event) {
+  event.preventDefault()
+  installPrompt.value = event as InstallPrompt
+}
+async function installOldDex() {
+  if (!installPrompt.value) return
+  await installPrompt.value.prompt()
+  const choice = await installPrompt.value.userChoice
+  if (choice.outcome === 'accepted') installPrompt.value = null
+  refreshInstalledState()
+}
+function appInstalled() { installPrompt.value = null; installedApp.value = true }
+onMounted(() => {
+  refreshInstalledState()
+  window.addEventListener('beforeinstallprompt', captureInstallPrompt)
+  window.addEventListener('appinstalled', appInstalled)
+})
+onBeforeUnmount(() => {
+  if (typeof window === 'undefined') return
+  window.removeEventListener('beforeinstallprompt', captureInstallPrompt)
+  window.removeEventListener('appinstalled', appInstalled)
+})
 
 const themeOptions: Array<{ value: Exclude<VisualTheme, 'default'>; label: string; note: string }> = [
   { value: 'forces-of-fantasy', label: 'Forces of Fantasy', note: 'Cool blue and heraldic parchment accents.' },
@@ -191,6 +221,10 @@ async function updateBuilderRules() {
             </label>
           </div>
         </details>
+        <div class="setting-row install-setting-row">
+          <span><strong>Install Old.dex</strong><small>{{ installedApp ? 'Old.dex is running as an installed app on this device.' : installPrompt ? 'Install Old.dex as an app on this phone, tablet, or computer.' : 'Old.dex is installable. If the button is unavailable, use your browser menu and choose Install app or Add to Home Screen.' }}</small></span>
+          <button class="secondary-button settings-compact-action" type="button" :disabled="installedApp || !installPrompt" @click="installOldDex">{{ installedApp ? 'Installed' : 'Install' }}</button>
+        </div>
         <div class="setting-row reset-setting-row">
           <span><strong>Reset local settings</strong><small>Restore the display preferences on this device to their defaults.</small></span>
           <button class="secondary-button settings-compact-action" type="button" @click="reset">Reset</button>

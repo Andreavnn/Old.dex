@@ -1,0 +1,28 @@
+Old.dex Alpha Build 0.62 — verification report
+Prepared: 20 August 2026
+
+PACKAGE
+Old.dex-v0.62-DIRECT-SOURCE.zip
+
+VERIFICATION STATUS
+PASS — v0.57 + v0.58 + v0.59 + v0.60 + v0.61 + v0.62 regression suite: 55/55 tests passed.
+PASS — TypeScript syntax transpilation completed without errors for 29 TypeScript/Vue script blocks in the direct-source package.
+PASS — PWA manifest parses as valid JSON and includes 192×192 and 512×512 install icons plus Apple touch and favicon assets.
+PASS — Service worker registration and install-prompt UI are included for supported browsers; iOS/iPadOS fallback guidance uses Add to Home Screen.
+PASS — Support actions use content-sized compact buttons rather than fixed equal-width boxes.
+PASS — Army Roster import status remains in the left summary area and delete-selection rows use compact card-safe layout.
+PASS — Unaffordable Magical Items are filtered from the selection list while already-selected items remain visible for removal.
+PASS — Special-rule extraction splits flattened source text, removes source/update metadata, and requires mechanical language before fallback text is surfaced. A direct Fear of Elves transport-string check returns only the mechanical sentence and drops the metadata/flavour text.
+PASS — New matches snapshot friendly/enemy roster and composition context for stable Setup/Overview display.
+PASS — Setup detects friendly Wizards/Priests from saved roster data and army-source data, supports match-only lore changes where available, records Wizard spell selections, and exposes Priest prayers.
+PASS — Setup and Overview now include contextual Tips; Overview includes matchup, scenario, battle state, prepared magic, and battle-flow summary.
+PASS — Visible application/header version references are Alpha Build 0.62 and package.json is 0.62.0.
+
+SOURCE-RULE DATA HANDLING
+The v0.61 weapon pipeline already treats canonical Weapons of War pages as the authority and retries incomplete live pages before using a narrowly scoped canonical weapon-page supplement. v0.62 applies the same defensive principle to Special Rules: source metadata and flavour are not accepted as mechanics merely because the transport flattened them into one text block. The extractor now scores sentence-sized candidates and the UI fallback requires mechanical language. This is a general source-quality guard rather than a Fear of Elves exception.
+
+MATCH SETUP SCOPE
+This build intentionally starts the guided match assistant with Setup and Overview. Tips for later battle phases/subphases remain future work. Wizard spell recording is a match-state aid: the user still resolves random spell generation according to the rules and records the resulting spell set. Priests expose their available prayers without forcing a pre-game selection when the source rules do not require one.
+
+NOTES
+This is a direct-source update package. Upload its contents over the existing Old.dex repository root, replacing matching paths and adding new files/directories.

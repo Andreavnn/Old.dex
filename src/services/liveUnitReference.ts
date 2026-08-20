@@ -197,17 +197,39 @@ function fallbackReferenceText(html: string, title = '') {
   const wantedTitle = title.toLowerCase().trim()
   const rows = Array.from(dom.querySelectorAll('p, li'))
     .map((node) => node.textContent?.replace(/\s+/g, ' ').trim() || '')
-    .filter((value) => value.length >= 18 && value.toLowerCase() !== wantedTitle && !/^(publication|source|page)\b/i.test(value))
+    .filter((value) => value.length >= 18 && value.toLowerCase() !== wantedTitle)
+    .filter((value) => !/^(publication|source|page|last update|url copied|back source)\b/i.test(value))
   const seen = new Set<string>()
-  return rows.filter((value) => { const key = value.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true }).slice(0, 4).join(' ').slice(0, 1800)
+  const unique = rows.filter((value) => { const key = value.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true })
+  // Never promote flavour simply because it is the last paragraph. A fallback
+  // sentence must still look like game mechanics; otherwise leave the summary
+  // empty and let the linked source page remain the authority.
+  const mechanical = unique.filter((value) => /\b(?:may|must|can(?:not|'t)?|cannot|cause|causes|fear|terror|panic|test|roll|re-?roll|save|attack|attacks|wound|wounds|phase|turn|special rule|characteristic|modifier|within|range)\b/i.test(value))
+  return mechanical.slice(-2).join(' ').slice(0, 1800)
+}
+
+function ruleSummaryLooksIncomplete(value: string) {
+  const text = String(value || '').trim()
+  if (!text) return true
+  return /(?:last update\s*:|back source\s*:|url copied|warhammer:\s*the old world|ravening hordes,?\s*p\.|forces of fantasy,?\s*p\.|arcane journal[^.]*,?\s*p\.)/i.test(text)
 }
 
 async function enrichSpecialRule(rule: PrototypeUnit['specialRules'][number]) {
   if (!rule.path) return rule
   try {
-    const document = await fetchRuleDocument(rule.path)
-    const summary = extractMechanicalRuleText(document.html) || fallbackReferenceText(document.html, rule.name)
-    return { ...rule, summary: summary || rule.summary }
+    let document = await fetchRuleDocument(rule.path)
+    let summary = extractMechanicalRuleText(document.html)
+    if (ruleSummaryLooksIncomplete(summary)) {
+      try {
+        const refreshed = await fetchRuleDocument(rule.path, true)
+        const refreshedSummary = extractMechanicalRuleText(refreshed.html)
+        if (!ruleSummaryLooksIncomplete(refreshedSummary)) { document = refreshed; summary = refreshedSummary }
+      } catch (error) {
+        reportAppError(error, 'UNIT_RULE_REFERENCE_REFRESH', { rule: rule.name, path: rule.path })
+      }
+    }
+    if (ruleSummaryLooksIncomplete(summary)) summary = fallbackReferenceText(document.html, rule.name)
+    return { ...rule, summary: ruleSummaryLooksIncomplete(summary) ? rule.summary : summary }
   } catch (error) {
     reportAppError(error, 'UNIT_RULE_REFERENCE', { rule: rule.name, path: rule.path })
     return rule

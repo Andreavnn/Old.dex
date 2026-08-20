@@ -1,4 +1,4 @@
-# Old.dex GUI v0.61
+# Old.dex GUI v0.62
 
 Old.dex is an alpha Warhammer: The Old World army-list and rules-reference application. The Vue/TypeScript application in `src/` is the only implementation source; Vercel builds that source directly for the hosted review site.
 
@@ -6,7 +6,11 @@ Old.dex is an alpha Warhammer: The Old World army-list and rules-reference appli
 
 ## Current build
 
-Alpha Build 0.61 makes enemy rosters read-only, adds targeted local-data clearing controls, corrects Games/Support presentation, strengthens roster-state coloring, and improves weapon-reference ingestion so canonical Weapons of War data is preferred while transport gaps are handled without turning Notes/reference-table links into false special rules.
+Alpha Build 0.62 adds installable-app support using the Old.dex icon, tightens roster/Support presentation, hardens source-rule extraction against metadata and flavour text, hides unaffordable magical items, and begins the guided match assistant with detailed Setup and Overview steps for rosters, Wizards, Priests, lores, spells, prayers, and contextual Tips.
+
+## Install as an app
+
+Old.dex now ships as a Progressive Web App. On supported desktop and Android browsers, use Settings → Display → Install Old.dex or the browser install control. On iPhone/iPad, use the browser Share menu and Add to Home Screen. Installed copies use the Old.dex crest artwork supplied for this build.
 
 ## Canonical changelog
 

@@ -17,6 +17,14 @@ if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (event) => {
     reportAppError(event.reason, 'UNHANDLED_PROMISE_REJECTION')
   })
+
+  if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch((error) => {
+        reportAppError(error, 'PWA_SERVICE_WORKER_REGISTRATION')
+      })
+    })
+  }
 }
 
 app.use(router).mount('#app')
