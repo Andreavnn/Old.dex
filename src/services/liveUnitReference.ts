@@ -220,7 +220,7 @@ const universalWeaponRules = new Set([
   'fear', 'feigned flight', 'fight in extra rank', 'fire and flee', 'fire flee', 'first charge', 'flaming attacks',
   'flammable', 'fly', 'frenzy', 'furious charge', 'hatred', 'horde', 'howdah', 'ignores cover', 'immune to psychology',
   'impact hits', 'impetuous', 'killing blow', 'large target', 'levies', 'loner', 'magical attacks', 'magic resistance',
-  'mercenaries', 'monster handlers', 'monster slayer', 'motley crew', 'move and shoot', 'move or shoot',
+  'mercenaries', 'monster handlers', 'monster slayer', 'motley crew', 'move and shoot', 'move or shoot', 'cannon fire',
   'move through cover', 'multiple shots', 'multiple wounds', 'open order', 'poisoned attacks', 'ponderous', 'quick shot',
   'rallying cry', 'random attacks', 'random movement', 'regeneration', 'regimental unit', 'requires two hands',
   'reserve move', 'scouts', 'shieldwall', 'skirmishers', 'stomp attacks', 'strike first', 'strike last', 'stubborn',
@@ -238,46 +238,155 @@ function universalWeaponRuleLink(value: string) {
   return { label: value, path: `/special-rules/${slug(base)}` }
 }
 
+// Browser-rendered tow.whfb.app weapon pages can occasionally expose a complete
+// profile to users while the transport-safe HTML/reader fallback still contains
+// a placeholder Special Rules cell. Supplements are keyed to the canonical weapon
+// page (never to a unit), are used only when that live cell is empty, and are
+// replaced automatically whenever the source starts returning explicit rules.
+const weaponReferenceSupplements: Record<string, Array<{ label: string; path: string }>> = {
+  '/weapons-of-war/grand-cannon': [
+    { label: 'Armour Bane (3)', path: '/special-rules/armour-bane' },
+    { label: 'Cannon Fire', path: '/special-rules/cannon-fire' },
+    { label: 'Cumbersome', path: '/special-rules/cumbersome' },
+    { label: 'Move or Shoot', path: '/special-rules/move-or-shoot' },
+    { label: 'Multiple Wounds (D3+1)', path: '/special-rules/multiple-wounds' },
+    { label: 'Thunderous Impact', path: '/special-rules/thunderous-impact' },
+  ],
+}
+
+type WeaponReferenceParse = {
+  cells: string[]
+  referenceRules: string[]
+  ruleLinks: Array<{ label: string; path: string }>
+  noteRules: string[]
+  noteRuleLinks: Array<{ label: string; path: string }>
+  hasExplicitSpecialRules: boolean
+  hasNotes: boolean
+}
+
+function cleanWeaponRuleLabel(value: string, weaponName: string) {
+  const label = value.replace(/\s+/g, ' ').trim().replace(/^[•·\-–—]+\s*/, '').replace(/\s*[•·]+$/, '')
+  if (!label || /^[-–—]$/.test(label)) return ''
+  if (weaponRuleBase(label) === weaponRuleBase(weaponName)) return ''
+  if (/^black powder misfire table$/i.test(label)) return ''
+  return label
+}
+
+function splitWeaponRules(value: string, weaponName: string) {
+  return value
+    .split(/\s*(?:,|;|\n|\r|•|·)\s*/)
+    .map((entry) => cleanWeaponRuleLabel(entry, weaponName))
+    .filter(Boolean)
+}
+
+function parseWeaponReference(document: Awaited<ReturnType<typeof fetchRuleDocument>>, weaponName: string): WeaponReferenceParse | null {
+  const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
+  const tables = Array.from(dom.querySelectorAll('table'))
+  const table = tables.find((candidate) => {
+    const headings = Array.from(candidate.querySelectorAll('tr:first-child th, thead th')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim().toLowerCase() || '')
+    return headings.some((heading) => heading === 'range') && headings.some((heading) => heading === 'strength') && headings.some((heading) => /armour piercing|armor piercing|^ap$/.test(heading))
+  }) || tables[0]
+  if (!table) return null
+
+  const row = Array.from(table.querySelectorAll('tbody tr, tr')).find((candidate, index) => {
+    if (index === 0 && !table.querySelector('tbody')) return false
+    return candidate.querySelectorAll('td').length >= 4
+  })
+  if (!row) return null
+  const cellNodes = Array.from(row.querySelectorAll<HTMLTableCellElement>('td'))
+  const cells = cellNodes.map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '')
+  if (cells.length < 4) return null
+
+  const specialCell = cellNodes[3]
+  const referenceRules: string[] = []
+  const ruleLinks: Array<{ label: string; path: string }> = []
+  for (const anchor of Array.from(specialCell.querySelectorAll<HTMLAnchorElement>('a[href],a[data-rule-path],a[data-app-path]'))) {
+    const label = cleanWeaponRuleLabel(anchor.textContent || '', weaponName)
+    const rulePath = anchor.dataset.rulePath || anchor.dataset.appPath || normalizeRepositoryPath(anchor.getAttribute('href') || '')
+    if (!label) continue
+    if (!referenceRules.some((existing) => existing.toLowerCase() === label.toLowerCase())) referenceRules.push(label)
+    if (rulePath && !ruleLinks.some((existing) => existing.label.toLowerCase() === label.toLowerCase() && existing.path === rulePath)) ruleLinks.push({ label, path: rulePath })
+  }
+  for (const label of splitWeaponRules(cells[3], weaponName)) if (!referenceRules.some((existing) => existing.toLowerCase() === label.toLowerCase())) referenceRules.push(label)
+
+  const noteRules: string[] = []
+  const noteRuleLinks: Array<{ label: string; path: string }> = []
+  const noteNodes = Array.from(dom.querySelectorAll('p, div, li')).filter((node) => /^Notes?\s*:/i.test(node.textContent?.replace(/\s+/g, ' ').trim() || ''))
+  for (const node of noteNodes) {
+    for (const anchor of Array.from(node.querySelectorAll<HTMLAnchorElement>('a[href],a[data-rule-path],a[data-app-path]'))) {
+      const label = cleanWeaponRuleLabel(anchor.textContent || '', weaponName)
+      const notePath = anchor.dataset.rulePath || anchor.dataset.appPath || normalizeRepositoryPath(anchor.getAttribute('href') || '')
+      if (!label || !notePath) continue
+      // Notes may link to reference tables as well as special rules. Only promote
+      // actual special-rule links (or known universal special rules) into the
+      // weapon's Special Rules column. This keeps misfire-table links in Notes
+      // instead of incorrectly presenting them as weapon special rules.
+      const specialRuleLink = notePath.startsWith('/special-rules/') || Boolean(universalWeaponRuleLink(label))
+      if (!specialRuleLink) continue
+      if (!noteRules.some((existing) => existing.toLowerCase() === label.toLowerCase())) noteRules.push(label)
+      if (!noteRuleLinks.some((existing) => existing.label.toLowerCase() === label.toLowerCase() && existing.path === notePath)) noteRuleLinks.push({ label, path: notePath })
+    }
+  }
+
+  return {
+    cells,
+    referenceRules,
+    ruleLinks,
+    noteRules,
+    noteRuleLinks,
+    hasExplicitSpecialRules: referenceRules.length > 0,
+    hasNotes: noteNodes.length > 0,
+  }
+}
+
 async function enrichWeapon(weapon: PrototypeWeapon, paths: Map<string, string>) {
   const name = weapon.name.trim()
   const path = matchingPath(paths, name, `/weapons-of-war/${slug(name)}`)
   try {
-    const document = await fetchRuleDocument(path)
-    const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
-    const rows = Array.from(dom.querySelectorAll('table tr')).slice(1)
-    const cells = rows.flatMap((row) => [Array.from(row.querySelectorAll('td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '')]).find((row) => row.length >= 4)
-    if (!cells) return { ...weapon, path }
-    const referenceRules = cells[3] && !/^[-—]$/.test(cells[3]) ? cells[3].split(/,\s*/).filter(Boolean) : []
-    const rules: string[] = []
-    for (const rule of [...(weapon.rules || []), ...referenceRules]) if (rule && !rules.some((existing) => existing.toLowerCase() === rule.toLowerCase())) rules.push(rule)
-    const ruleLinks = [...(weapon.ruleLinks || [])]
-    for (const rule of rules) {
-      const link = universalWeaponRuleLink(rule)
-      if (link && !ruleLinks.some((existing) => existing.label.toLowerCase() === link.label.toLowerCase())) ruleLinks.push(link)
-    }
-    // Weapon pages often put essential firing mechanics in Notes rather than in
-    // the Special Rules table cell (for example cannon fire/misfire procedures).
-    // Treat linked Notes mechanics as weapon rules site-wide so no army needs a
-    // one-off data patch.
-    const noteNodes = Array.from(dom.querySelectorAll('p, div, li')).filter((node) => /^Notes?\s*:/i.test(node.textContent?.replace(/\s+/g, ' ').trim() || ''))
-    for (const node of noteNodes) {
-      for (const anchor of Array.from(node.querySelectorAll<HTMLAnchorElement>('a[href],a[data-rule-path],a[data-app-path]'))) {
-        const label = anchor.textContent?.replace(/\s+/g, ' ').trim() || ''
-        const notePath = anchor.dataset.rulePath || anchor.dataset.appPath || normalizeRepositoryPath(anchor.getAttribute('href') || '')
-        if (!label || !notePath) continue
-        if (!rules.some((existing) => existing.toLowerCase() === label.toLowerCase())) rules.push(label)
-        if (!ruleLinks.some((existing) => existing.label.toLowerCase() === label.toLowerCase() && existing.path === notePath)) ruleLinks.push({ label, path: notePath })
+    let document = await fetchRuleDocument(path)
+    let parsed = parseWeaponReference(document, name)
+    // A cached/source-rendered page can occasionally contain the weapon profile
+    // while omitting the browser-rendered Special Rules cell. Retry the live
+    // source once without cache before accepting an incomplete weapon profile.
+    if (parsed && !parsed.hasExplicitSpecialRules) {
+      try {
+        const refreshed = await fetchRuleDocument(path, true)
+        const refreshedParsed = parseWeaponReference(refreshed, name)
+        if (refreshedParsed && (refreshedParsed.hasExplicitSpecialRules || !parsed)) {
+          document = refreshed
+          parsed = refreshedParsed
+        }
+      } catch (error) {
+        reportAppError(error, 'UNIT_WEAPON_REFERENCE_REFRESH', { weapon: weapon.name, path })
       }
     }
-    const hasNotes = noteNodes.length > 0
-    const hasUniqueRule = Boolean(weapon.hasUniqueRule) || hasNotes || rules.some((rule) => !universalWeaponRuleLink(rule))
+    if (!parsed) return { ...weapon, path }
+
+    const supplement = !parsed.hasExplicitSpecialRules ? (weaponReferenceSupplements[path] || []) : []
+    const rules: string[] = []
+    for (const rule of [...(weapon.rules || []), ...parsed.referenceRules, ...parsed.noteRules, ...supplement.map((entry) => entry.label)]) {
+      const label = cleanWeaponRuleLabel(rule, name)
+      if (label && !rules.some((existing) => existing.toLowerCase() === label.toLowerCase())) rules.push(label)
+    }
+    const ruleLinks = [...(weapon.ruleLinks || [])].filter((link) => cleanWeaponRuleLabel(link.label, name))
+    for (const link of [...parsed.ruleLinks, ...parsed.noteRuleLinks, ...supplement]) {
+      if (!ruleLinks.some((existing) => existing.label.toLowerCase() === link.label.toLowerCase() && existing.path === link.path)) ruleLinks.push(link)
+    }
+    for (const rule of rules) {
+      const existing = ruleLinks.find((link) => link.label.toLowerCase() === rule.toLowerCase())
+      if (existing) continue
+      const link = universalWeaponRuleLink(rule)
+      if (link) ruleLinks.push(link)
+    }
+
+    const hasUniqueRule = Boolean(weapon.hasUniqueRule) || parsed.hasNotes || rules.some((rule) => !universalWeaponRuleLink(rule))
     return {
       ...weapon,
       path,
-      kind: (String(cells[0] || '').toLowerCase() === 'combat' ? 'melee' : 'missile') as PrototypeWeapon['kind'],
-      range: cells[0] || weapon.range,
-      strength: cells[1] || weapon.strength,
-      ap: (cells[2] || '—').replace(/^-(\d)/, '$1'),
+      kind: (String(parsed.cells[0] || '').toLowerCase() === 'combat' ? 'melee' : 'missile') as PrototypeWeapon['kind'],
+      range: parsed.cells[0] || weapon.range,
+      strength: parsed.cells[1] || weapon.strength,
+      ap: (parsed.cells[2] || '—').replace(/^-(\d)/, '$1'),
       rules,
       ruleLinks,
       hasUniqueRule,

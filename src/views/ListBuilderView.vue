@@ -122,7 +122,7 @@ async function loadCatalog() {
 
 function loadRosterMetadata() {
   const saved = savedListId.value ? getSavedArmyList(savedListId.value) : null
-  listLocked.value = Boolean(saved?.locked)
+  listLocked.value = Boolean(saved?.locked || saved?.enemyRoster)
   const normalized = roster.value.map((row) => row.category === 'General'
     ? { ...row, category: 'Characters' as const, options: [...new Set([...(row.options || []), 'General'])] }
     : row)

@@ -6,6 +6,14 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.61', title: 'Read-only enemy rosters, local data controls, and authoritative weapon references', notes: [
+    'Made rosters flagged as Enemy Army Rosters view-only: normal navigation opens the roster overview, direct Builder/profile edit routes are locked, and enemy rows no longer expose Copy or Export actions until the roster is moved back to the friendly list.',
+    'Corrected the Support action dimensions and aligned the Games title, Start New Match, Open Matches, and Match History panels to the same page column width.',
+    'Increased green/red/yellow roster-state tint and border contrast so valid, invalid, and warning roster states remain visible in both light and dark themes.',
+    'Added separate Settings controls to clear ongoing matches, completed match history, friendly rosters, or enemy rosters without requiring a full local-data reset.',
+    'Reworked weapon-reference ingestion around the canonical tow.whfb.app Weapons of War page: incomplete cached pages are retried live, weapon self-names and reference-table links are rejected as pseudo-rules, and Notes links are promoted only when they actually target Special Rules.',
+    'Added a canonical weapon-page fallback for Grand Cannon when the transport-safe source returns an empty Special Rules cell, restoring Armour Bane (3), Cannon Fire, Cumbersome, Move or Shoot, Multiple Wounds (D3+1), and Thunderous Impact while keeping the Black Powder Misfire table in Notes rather than the Special Rules column.',
+  ] },
   { version: '0.60', title: 'Match setup, enemy rosters, support actions, and rule-detail reliability', notes: [
     'Replaced the Support links with the production one-time and recurring Stripe URLs and presented both as centered side-by-side buttons below the support disclaimer.',
     'Simplified Games filtering to icon-driven filter menus while retaining search, three-item default lists, and match metadata filtering.',
@@ -15,6 +23,7 @@ export const changelogEntries: ChangelogEntry[] = [
     'Preserved enemy-roster status through native JSON export/import and list duplication.',
     'Improved magical-item selection descriptions with background detail loading and stronger fallback extraction while keeping unaffordable legal items visible and greyed out.',
     'Added a second rule-card detail fallback so special-rule and magical-item cards can recover readable information when the primary rules-index extraction returns no summary.',
+    'Reworked unit-profile loading so the base Builder profile renders immediately while special rules, weapon details, and optional profile references continue enriching in the background, eliminating the previous all-or-nothing profile wait.',
   ] },
   { version: '0.59', title: 'Roster workflow, match tools, and rules-profile polish', notes: [
     'Made image-backed text panels more transparent with a light backdrop blur, removed Background panel divider borders, and replaced Donations with explicit one-time and recurring Support actions.',

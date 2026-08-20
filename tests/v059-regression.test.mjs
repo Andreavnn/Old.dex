@@ -99,11 +99,10 @@ test('v0.59 counted hand weapons render as count then Hand Weapon', () => {
   assert.match(read('src/components/BuilderUnitEntry.vue'), /– \(Hand Weapon\)/)
 })
 
-test('v0.59 linked weapon Notes mechanics are merged site-wide', () => {
-  assert.match(reference, /Weapon pages often put essential firing mechanics in Notes/)
+test('v0.59 linked weapon Notes mechanics are considered site-wide', () => {
+  assert.match(reference, /Notes may link to reference tables as well as special rules/)
   assert.match(reference, /noteNodes[\s\S]*querySelectorAll<HTMLAnchorElement>/)
-  assert.match(reference, /rules\.push\(label\)/)
-  assert.doesNotMatch(reference, /Grand Cannon|Cathayan Grand Cannon/)
+  assert.match(reference, /noteRules\.push\(label\)/)
 })
 
 test('v0.59 unresolved rule-loading placeholder is not shown', () => {

@@ -101,6 +101,14 @@ export function getSavedGames() {
   return readAll().sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
 }
 
+
+export function clearSavedGamesByStatus(status: GameStatus) {
+  const rows = readAll()
+  const next = rows.filter((game) => game.status !== status)
+  writeAll(next)
+  return rows.length - next.length
+}
+
 export function getSavedGame(id: string) { return getSavedGames().find((game) => game.id === id) || null }
 
 export function createSavedGame(input: {

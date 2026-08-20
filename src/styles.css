@@ -2658,3 +2658,27 @@ html[data-background]:not([data-background="none"]) .brand-stack{
 .unit-reference-loading{margin:0 0 1rem;padding:.85rem 1rem;background:rgba(17,17,17,.58);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .unit-reference-loading p{margin:0;color:var(--panel-text,#f5f1e8);font-size:.95rem;line-height:1.45}
 .unit-reference-loading strong{color:inherit}
+
+/* Alpha 0.61 — roster state clarity, games alignment, support sizing, and enemy read-only behavior. */
+.games-page>.games-title-block{width:100%;max-width:none;margin-left:0;margin-right:0;box-sizing:border-box}
+.games-page>.game-start-card,.games-page>.games-section{width:100%;box-sizing:border-box}
+.games-section-heading{min-height:60px}
+.games-section-tools{justify-content:flex-end;min-width:max-content}
+
+.support-button-row{gap:12px;padding:8px 14px 4px}
+.support-action-button{display:inline-flex;flex:0 0 164px;width:164px;min-width:164px;min-height:42px;padding:0 14px;align-items:center;justify-content:center;box-sizing:border-box;white-space:nowrap}
+@media(max-width:520px){.support-action-button{flex:1 1 auto;width:100%;min-width:0}}
+
+.saved-list-card.roster-status-valid{border-color:color-mix(in srgb,#4d9a60 72%,var(--line))!important;border-left-color:#4d9a60!important;background:color-mix(in srgb,#dff3e4 42%,var(--paper))!important}
+.saved-list-card.roster-status-invalid{border-color:color-mix(in srgb,#b84a43 70%,var(--line))!important;border-left-color:#b84a43!important;background:color-mix(in srgb,#f7d9d6 44%,var(--paper))!important}
+.saved-list-card.roster-status-warning{border-color:color-mix(in srgb,#c69a37 62%,var(--line))!important;border-left-color:#c69a37!important;background:color-mix(in srgb,#f6ebc9 44%,var(--paper))!important}
+.saved-list-card.roster-status-valid .saved-list-card-meta small{color:#2f7844}
+.saved-list-card.roster-status-invalid .saved-list-card-meta small{color:#9c332d}
+.saved-list-card.roster-status-warning .saved-list-card-meta small{color:#80611d}
+:root[data-theme="dark"] .saved-list-card.roster-status-valid{background:color-mix(in srgb,#2f7541 22%,var(--paper))!important}
+:root[data-theme="dark"] .saved-list-card.roster-status-invalid{background:color-mix(in srgb,#8e332e 23%,var(--paper))!important}
+:root[data-theme="dark"] .saved-list-card.roster-status-warning{background:color-mix(in srgb,#8b6a20 23%,var(--paper))!important}
+
+.enemy-roster-card .saved-list-open-area{cursor:pointer}
+.enemy-roster-view-actions{min-width:84px}
+.local-clear-row .settings-compact-action{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 38%,var(--line))}

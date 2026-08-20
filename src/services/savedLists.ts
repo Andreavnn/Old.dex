@@ -103,6 +103,14 @@ export function deleteSavedArmyLists(ids: string[]) {
   return rows.length - next.length
 }
 
+
+export function clearSavedArmyListsByType(enemyRoster: boolean) {
+  const rows = readAll()
+  const next = rows.filter((row) => Boolean(row.enemyRoster) !== enemyRoster)
+  writeAll(next)
+  return rows.length - next.length
+}
+
 export function duplicateSavedArmyList(id: string) {
   const source = getSavedArmyList(id)
   if (!source) return null
@@ -125,6 +133,7 @@ export function duplicateSavedArmyList(id: string) {
 }
 
 export function savedArmyListRoute(row: SavedArmyList) {
+  if (row.enemyRoster) return { name: 'list-view', params: { listId: row.id } }
   return {
     name: 'list-builder',
     query: {
@@ -386,7 +395,7 @@ export function importSavedArmyListJson(text: string) {
 
 
 export function savedArmyListExportJson(row: SavedArmyList) {
-  return JSON.stringify({ format: 'olddex-army-roster', version: '0.60', ...row, roster: cloneRoster(row.roster || []) }, null, 2)
+  return JSON.stringify({ format: 'olddex-army-roster', version: '0.61', ...row, roster: cloneRoster(row.roster || []) }, null, 2)
 }
 
 export function exportSavedArmyList(row: SavedArmyList) {

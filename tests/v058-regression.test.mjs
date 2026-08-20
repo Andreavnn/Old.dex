@@ -64,7 +64,7 @@ test('v0.58 fixes nested option IDs and merges source-specific weapon rules site
   assert.match(live, /walkOptions\(item\.options, `\$\{itemId\}-option`, childParent\)/)
   assert.match(live, /rules: sourceRuleNames\(item\)/)
   assert.match(live, /bomb\|grenade/)
-  assert.match(reference, /\.\.\.\(weapon\.rules \|\| \[\]\), \.\.\.referenceRules/)
+  assert.match(reference, /\.\.\.\(weapon\.rules \|\| \[\]\), \.\.\.parsed\.referenceRules/)
   assert.doesNotMatch(live, /Cathayan Grand Cannon|Gunpowder bombs/)
 })
 

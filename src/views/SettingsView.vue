@@ -9,6 +9,8 @@ import { battleScenarioEntries, nonReaderRuleSourcePaths, ruleSections, supportP
 import { armySourcePath } from '../data/ruleRepository'
 import { removeStorage, storageKeys, writeStorage } from '../services/storage'
 import { reportAppError } from '../services/appErrors'
+import { clearSavedGamesByStatus } from '../services/games'
+import { clearSavedArmyListsByType } from '../services/savedLists'
 
 const { darkMode, compactRows, fontSize, boldText, visualTheme, backgroundImage, reset } = useSettings()
 const updateState = ref<'idle' | 'running' | 'success' | 'error'>('idle')
@@ -50,6 +52,21 @@ function resetLocalData() {
     .filter((key) => key.startsWith('olddex.') && !key.startsWith('olddex.settings.'))
     .forEach((key) => removeStorage(key))
   window.setTimeout(() => window.location.reload(), 120)
+}
+
+function clearLocalCategory(kind: 'open-games' | 'history' | 'friendly-rosters' | 'enemy-rosters') {
+  if (typeof window === 'undefined') return
+  const labels = {
+    'open-games': 'all ongoing matches',
+    history: 'all completed match history',
+    'friendly-rosters': 'all friendly army rosters',
+    'enemy-rosters': 'all enemy army rosters',
+  } as const
+  if (!window.confirm(`Clear ${labels[kind]} from this device? This cannot be undone.`)) return
+  if (kind === 'open-games') clearSavedGamesByStatus('open')
+  else if (kind === 'history') clearSavedGamesByStatus('complete')
+  else if (kind === 'friendly-rosters') clearSavedArmyListsByType(false)
+  else clearSavedArmyListsByType(true)
 }
 
 const fontOptions: Array<{ value: FontSize; label: string }> = [
@@ -204,6 +221,22 @@ async function updateBuilderRules() {
         <div class="setting-row reset-data-row">
           <span><strong>Reset local data</strong><small>Remove saved army lists, favorites, cached content, and other locally added Old.dex data while preserving Display settings.</small></span>
           <button class="secondary-button settings-compact-action" type="button" :disabled="dataResetState === 'running'" @click="resetLocalData">{{ dataResetState === 'running' ? 'Resetting…' : 'Reset data' }}</button>
+        </div>
+        <div class="setting-row local-clear-row">
+          <span><strong>Clear ongoing matches</strong><small>Remove all matches that are still in progress. Completed match history is kept.</small></span>
+          <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('open-games')">Clear</button>
+        </div>
+        <div class="setting-row local-clear-row">
+          <span><strong>Clear match history</strong><small>Remove completed matches while keeping any ongoing matches.</small></span>
+          <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('history')">Clear</button>
+        </div>
+        <div class="setting-row local-clear-row">
+          <span><strong>Clear friendly rosters</strong><small>Remove rosters in the normal Army Rosters section. Enemy rosters are kept.</small></span>
+          <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('friendly-rosters')">Clear</button>
+        </div>
+        <div class="setting-row local-clear-row">
+          <span><strong>Clear enemy rosters</strong><small>Remove all rosters currently flagged as Enemy Army Rosters.</small></span>
+          <button class="secondary-button settings-compact-action" type="button" @click="clearLocalCategory('enemy-rosters')">Clear</button>
         </div>
         <div class="setting-row update-setting-row">
           <span><strong>Update Builder rules</strong><small>Force Old.dex to discard current remote caches and request fresh Builder data plus all configured rule and army reference pages.</small></span>

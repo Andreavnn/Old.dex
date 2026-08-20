@@ -116,15 +116,13 @@ function exportList(list: SavedArmyList) { exportSavedArmyList(list) }
       <div class="saved-list-stack">
         <article v-for="list in enemyLists" :key="list.id" class="saved-list-card card-surface enemy-roster-card" :class="[{ 'delete-select-mode': deleteMode, selected: selectedForDelete.has(list.id) }, `roster-status-${rosterState(list)}`]">
           <button v-if="deleteMode" type="button" class="saved-list-select" :aria-pressed="selectedForDelete.has(list.id)" @click="toggleDeleteSelection(list.id)"><span aria-hidden="true">{{ selectedForDelete.has(list.id) ? '✓' : '' }}</span></button>
-          <RouterLink v-if="!deleteMode" :to="savedArmyListRoute(list)" class="saved-list-open-area">
+          <RouterLink v-if="!deleteMode" :to="{ name: 'list-view', params: { listId: list.id } }" class="saved-list-open-area">
             <div><strong>{{ list.name }}</strong><div class="saved-list-labels"><span class="app-option-label enemy-roster-label">Enemy Roster</span><span class="app-option-label">{{ list.armyName }}</span><span class="app-option-label">{{ list.compositionName }}</span><span v-for="option in list.options" :key="`${list.id}-${option}`" class="app-option-label composition-selected-label">{{ optionLabel(option) }}</span></div></div>
-            <div class="saved-list-card-meta"><strong>{{ actualPoints(list) }} / {{ list.points }} pts</strong><small>{{ rosterState(list).toUpperCase() }} · {{ list.locked ? 'Locked' : 'Open' }}</small></div>
+            <div class="saved-list-card-meta"><strong>{{ actualPoints(list) }} / {{ list.points }} pts</strong><small>{{ rosterState(list).toUpperCase() }} · View only</small></div>
           </RouterLink>
-          <div v-if="!deleteMode" class="saved-list-row-actions">
-            <RouterLink class="saved-list-icon-action" :to="{ name: 'list-view', params: { listId: list.id } }" aria-label="View roster" title="View roster"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.2-5 9.2-5 9.2 5 9.2 5-3.2 5-9.2 5-9.2-5-9.2-5Z"/><circle cx="12" cy="12" r="2.5"/></svg></RouterLink>
-            <button type="button" class="saved-list-icon-action" aria-label="Export roster" title="Export JSON" @click="exportList(list)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 20h14"/></svg></button>
-            <button type="button" class="saved-list-icon-action enemy-roster-toggle active" aria-label="Mark as friendly roster" title="Move to Army Rosters" @click="toggleEnemyRoster(list)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M6 5h11l-2.5 3L17 11H6"/></svg></button>
-            <button type="button" class="saved-list-copy-button" aria-label="Copy roster" title="Copy roster" @click="copyList(list.id)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1.5"/><path d="M16 8V5H5v11h3"/></svg></button>
+          <div v-if="!deleteMode" class="saved-list-row-actions enemy-roster-view-actions">
+            <RouterLink class="saved-list-icon-action" :to="{ name: 'list-view', params: { listId: list.id } }" aria-label="View enemy roster" title="View enemy roster"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.2-5 9.2-5 9.2 5 9.2 5-3.2 5-9.2 5-9.2-5-9.2-5Z"/><circle cx="12" cy="12" r="2.5"/></svg></RouterLink>
+            <button type="button" class="saved-list-icon-action enemy-roster-toggle active" aria-label="Move enemy roster back to friendly rosters" title="Move to Army Rosters" @click="toggleEnemyRoster(list)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M6 5h11l-2.5 3L17 11H6"/></svg></button>
           </div>
           <button v-else type="button" class="saved-list-delete-row" @click="toggleDeleteSelection(list.id)"><div><strong>{{ list.name }}</strong><div class="saved-list-labels"><span class="app-option-label enemy-roster-label">Enemy Roster</span><span class="app-option-label">{{ list.armyName }}</span><span class="app-option-label">{{ list.compositionName }}</span></div></div><strong>{{ list.points }} pts</strong></button>
         </article>

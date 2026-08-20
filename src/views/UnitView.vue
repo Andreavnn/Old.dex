@@ -73,7 +73,7 @@ const builderListId = computed(() => {
   if (!backPath.value.startsWith('/lists/builder')) return ''
   try { return new URL(backPath.value, window.location.origin).searchParams.get('list') || '' } catch { return '' }
 })
-const builderListLocked = computed(() => Boolean(getSavedArmyList(builderListId.value)?.locked))
+const builderListLocked = computed(() => { const list = getSavedArmyList(builderListId.value); return Boolean(list?.locked || list?.enemyRoster) })
 const isEditing = computed(() => pageMode.value === 'edit' && Boolean(instanceId.value) && backPath.value.startsWith('/lists/builder') && !builderListLocked.value)
 const isReadOnly = computed(() => !isEditing.value)
 const hydratedFromRoster = ref(false)

@@ -1,4 +1,4 @@
-# Old.dex GUI v0.60
+# Old.dex GUI v0.61
 
 Old.dex is an alpha Warhammer: The Old World army-list and rules-reference application. The Vue/TypeScript application in `src/` is the only implementation source; Vercel builds that source directly for the hosted review site.
 
@@ -6,7 +6,7 @@ Old.dex is an alpha Warhammer: The Old World army-list and rules-reference appli
 
 ## Current build
 
-Alpha Build 0.60 refines match setup and roster organization with Friendly/Enemy General panels, enemy-roster flagging, icon-driven roster actions, production Support links, battle-composition context, stronger magical-item/special-rule detail recovery, and progressive unit-profile loading that shows the Builder profile immediately while reference enrichment finishes in the background.
+Alpha Build 0.61 makes enemy rosters read-only, adds targeted local-data clearing controls, corrects Games/Support presentation, strengthens roster-state coloring, and improves weapon-reference ingestion so canonical Weapons of War data is preferred while transport gaps are handled without turning Notes/reference-table links into false special rules.
 
 ## Canonical changelog
 
