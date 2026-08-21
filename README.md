@@ -1,4 +1,4 @@
-# Old.dex GUI v0.63
+# Old.dex GUI v0.64
 
 Old.dex is an alpha Warhammer: The Old World army-roster, rules-reference, and match-companion application. The Vue/TypeScript application in `src/` is the implementation source used by the hosted build.
 
@@ -6,7 +6,7 @@ Old.dex is an alpha Warhammer: The Old World army-roster, rules-reference, and m
 
 ## Current build
 
-Alpha Build 0.63 rebuilds the game-data identity layer around the same Old World Builder resources Old World Builder itself uses: its structured army JSON, exported rules index, supplemental rule map, synonym table, and rule-name normalization. Old.dex now resolves units, mounts, weapons, and special rules through that canonical map before using TOW page reading as detail enrichment.
+Alpha Build 0.64 builds on the Old World Builder-aligned data resolver with stricter Wizard lore selection, mount-to-rider Wound propagation, roster validation at match creation, persistent round-count setup, friendly deployment guidance with formations/reserves, and dynamic Start of Round rule checks across both rosters and battle sources.
 
 Unit and mount profiles prefer Old World Builder's indexed statistics. Army-composition overrides remain authoritative, punctuation-aware source parsing avoids corrupting canonical names, and the data layer includes a whole-army reference audit for unresolved entities.
 

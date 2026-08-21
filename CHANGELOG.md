@@ -1,5 +1,14 @@
 # Old.dex Changelog
 
+## Alpha Build 0.64 — Match validation, deployment guidance, and Start of Round rules
+
+- Changed Wizard spell-lore selection to a single-choice state and added a rider-profile safeguard so mount-granted Wound bonuses are applied to the character exactly once.
+- Added a conditional Start New Match roster-check panel that flags invalid/warning rosters, over-limit rosters, and mismatched friendly/enemy point allowances before the match is created.
+- Moved match round-count configuration into Setup Step 1, persisted custom game length independently of scenario defaults, and simplified the pre-battle Overview by removing the editable current-round and rounds-completed controls.
+- Rebuilt Deployment Step 2 around the friendly roster only, showing each unit’s legal formation rules, deployment-specific rules, and a saved Reserve state when the unit or scenario permits it.
+- Added dynamic deployment-rule reading so army-specific deployment mechanics can be discovered from their canonical rule pages rather than relying only on a fixed Vanguard/Scouts/Ambushers list.
+- Expanded Start of Round into a rules-guidance phase that checks friendly and enemy roster special rules plus scenario, battlefield, battle-composition, and army-composition sources for effects that explicitly resolve at the start of a round.
+
 ## Alpha Build 0.63 — Old World Builder data-resolver rebuild and live source languages
 
 - Rebuilt Old.dex data identity around Old World Builder’s own rules-index-export, additional rule mappings, synonym table, and name-normalization logic instead of relying on guessed slugs as the primary resolver.

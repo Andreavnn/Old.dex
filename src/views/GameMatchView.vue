@@ -5,7 +5,7 @@ import AppHeader from '../components/AppHeader.vue'
 import { compositionOptions, compositionRuleLabel } from '../data/listBuilder'
 import { completeSavedGame, deleteSavedGame, gameWorkflow, getSavedGame, resetSavedGame, updateSavedGame, type GameMagicCaster, type GameOutcome, type GameSide, type SavedGame } from '../services/games'
 import { getSavedArmyList } from '../services/savedLists'
-import { hydrateFriendlyMagicSetup, loadMagicChoices, loadScenarioGuidance, magicSelectionLimit, randomHappeningOptions } from '../services/gameSetup'
+import { hydrateFriendlyMagicSetup, loadFriendlyDeploymentGuidance, loadMagicChoices, loadScenarioGuidance, loadStartOfRoundGuidance, magicSelectionLimit, randomHappeningOptions, type GameDeploymentGuidance, type GameStartRoundRule } from '../services/gameSetup'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,6 +15,10 @@ const magicCasters = ref<GameMagicCaster[]>([])
 const magicLoading = ref(false)
 const magicChoiceLoading = ref(new Set<string>())
 const scenarioLoading = ref(false)
+const deploymentLoading = ref(false)
+const deploymentGuidance = ref<GameDeploymentGuidance[]>([])
+const startRoundLoading = ref(false)
+const startRoundGuidance = ref<GameStartRoundRule[]>([])
 
 const phase = computed(() => game.value ? gameWorkflow[Math.min(game.value.phaseIndex, gameWorkflow.length - 1)] : null)
 const step = computed(() => phase.value && game.value ? phase.value.steps[Math.min(game.value.stepIndex, phase.value.steps.length - 1)] : null)
@@ -50,12 +54,19 @@ const selectedBattlefieldConditions = computed(() => new Set(game.value?.battlef
 const battlefieldConditionRows = computed(() => randomHappeningOptions.filter((option) => selectedBattlefieldConditions.value.has(option.id)))
 const scenarioGuidance = computed(() => game.value?.scenarioGuidance || null)
 const deployedPlayerIds = computed(() => new Set(game.value?.deployedPlayerIds || []))
-const deployedOpponentIds = computed(() => new Set(game.value?.deployedOpponentIds || []))
+const reservePlayerIds = computed(() => new Set(game.value?.reservePlayerIds || []))
+const deploymentGuidanceMap = computed(() => new Map(deploymentGuidance.value.map((row) => [row.instanceId, row])))
 const deploymentFriendlyCount = computed(() => playerRoster.value.filter((row) => deployedPlayerIds.value.has(row.instanceId)).length)
-const deploymentEnemyCount = computed(() => opponentRoster.value.filter((row) => deployedOpponentIds.value.has(row.instanceId)).length)
+const friendlyStartRoundRules = computed(() => startRoundGuidance.value.filter((row) => row.side === 'player'))
+const enemyStartRoundRules = computed(() => startRoundGuidance.value.filter((row) => row.side === 'opponent'))
+const battleStartRoundRules = computed(() => startRoundGuidance.value.filter((row) => row.side === 'battle'))
 
 watch(stepKey, () => { notes.value = game.value?.stepNotes?.[stepKey.value] || '' }, { immediate: true })
 watch(() => step.value?.id, () => { if (isSetupSpellsStep.value) void preloadMagicChoices() })
+watch(() => [phase.value?.id, step.value?.id], () => {
+  if (isDeployArmiesStep.value) void hydrateDeploymentGuidance()
+  if (isRoundStartStep.value) void hydrateStartRoundGuidance()
+})
 
 function persist(patch: Partial<Omit<SavedGame, 'id' | 'createdAt'>> = {}) {
   if (!game.value) return
@@ -130,15 +141,30 @@ function toggleDeployedUnit(side: GameSide, instanceId: string, checked: boolean
   const key = side === 'player' ? 'deployedPlayerIds' : 'deployedOpponentIds'
   const current = new Set(side === 'player' ? game.value.deployedPlayerIds || [] : game.value.deployedOpponentIds || [])
   if (checked) current.add(instanceId); else current.delete(instanceId)
+  if (side === 'player' && checked) {
+    const reserves = new Set(game.value.reservePlayerIds || [])
+    reserves.delete(instanceId)
+    persist({ [key]: [...current], reservePlayerIds: [...reserves] } as Partial<SavedGame>)
+    return
+  }
   persist({ [key]: [...current] } as Partial<SavedGame>)
 }
 function handleDeployedUnit(side: GameSide, instanceId: string, event: Event) { toggleDeployedUnit(side, instanceId, Boolean((event.target as HTMLInputElement).checked)) }
-function setOverviewRound(value: number) {
+function toggleReserveUnit(instanceId: string, checked: boolean) {
   if (!game.value || isReadOnly.value) return
-  const next = Math.min(roundLimit.value, Math.max(1, Math.round(Number(value) || 1)))
-  persist({ round: next, roundsCompleted: Math.max(0, Math.min(roundLimit.value, next - 1)) })
+  const current = new Set(game.value.reservePlayerIds || [])
+  if (checked) current.add(instanceId); else current.delete(instanceId)
+  const deployed = new Set(game.value.deployedPlayerIds || [])
+  if (checked) deployed.delete(instanceId)
+  persist({ reservePlayerIds: [...current], deployedPlayerIds: [...deployed] })
 }
-function handleOverviewRound(event: Event) { setOverviewRound(Number((event.target as HTMLInputElement).value)) }
+function handleReserveUnit(instanceId: string, event: Event) { toggleReserveUnit(instanceId, Boolean((event.target as HTMLInputElement).checked)) }
+function setRoundLimit(value: number) {
+  if (!game.value || isReadOnly.value || battleStarted.value) return
+  const next = Math.max(1, Math.min(20, Math.round(Number(value) || 1)))
+  persist({ roundLimit: next, roundLimitCustomized: true })
+}
+function handleRoundLimit(event: Event) { setRoundLimit(Number((event.target as HTMLInputElement).value)) }
 function adjustScore(side: GameSide, delta: number) {
   if (!game.value || isReadOnly.value) return
   if (side === 'player') persist({ playerScore: Math.max(0, game.value.playerScore + delta) })
@@ -241,11 +267,25 @@ async function hydrateScenarioGuidance() {
   scenarioLoading.value = true
   try {
     const guidance = await loadScenarioGuidance(game.value.scenario)
-    persist({ scenarioGuidance: guidance, roundLimit: guidance.roundLimit })
+    persist({ scenarioGuidance: guidance, roundLimit: game.value.roundLimitCustomized ? game.value.roundLimit : guidance.roundLimit })
   } finally {
     scenarioLoading.value = false
   }
 }
+async function hydrateDeploymentGuidance() {
+  if (!game.value || deploymentLoading.value) return
+  deploymentLoading.value = true
+  try { deploymentGuidance.value = await loadFriendlyDeploymentGuidance(game.value) }
+  finally { deploymentLoading.value = false }
+}
+async function hydrateStartRoundGuidance() {
+  if (!game.value || startRoundLoading.value) return
+  startRoundLoading.value = true
+  try { startRoundGuidance.value = await loadStartOfRoundGuidance(game.value) }
+  finally { startRoundLoading.value = false }
+}
+function deploymentFor(instanceId: string) { return deploymentGuidanceMap.value.get(instanceId) }
+
 function toggleBattlefieldCondition(id: string, checked: boolean) {
   if (!game.value || isReadOnly.value) return
   const next = new Set(game.value.battlefieldConditions || [])
@@ -263,9 +303,9 @@ const setupTip = computed(() => {
 
 const deploymentTip = computed(() => {
   if (isDeploymentOrderStep.value) return 'Review the scenario deployment instructions before placing models. Record which side begins deployment here; this is separate from determining which side takes the first turn.'
-  if (isDeployArmiesStep.value) return 'Use the roster checklists as a table-side reminder while units are deployed. Units held in reserve can be left unchecked and noted below until they enter the battle.'
+  if (isDeployArmiesStep.value) return 'Follow the selected scenario’s deployment instructions and alternate placing eligible units as required. For each friendly unit, choose one of its legal formations when it is deployed and resolve any deployment rules shown here. Units with rules or scenario instructions that allow them to begin off-table may be marked Reserve instead of Deployed. Resolve post-deployment rules such as Scouts or Vanguard exactly when their linked rule instructs.'
   if (isFirstTurnStep.value) return 'After deployment is complete, resolve the scenario’s first-turn procedure and record the result. The selected side becomes the active side when Round 1 begins.'
-  if (isRoundStartStep.value) return 'Start of Round happens once before the first player begins their turn. Confirm the round number and any scenario or battlefield effects that apply before moving to Strategy.'
+  if (isRoundStartStep.value) return 'Start of Round happens once before either player begins their turn. Resolve the friendly, enemy, scenario, battlefield and composition effects listed here before moving to the first player’s Strategy phase.'
   return ''
 })
 const advanceButtonLabel = computed(() => {
@@ -305,6 +345,8 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
           </section>
 
           <section class="setup-scenario-card"><span class="value-chip">SCENARIO</span><div><h3>{{ game.scenario }}</h3><p v-if="scenarioLoading">Loading scenario guidance…</p><p v-else>{{ scenarioGuidance?.gameLength || 'Scenario-specific deployment and scoring checks will be surfaced as the relevant battle steps are expanded.' }}</p><RouterLink v-if="scenarioGuidance?.sourcePath" :to="`/rules/read${scenarioGuidance.sourcePath}`">Open scenario rules</RouterLink></div></section>
+
+          <section class="setup-round-limit-card card-inset"><div><p class="eyebrow">GAME LENGTH</p><h3>Number of rounds</h3><p>Set how many rounds this match will last. This value carries into Overview and controls when Complete Match becomes available.</p></div><label class="round-limit-input"><span>Rounds</span><input :value="roundLimit" type="number" min="1" max="20" :readonly="isReadOnly || battleStarted" @change="handleRoundLimit" /></label></section>
 
           <section v-if="battleMarchEnabled" class="setup-caster-section battlefield-condition-picker">
             <div class="setup-section-heading"><div><p class="eyebrow">BATTLEFIELD</p><h3>Random Happenings</h3></div><span>{{ battlefieldConditionRows.length }}</span></div>
@@ -358,12 +400,10 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
 
         <div v-else-if="isOverviewStep" class="game-overview-dashboard">
           <aside class="game-tip-card"><span class="game-tip-icon">i</span><div><strong>Tip — Battle Overview</strong><p>{{ setupTip }}</p></div></aside>
-          <section class="overview-status-grid">
+          <section class="overview-status-grid prebattle-overview-status-grid">
             <article><small>Scenario</small><strong>{{ game.scenario }}</strong></article>
             <article><small>Battle size</small><strong>{{ game.points }} pts</strong></article>
-            <article class="overview-round-card"><small>Round</small><div class="overview-round-control"><input :value="game.round" type="number" min="1" :max="roundLimit" :readonly="isReadOnly" aria-label="Current round" @change="handleOverviewRound" /><span>/ {{ roundLimit }}</span></div></article>
             <article><small>Game length</small><strong>{{ roundLimit }} rounds</strong></article>
-            <article><small>Rounds complete</small><strong>{{ game.roundsCompleted }} / {{ roundLimit }}</strong></article>
             <article><small>First turn</small><strong>{{ game.firstPlayerConfirmed ? (game.firstPlayer === 'player' ? game.playerName : game.opponentName) : 'Resolve after deployment' }}</strong></article>
           </section>
           <section class="overview-matchup card-inset"><div><p class="eyebrow">FRIENDLY</p><h3>{{ game.playerName }}</h3><strong>{{ game.playerListName }}</strong><p>{{ game.playerArmyName }} · {{ game.playerPoints || playerActualPoints || game.points }} pts</p></div><span>—</span><div><p class="eyebrow">ENEMY</p><h3>{{ game.opponentName }}</h3><strong>{{ game.opponentListName || 'No enemy roster' }}</strong><p>{{ game.opponentArmyName || 'Opponent' }} · {{ game.opponentPoints || opponentActualPoints || 0 }} pts</p></div></section>
@@ -387,9 +427,18 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
 
         <div v-else-if="isDeployArmiesStep" class="deployment-step-content">
           <aside class="game-tip-card"><span class="game-tip-icon">i</span><div><strong>Tip — Deploying Armies</strong><p>{{ deploymentTip }}</p><RouterLink to="/rules/read/overview-of-the-game">Open deployment rules</RouterLink></div></aside>
-          <section class="deployment-roster-grid">
-            <article class="deployment-roster-panel card-inset"><div class="deployment-roster-heading"><div><p class="eyebrow">FRIENDLY</p><h3>{{ game.playerListName }}</h3></div><strong>{{ deploymentFriendlyCount }} / {{ playerRoster.length }}</strong></div><label v-for="row in playerRoster" :key="row.instanceId" class="deployment-unit-row" :class="{ deployed: deployedPlayerIds.has(row.instanceId) }"><input type="checkbox" :checked="deployedPlayerIds.has(row.instanceId)" :disabled="isReadOnly" @change="handleDeployedUnit('player', row.instanceId, $event)" /><span><strong>{{ row.name }}</strong><small>{{ row.modelCount }} model{{ row.modelCount === 1 ? '' : 's' }} · {{ row.totalPoints }} pts</small></span></label></article>
-            <article class="deployment-roster-panel card-inset"><div class="deployment-roster-heading"><div><p class="eyebrow">ENEMY</p><h3>{{ game.opponentListName || game.opponentName }}</h3></div><strong>{{ deploymentEnemyCount }} / {{ opponentRoster.length }}</strong></div><template v-if="opponentRoster.length"><label v-for="row in opponentRoster" :key="row.instanceId" class="deployment-unit-row" :class="{ deployed: deployedOpponentIds.has(row.instanceId) }"><input type="checkbox" :checked="deployedOpponentIds.has(row.instanceId)" :disabled="isReadOnly" @change="handleDeployedUnit('opponent', row.instanceId, $event)" /><span><strong>{{ row.name }}</strong><small>{{ row.modelCount }} model{{ row.modelCount === 1 ? '' : 's' }} · {{ row.totalPoints }} pts</small></span></label></template><p v-else class="setup-inline-status">No enemy roster was imported for this match. Record observed deployment in the step notes below.</p></article>
+          <p v-if="deploymentLoading" class="setup-inline-status">Reading deployment rules and legal formations for the friendly roster…</p>
+          <section class="deployment-roster-grid friendly-only-deployment-grid">
+            <article class="deployment-roster-panel card-inset"><div class="deployment-roster-heading"><div><p class="eyebrow">FRIENDLY ROSTER</p><h3>{{ game.playerListName }}</h3></div><strong>{{ deploymentFriendlyCount }} / {{ playerRoster.length }} deployed</strong></div>
+              <article v-for="row in playerRoster" :key="row.instanceId" class="deployment-unit-row deployment-unit-guidance" :class="{ deployed: deployedPlayerIds.has(row.instanceId), reserved: reservePlayerIds.has(row.instanceId) }">
+                <div class="deployment-unit-status-controls"><label><input type="checkbox" :checked="deployedPlayerIds.has(row.instanceId)" :disabled="isReadOnly" @change="handleDeployedUnit('player', row.instanceId, $event)" /><span>Deployed</span></label><label v-if="deploymentFor(row.instanceId)?.canReserve"><input type="checkbox" :checked="reservePlayerIds.has(row.instanceId)" :disabled="isReadOnly" @change="handleReserveUnit(row.instanceId, $event)" /><span>Reserve</span></label></div>
+                <div class="deployment-unit-copy"><div class="deployment-unit-title"><strong>{{ row.name }}</strong><small>{{ row.modelCount }} model{{ row.modelCount === 1 ? '' : 's' }} · {{ row.totalPoints }} pts</small></div>
+                  <div class="deployment-formations"><span class="deployment-detail-label">Formation</span><template v-if="deploymentFor(row.instanceId)?.formations.length"><RouterLink v-for="formation in deploymentFor(row.instanceId)?.formations" :key="`${row.instanceId}-${formation.label}`" :to="`/rules/read${formation.path}`">{{ formation.label }}</RouterLink></template><span v-else>Use the formation permitted by the unit’s troop type/rules.</span></div>
+                  <div v-if="deploymentFor(row.instanceId)?.deploymentRules.length" class="deployment-rule-list"><span class="deployment-detail-label">Deployment rules</span><article v-for="rule in deploymentFor(row.instanceId)?.deploymentRules" :key="`${row.instanceId}-${rule.label}`"><RouterLink :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><p v-if="rule.summary">{{ rule.summary }}</p></article></div>
+                  <p v-if="deploymentFor(row.instanceId)?.canReserve" class="deployment-reserve-reason">May begin off-table / in Reserve: {{ deploymentFor(row.instanceId)?.reserveReason }}.</p>
+                </div>
+              </article>
+            </article>
           </section>
         </div>
 
@@ -406,7 +455,12 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
         <div v-else-if="isRoundStartStep" class="round-start-content">
           <aside class="game-tip-card"><span class="game-tip-icon">i</span><div><strong>Tip — Start of Round</strong><p>{{ deploymentTip }}</p><RouterLink to="/rules/read/the-turn-sequence">Open Turn Sequence rules</RouterLink></div></aside>
           <section class="round-start-summary card-inset"><div><p class="eyebrow">ROUND</p><strong>{{ game.round }} / {{ roundLimit }}</strong></div><div><p class="eyebrow">FIRST PLAYER</p><strong>{{ game.firstPlayer === 'player' ? game.playerName : game.opponentName }}</strong></div><div><p class="eyebrow">BATTLE CONDITIONS</p><strong>{{ battlefieldConditionRows.length ? battlefieldConditionRows.map((row) => row.label).join(' · ') : 'No additional condition selected' }}</strong></div></section>
-          <section v-if="scenarioGuidance?.scenarioRules.length" class="scenario-special-rule-list"><strong>Scenario effects to remember</strong><p v-for="rule in scenarioGuidance.scenarioRules" :key="rule">{{ rule }}</p></section>
+          <p v-if="startRoundLoading" class="setup-inline-status">Checking both rosters and battle rules for Start of Round effects…</p>
+          <section class="start-round-rule-columns">
+            <article class="start-round-rule-panel friendly card-inset"><div class="setup-section-heading"><div><p class="eyebrow">FRIENDLY</p><h3>Start of Round Rules</h3></div><span>{{ friendlyStartRoundRules.length }}</span></div><template v-if="friendlyStartRoundRules.length"><article v-for="rule in friendlyStartRoundRules" :key="`${rule.source}-${rule.label}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></template><p v-else class="setup-inline-status">No friendly Start of Round rules detected.</p></article>
+            <article class="start-round-rule-panel enemy card-inset"><div class="setup-section-heading"><div><p class="eyebrow">ENEMY</p><h3>Start of Round Rules</h3></div><span>{{ enemyStartRoundRules.length }}</span></div><template v-if="enemyStartRoundRules.length"><article v-for="rule in enemyStartRoundRules" :key="`${rule.source}-${rule.label}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></template><p v-else class="setup-inline-status">No enemy Start of Round rules detected.</p></article>
+          </section>
+          <section v-if="battleStartRoundRules.length" class="start-round-rule-panel battle card-inset"><div class="setup-section-heading"><div><p class="eyebrow">BATTLE</p><h3>Scenario, Composition &amp; Battlefield</h3></div><span>{{ battleStartRoundRules.length }}</span></div><article v-for="rule in battleStartRoundRules" :key="`${rule.source}-${rule.label}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></section>
         </div>
 
         <label class="game-step-notes"><span>Step notes</span><textarea v-model="notes" :readonly="isReadOnly" rows="5" placeholder="Record targets, results, effects, or table notes for this step." @blur="saveNotes"></textarea></label>

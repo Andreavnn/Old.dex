@@ -464,6 +464,14 @@ const showWizardLoreGroup = computed(() => wizardLevelOptions.value.length > 0 |
 const loreSelectionEnabled = computed(() => isWizard.value || isPrayerCaster.value)
 function toggleLore(lore: string, selected: boolean) {
   if (isReadOnly.value || !loreSelectionEnabled.value) return
+  // A Wizard selects one spell lore. Treat these source lore choices like a
+  // radio group even though the profile UI uses our common checkbox control.
+  // Priests keep the existing multi-lore behavior because prayer sources can
+  // legitimately expose more than one prayer grouping.
+  if (isWizard.value) {
+    selectedLores.value = selected ? new Set([lore]) : new Set()
+    return
+  }
   const next = new Set(selectedLores.value)
   if (selected) next.add(lore); else next.delete(lore)
   selectedLores.value = next
@@ -519,7 +527,7 @@ function effectiveProfileFor(baseProfile: Record<ProfileKey, string>, profileNam
   if (!unit) return { ...baseProfile }
   const selectedMount = selectedMountOption.value
   const selectedMountProfile = Boolean(selectedMount && optionalSelectionId === selectedMount.id)
-  return applyProfileEffects({
+  const profile = applyProfileEffects({
     baseProfile,
     profileName,
     unit,
@@ -531,6 +539,14 @@ function effectiveProfileFor(baseProfile: Record<ProfileKey, string>, profileNam
     magicOverride: magicProfileOverridesFor(profileName),
     mountedRider: { active: Boolean(selectedMount) && !selectedMountProfile, modifiers: selectedMount?.riderProfileModifiers },
   })
+
+  // Mount entries can explicitly grant characteristic bonuses to their rider.
+  // Older profile-effect builds applied some of those bonuses but could miss W.
+  // Only fill the gap when the profile effect did not already change the rider's
+  // Wounds value, preventing the same mount bonus from being counted twice.
+  const woundBonus = !selectedMountProfile ? Math.max(0, Number(selectedMount?.riderProfileModifiers?.W || 0)) : 0
+  if (woundBonus > 0 && profile.W === baseProfile.W) profile.W = incrementCharacteristic(baseProfile.W || '—', woundBonus)
+  return profile
 }
 function equipmentDisplayName(option: PrototypeEquipmentOption) {
   const name = displayOptionName(option)
@@ -1223,7 +1239,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
               <div v-if="loreChoices.length" class="lore-choice-grid" :class="{ unavailable: !loreSelectionEnabled }">
                 <label v-for="lore in loreChoices" :key="lore" :class="{ selected: selectedLores.has(lore) }">
                   <input type="checkbox" :checked="selectedLores.has(lore)" :disabled="isReadOnly || !loreSelectionEnabled" @change="handleLoreCheckbox(lore, $event)" />
-                  <span><strong>{{ formatLoreName(lore) }}</strong><small>{{ loreSelectionEnabled ? 'Add this lore to the model profile.' : 'Select a Wizard or Priest option first.' }}</small></span>
+                  <span><strong>{{ formatLoreName(lore) }}</strong><small>{{ loreSelectionEnabled ? (isWizard ? 'Select this as the Wizard’s spell lore.' : 'Add this prayer lore to the model profile.') : 'Select a Wizard or Priest option first.' }}</small></span>
                 </label>
               </div>
             </section>

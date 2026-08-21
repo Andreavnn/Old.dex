@@ -114,6 +114,7 @@ export type SavedGame = {
   scenarioGuidance?: GameScenarioGuidance
   battlefieldConditions?: string[]
   roundLimit: number
+  roundLimitCustomized?: boolean
   roundsCompleted: number
   battleStarted: boolean
   outcome?: GameOutcome
@@ -133,6 +134,7 @@ export type SavedGame = {
   deploymentFirstSide?: GameSide
   deployedPlayerIds?: string[]
   deployedOpponentIds?: string[]
+  reservePlayerIds?: string[]
 }
 
 const KEY = 'olddex.games.v1'
@@ -177,6 +179,7 @@ function parseGames(value: unknown): SavedGame[] {
       playerPoints: savedGameSidePoints(row, 'player'),
       opponentPoints: savedGameSidePoints(row, 'opponent'),
       roundLimit: Math.max(1, Number(row.roundLimit || row.scenarioGuidance?.roundLimit || 6)),
+      roundLimitCustomized: Boolean(row.roundLimitCustomized),
       roundsCompleted: Math.max(0, Number(row.roundsCompleted || 0)),
       battleStarted: Boolean(row.battleStarted || Number(row.roundsCompleted || 0) > 0 || Number(row.round || 1) > 1),
       battlefieldConditions: Array.isArray(row.battlefieldConditions) ? [...row.battlefieldConditions] : [],
@@ -191,6 +194,7 @@ function parseGames(value: unknown): SavedGame[] {
       deploymentFirstSide: row.deploymentFirstSide === 'opponent' ? 'opponent' : row.deploymentFirstSide === 'player' ? 'player' : undefined,
       deployedPlayerIds: Array.isArray(row.deployedPlayerIds) ? [...row.deployedPlayerIds] : [],
       deployedOpponentIds: Array.isArray(row.deployedOpponentIds) ? [...row.deployedOpponentIds] : [],
+      reservePlayerIds: Array.isArray(row.reservePlayerIds) ? [...row.reservePlayerIds] : [],
     }
   })
 }
@@ -260,11 +264,13 @@ export function createSavedGame(input: {
     scenario: input.scenario || 'Open Battle',
     battlefieldConditions: [],
     roundLimit: 6,
+    roundLimitCustomized: false,
     roundsCompleted: 0,
     battleStarted: false,
     deploymentFirstSide: undefined,
     deployedPlayerIds: [],
     deployedOpponentIds: [],
+    reservePlayerIds: [],
     firstPlayer: 'player',
     firstPlayerConfirmed: false,
     round: 1,
@@ -314,6 +320,7 @@ export function resetSavedGame(id: string) {
     deploymentFirstSide: undefined,
     deployedPlayerIds: [],
     deployedOpponentIds: [],
+    reservePlayerIds: [],
     activeSide: 'player',
     phaseIndex: 0,
     stepIndex: 0,

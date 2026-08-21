@@ -56,9 +56,10 @@ test('final v0.62 hidden patch renders selectable spells as rule cards with chec
   assert.match(styles, /\.spell-rule-card/)
 })
 
-test('final v0.62 hidden patch makes Overview round editable and removes Battle Flow', () => {
-  assert.match(match, /handleOverviewRound/)
-  assert.match(match, /class="overview-round-control"/)
+test('final v0.62 hidden patch keeps Battle Flow removed and the pre-battle next action', () => {
+  // v0.64 intentionally moved round-count editing back to Setup Step 1, so the
+  // old editable Overview-round assertion is superseded while these v0.62
+  // presentation requirements remain applicable.
   assert.match(match, /Prepare For Battle! \(Next\)/)
   assert.doesNotMatch(match, /BATTLE FLOW/)
 })
@@ -79,5 +80,5 @@ test('final v0.62 hidden patch expands Deployment and inserts Start of Round bef
 })
 
 test('final v0.62 hidden patch rotates installed-app cache', () => {
-  assert.match(sw, /olddex-shell-v0(?:62-hidden3|63-data-rebuild)/)
+  assert.match(sw, /olddex-shell-v0(?:62-hidden3|63-data-rebuild|64-match-guidance)/)
 })

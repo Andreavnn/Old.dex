@@ -32,6 +32,28 @@ const enemyLists = computed(() => lists.value.filter((list) => list.enemyRoster)
 const playerList = computed(() => lists.value.find((list) => list.id === playerListId.value) || null)
 const opponentList = computed(() => lists.value.find((list) => list.id === opponentListId.value) || null)
 const selectedScenario = computed(() => scenarioOptions.find((option) => option.name === scenario.value) || scenarioOptions[0])
+function rosterActualPoints(list: SavedArmyList | null) {
+  if (!list) return 0
+  const saved = Number(list.actualPoints || 0)
+  if (saved > 0) return saved
+  return (list.roster || []).reduce((sum, row) => sum + Math.max(0, Number(row.totalPoints || 0)), 0)
+}
+const matchRosterIssues = computed(() => {
+  const issues: Array<{ severity: 'error' | 'warning'; message: string }> = []
+  const inspect = (list: SavedArmyList | null, label: string) => {
+    if (!list) return
+    if (list.validationStatus === 'invalid') issues.push({ severity: 'error', message: `${label} roster is currently invalid. Open the roster to review its validation errors before the match.` })
+    else if (list.validationStatus === 'warning') issues.push({ severity: 'warning', message: `${label} roster currently has a validation warning.` })
+    const actual = rosterActualPoints(list)
+    if (actual > Number(list.points || 0) && !list.options?.includes('over-under')) issues.push({ severity: 'error', message: `${label} roster is ${actual - Number(list.points || 0)} points over its ${list.points}-point allowance.` })
+  }
+  inspect(playerList.value, 'Friendly')
+  inspect(opponentList.value, 'Enemy')
+  if (playerList.value && opponentList.value && Number(playerList.value.points || 0) !== Number(opponentList.value.points || 0)) {
+    issues.push({ severity: 'error', message: `Roster point allowances do not match: Friendly ${playerList.value.points} pts — Enemy ${opponentList.value.points} pts.` })
+  }
+  return issues
+})
 const canCreate = computed(() => Boolean(playerList.value))
 const friendlyCompositionOptions = computed(() => {
   const list = playerList.value
@@ -145,6 +167,8 @@ function createMatch() {
 
       <label class="field-label">Scenario<select v-model="scenario" class="field-control"><option v-for="option in scenarioOptions" :key="option.name" :value="option.name">{{ option.name }}</option></select></label>
       <aside class="scenario-info-window" aria-live="polite"><span class="value-chip">SCENARIO</span><div><strong>{{ selectedScenario.name }}</strong><p>{{ selectedScenario.description }}</p></div></aside>
+
+      <aside v-if="matchRosterIssues.length" class="match-roster-issue-panel" aria-live="polite" aria-label="Roster issues"><span class="value-chip">ROSTER CHECK</span><div><strong>Resolve or acknowledge these match setup issues</strong><ul><li v-for="(issue, index) in matchRosterIssues" :key="`${issue.message}-${index}`" :class="`severity-${issue.severity}`">{{ issue.message }}</li></ul></div></aside>
 
       <aside v-if="playerList" class="battle-composition-window" aria-label="Friendly roster battle composition">
         <span class="value-chip">BATTLE COMPOSITION</span>

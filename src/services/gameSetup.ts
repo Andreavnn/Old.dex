@@ -5,6 +5,7 @@ import { fetchRuleDocument } from './ruleContent'
 import { getSavedArmyList } from './savedLists'
 import type { GameMagicCaster, GameMagicChoice, GameScenarioGuidance, SavedGame } from './games'
 import { reportAppError } from './appErrors'
+import { extractMechanicalRuleText } from './ruleText'
 
 function sourceName(value: unknown) {
   if (typeof value === 'string') return value.trim()
@@ -322,6 +323,199 @@ export async function loadScenarioGuidance(scenario: string): Promise<GameScenar
     return fallback
   }
 }
+
+export type GameDeploymentRule = {
+  label: string
+  path: string
+  summary: string
+}
+
+export type GameDeploymentGuidance = {
+  instanceId: string
+  formations: Array<{ label: string; path: string }>
+  deploymentRules: GameDeploymentRule[]
+  canReserve: boolean
+  reserveReason?: string
+}
+
+export type GameStartRoundRule = {
+  side: 'player' | 'opponent' | 'battle'
+  source: string
+  label: string
+  path?: string
+  summary: string
+}
+
+const formationNames = new Set(['close order', 'open order', 'skirmishers'])
+const deploymentNamePattern = /\b(?:ambushers?|scouts?|vanguard|reserve|reinforcement|deploy|deployment|hidden|tunnel|tunnelling|tunneling|underground|flank|outflank)\b/i
+const deploymentTextPattern = /\b(?:deploy|deployment|deployed|set up|setup|before either side deploys|after both sides have deployed|held in reserve|placed in reserve|reserve|reinforcement|scout|vanguard|ambush)\b/i
+const reserveTextPattern = /\b(?:held|placed|kept|start(?:s|ing)?)\s+(?:the battle )?in reserve\b|\breserves?\b|\bambushers?\b/i
+const startRoundTextPattern = /\b(?:at|during) the (?:very )?(?:start|beginning) of (?:each|every|the|a) round\b|\b(?:start|beginning) of (?:each|every|the|a) round\b/i
+
+function compactText(value: string) { return String(value || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim() }
+function sentenceRows(value: string) { return compactText(value).match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map(compactText).filter(Boolean) || [] }
+function pageSentences(html: string, pattern: RegExp) {
+  const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
+  dom.querySelectorAll('script,style,nav,header,footer').forEach((node) => node.remove())
+  const blocks = Array.from(dom.querySelectorAll<HTMLElement>('p,li,td')).map((node) => compactText(node.textContent || '')).filter(Boolean)
+  const source = blocks.length ? blocks : [compactText(dom.body.textContent || '')]
+  const seen = new Set<string>()
+  return source.flatMap(sentenceRows).filter((row) => pattern.test(row)).filter((row) => {
+    const key = row.toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+async function ruleDocumentSummary(path: string, pattern: RegExp) {
+  try {
+    const document = await fetchRuleDocument(path)
+    const phaseRows = pageSentences(document.html, pattern)
+    if (phaseRows.length) return phaseRows.slice(0, 3).join(' ')
+    return pattern === deploymentTextPattern && deploymentNamePattern.test(path) ? extractMechanicalRuleText(document.html) : ''
+  } catch (error) {
+    reportAppError(error, 'GAME_PHASE_RULE_GUIDANCE', { path })
+    return ''
+  }
+}
+
+function uniqueRosterRules(roster: BuilderRosterSelection[]) {
+  const map = new Map<string, { label: string; path: string }>()
+  for (const row of roster) for (const rule of row.specialRules || []) {
+    const key = `${String(rule.label || '').toLowerCase()}|${rule.path || ''}`
+    if (rule.label && !map.has(key)) map.set(key, { label: rule.label, path: rule.path })
+  }
+  return [...map.values()]
+}
+
+export async function loadFriendlyDeploymentGuidance(game: SavedGame): Promise<GameDeploymentGuidance[]> {
+  const roster = armyRosterForGame(game)
+  const sourceRules = uniqueRosterRules(roster)
+  const summaryByRule = new Map<string, string>()
+  await Promise.allSettled(sourceRules.map(async (rule) => {
+    if (!rule.path) return
+    const summary = await ruleDocumentSummary(rule.path, deploymentTextPattern)
+    if (summary) summaryByRule.set(`${rule.label.toLowerCase()}|${rule.path}`, summary)
+  }))
+  const scenarioReserve = reserveTextPattern.test(`${game.scenarioGuidance?.setupText || ''} ${(game.scenarioGuidance?.scenarioRules || []).join(' ')}`)
+  return roster.map((row) => {
+    const formations = (row.specialRules || [])
+      .filter((rule) => formationNames.has(String(rule.label || '').replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase()))
+      .map((rule) => ({ label: rule.label, path: rule.path }))
+    const deploymentRules: GameDeploymentRule[] = []
+    for (const rule of row.specialRules || []) {
+      const key = `${String(rule.label || '').toLowerCase()}|${rule.path || ''}`
+      const summary = summaryByRule.get(key) || ''
+      if (!deploymentNamePattern.test(rule.label) && !summary) continue
+      deploymentRules.push({ label: rule.label, path: rule.path, summary })
+    }
+    const reserveRule = deploymentRules.find((rule) => reserveTextPattern.test(`${rule.label} ${rule.summary}`))
+    return {
+      instanceId: row.instanceId,
+      formations,
+      deploymentRules,
+      canReserve: Boolean(reserveRule || scenarioReserve),
+      reserveReason: reserveRule ? reserveRule.label : scenarioReserve ? game.scenario : undefined,
+    }
+  })
+}
+
+const compositionRulePaths: Record<string, string> = {
+  'battle-march': '/warhammer-armies/battle-march',
+  'open-war': '/matched-play/open-war',
+  'grand-melee': '/matched-play/grand-melee',
+  'combined-arms': '/matched-play/combined-arms',
+}
+
+function sectionPhaseSentences(html: string, headingLabel: string, pattern: RegExp) {
+  const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
+  const wanted = compactText(headingLabel).toLowerCase()
+  if (!wanted) return [] as string[]
+  const headings = Array.from(dom.querySelectorAll<HTMLElement>('h2,h3,h4,h5,h6'))
+  const heading = headings.find((node) => compactText(node.textContent || '').toLowerCase() === wanted)
+  if (!heading) return [] as string[]
+  const level = Number(heading.tagName.slice(1))
+  const blocks: string[] = []
+  let cursor: Element | null = heading.nextElementSibling
+  while (cursor) {
+    if (/^H[1-6]$/.test(cursor.tagName) && Number(cursor.tagName.slice(1)) <= level) break
+    const value = compactText(cursor.textContent || '')
+    if (value) blocks.push(value)
+    cursor = cursor.nextElementSibling
+  }
+  return blocks.flatMap(sentenceRows).filter((row) => pattern.test(row))
+}
+
+async function addArmyCompositionStartRound(output: GameStartRoundRule[], side: 'player' | 'opponent', armyId: string, compositionName: string) {
+  if (!armyId || !compositionName) return
+  const path = `/army/${armyId}`
+  try {
+    const document = await fetchRuleDocument(path)
+    const summary = sectionPhaseSentences(document.html, compositionName, startRoundTextPattern).slice(0, 3).join(' ')
+    if (!summary) return
+    output.push({ side, source: `${compositionName} Army Composition`, label: 'Army Composition', path, summary })
+  } catch (error) {
+    reportAppError(error, 'GAME_ARMY_COMPOSITION_PHASE_GUIDANCE', { side, armyId, compositionName })
+  }
+}
+
+async function addStartRoundReference(output: GameStartRoundRule[], row: { side: GameStartRoundRule['side']; source: string; label: string; path?: string; text?: string }) {
+  let summary = sentenceRows(row.text || '').filter((sentence) => startRoundTextPattern.test(sentence)).join(' ')
+  if (!summary && row.path) summary = await ruleDocumentSummary(row.path, startRoundTextPattern)
+  if (!summary) return
+  const key = `${row.side}|${row.source}|${row.label}|${summary}`.toLowerCase()
+  if (output.some((existing) => `${existing.side}|${existing.source}|${existing.label}|${existing.summary}`.toLowerCase() === key)) return
+  output.push({ side: row.side, source: row.source, label: row.label, path: row.path, summary })
+}
+
+async function rosterStartRoundRules(output: GameStartRoundRule[], side: 'player' | 'opponent', roster: BuilderRosterSelection[], sharedCache: Map<string, string>) {
+  const uniqueRules = uniqueRosterRules(roster).filter((rule) => Boolean(rule.path))
+  await Promise.allSettled(uniqueRules.map(async (rule) => {
+    const key = `${rule.label.toLowerCase()}|${rule.path}`
+    if (sharedCache.has(key)) return
+    sharedCache.set(key, await ruleDocumentSummary(rule.path, startRoundTextPattern))
+  }))
+  for (const unit of roster) for (const rule of unit.specialRules || []) {
+    if (!rule.path) continue
+    const key = `${rule.label.toLowerCase()}|${rule.path}`
+    const summary = sharedCache.get(key) || ''
+    if (!summary) continue
+    await addStartRoundReference(output, { side, source: unit.name, label: rule.label, path: rule.path, text: summary })
+  }
+}
+
+export async function loadStartOfRoundGuidance(game: SavedGame): Promise<GameStartRoundRule[]> {
+  const output: GameStartRoundRule[] = []
+  const friendly = game.playerRoster?.length ? game.playerRoster : (getSavedArmyList(game.playerListId)?.roster || [])
+  const enemy = game.opponentRoster?.length ? game.opponentRoster : (game.opponentListId ? getSavedArmyList(game.opponentListId)?.roster || [] : [])
+  const sharedRuleCache = new Map<string, string>()
+  await Promise.all([rosterStartRoundRules(output, 'player', friendly, sharedRuleCache), rosterStartRoundRules(output, 'opponent', enemy, sharedRuleCache)])
+
+  if (game.scenarioGuidance) await addStartRoundReference(output, {
+    side: 'battle', source: game.scenario, label: 'Scenario', path: game.scenarioGuidance.sourcePath,
+    text: game.scenarioGuidance.scenarioRules.join(' '),
+  })
+
+  for (const condition of randomHappeningOptions.filter((option) => (game.battlefieldConditions || []).includes(option.id))) {
+    await addStartRoundReference(output, { side: 'battle', source: 'Battlefield', label: condition.label, path: condition.path })
+  }
+
+  const playerRule = String(game.playerCompositionRule || getSavedArmyList(game.playerListId)?.rule || '')
+  if (compositionRulePaths[playerRule]) await addStartRoundReference(output, { side: 'battle', source: 'Friendly battle composition', label: playerRule, path: compositionRulePaths[playerRule] })
+  const opponentRule = String(game.opponentCompositionRule || (game.opponentListId ? getSavedArmyList(game.opponentListId)?.rule || '' : ''))
+  if (compositionRulePaths[opponentRule]) await addStartRoundReference(output, { side: 'battle', source: 'Enemy battle composition', label: opponentRule, path: compositionRulePaths[opponentRule] })
+
+  const friendlyList = getSavedArmyList(game.playerListId)
+  const enemyList = game.opponentListId ? getSavedArmyList(game.opponentListId) : null
+  await Promise.all([
+    addArmyCompositionStartRound(output, 'player', game.playerArmyId || friendlyList?.army || '', game.playerCompositionName || friendlyList?.compositionName || ''),
+    addArmyCompositionStartRound(output, 'opponent', game.opponentArmyId || enemyList?.army || '', game.opponentCompositionName || enemyList?.compositionName || ''),
+  ])
+
+  return output
+}
+
 
 export const randomHappeningOptions = [
   { id: 'disruptive-weather', label: 'Disruptive Weather', path: '/battle-march/disruptive-weather' },
