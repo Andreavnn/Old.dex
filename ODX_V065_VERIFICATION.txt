@@ -1,0 +1,26 @@
+Old.dex Alpha Build 0.65 — Direct-Source Verification
+=====================================================
+
+PACKAGE SCOPE
+This archive is a direct-source overlay update intended to be copied over the existing Old.dex repository root. It is not a standalone source checkout and therefore does not contain every unchanged repository file or build script.
+
+VERIFIED CHANGES
+- Non-editable interface surfaces suppress stray text-entry carets while actual form controls retain normal caret/focus behavior.
+- Magical Item selection uses an explicit shared checkbox/label/details-button interaction path across all units and armies.
+- Strategy, Movement, Shooting, Combat, and End of Round expose view-only Your Turn / Enemy's Turn context selection across their subphases without changing the active turn state.
+- Turn guidance reads canonical friendly-roster rule documents, caches their sentence data, and filters the visible rules to the current phase/subphase and selected turn context.
+- Enemy's Turn guidance is restricted to friendly reactions/opponent-turn triggers and shared Combat/Break interactions rather than showing the full friendly rule list.
+- End of Round exposes Back, Your Turn, Enemy's Turn, and End of Round. Starting a turn does not change roundsCompleted; End of Round increments it and returns to Start of Round until the configured limit is reached.
+- App-wide control audit checks all Vue button elements declare an explicit type and no ad-hoc contenteditable=true regions exist.
+
+REGRESSION VERIFICATION
+PASS — Applicable v0.57 through v0.65 direct-source regression suites: 92/92 tests passed.
+
+SOURCE SYNTAX VERIFICATION
+PASS — TypeScript transpilation syntax check completed across 37 TypeScript/Vue script blocks in this direct-source overlay: 37 checked, 0 errors.
+
+NOTE ON FULL-REPOSITORY TESTS
+The DIRECT-SOURCE overlay intentionally does not include unchanged repository scripts/configuration, so repository-wide build commands that depend on the full checkout are not represented by this overlay verification. The included patch regression suites and all TypeScript/Vue script blocks present in the overlay were checked successfully.
+
+ZIP INTEGRITY
+PASS — Final package verified with unzip -t; no compressed-data errors detected.

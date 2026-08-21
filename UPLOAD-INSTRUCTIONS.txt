@@ -1,21 +1,18 @@
-Old.dex v0.64 direct-source update
+Old.dex v0.65 direct-source update
 
 Upload the CONTENTS of this package to the root of Andreavnn/Old.dex on main,
 replacing matching paths and adding new files/directories.
 
-Do not upload it as a nested Old.dex-v0.64-DIRECT-SOURCE folder.
+Do not upload it as a nested Old.dex-v0.65-DIRECT-SOURCE folder.
 
 After deployment, perform a hard refresh (or fully close/reopen the installed PWA once)
-so the v0.64 service-worker cache is active.
+so the v0.65 service-worker cache is active.
 
-The package updates the Repository cleanup workflow default so
-ODX_V064_VERIFICATION.txt is treated as the current verification file.
-
-Primary v0.64 changes
+Primary v0.65 changes
 ---------------------
-- Wizards select one spell lore at a time; mount-granted rider Wounds are applied once.
-- Start New Match flags invalid/warning rosters and mismatched point allowances.
-- Setup Step 1 owns the match round limit; Overview is simplified before battle.
-- Deployment Step 2 shows only the friendly roster with formation/deployment-rule guidance and Reserve tracking.
-- Start of Round checks friendly/enemy roster rules plus scenario, battlefield and composition sources.
-- Setup Step 2 retains interactive spell-rule cards and Wizard spell selection.
+- Standardized click/input behavior and removed stray text carets from non-editable UI.
+- Magical Item selection now uses explicit shared checkbox/label/details controls.
+- Strategy through End of Round supports Your Turn / Enemy's Turn filtering.
+- Friendly phase/subphase rules are loaded from canonical rule pages, cached, and filtered by turn context.
+- End of Round uses Back / Your Turn / Enemy's Turn / End of Round controls.
+- Only End of Round increments roundsCompleted and advances the match round.

@@ -6,6 +6,13 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.65', title: 'Interaction standards and turn-context battle guidance', notes: [
+    'Standardized non-editable interaction surfaces across Old.dex so buttons, labels, selection cards, and other controls no longer present a stray text-entry caret while genuine form fields retain normal editing and focus behavior.',
+    'Rebuilt the shared Magical Item picker row around explicit checkbox/label and details-button controls so every army and model uses the same interaction path.',
+    'Added a persistent Your Turn / Enemy\'s Turn context selector to Strategy, Movement, Shooting, Combat, and End-of-Round phases and all of their subphases.',
+    'Added cached phase/subphase rule guidance that filters the friendly roster and applicable battle sources to the current step; Enemy\'s Turn focuses on friendly reactions, opponent-turn triggers, and shared combat/break interactions.',
+    'Replaced automatic turn switching at the end of the workflow with explicit Back, Your Turn, Enemy\'s Turn, and End of Round controls so only End of Round increments the completed-round tracker and advances to the next Start of Round.',
+  ] },
   { version: '0.64', title: 'Match validation, deployment guidance, and Start of Round rules', notes: [
     'Changed Wizard spell-lore selection to a single-choice state and added a rider-profile safeguard so mount-granted Wound bonuses are applied to the character exactly once.',
     'Added a conditional Start New Match roster-check panel that flags invalid/warning rosters, over-limit rosters, and mismatched friendly/enemy point allowances before the match is created.',

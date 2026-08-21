@@ -1,5 +1,13 @@
 # Old.dex Changelog
 
+## Alpha Build 0.65 — Interaction standards and turn-context battle guidance
+
+- Standardized non-editable interaction surfaces across Old.dex so buttons, labels, selection cards, and other controls no longer present a stray text-entry caret; real text/number fields retain normal editing behavior and consistent focus treatment.
+- Rebuilt the Magical Item picker interaction row around explicit checkbox/label and details-button controls instead of using the entire text row as an ad-hoc click target, keeping the same behavior for every army/model that uses the shared picker.
+- Added a view-only Your Turn / Enemy's Turn context selector to Strategy, Movement, Shooting, Combat, and End-of-Round phases and all of their subphases.
+- Added phase/subphase rule guidance that reads the friendly roster's canonical rule documents once, caches them, and filters them to the current step and turn context; Enemy's Turn focuses on friendly reactions, opponent-turn triggers, and shared combat/break interactions.
+- Replaced automatic end-of-turn side switching with explicit Back, Your Turn, Enemy's Turn, and End of Round controls. Starting either turn returns to Strategy → Start of Turn without incrementing the round; End of Round records one completed round and returns to Start of Round until the configured round limit is reached.
+
 ## Alpha Build 0.64 — Match validation, deployment guidance, and Start of Round rules
 
 - Changed Wizard spell-lore selection to a single-choice state and added a rider-profile safeguard so mount-granted Wound bonuses are applied to the character exactly once.

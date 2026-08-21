@@ -80,5 +80,5 @@ test('final v0.62 hidden patch expands Deployment and inserts Start of Round bef
 })
 
 test('final v0.62 hidden patch rotates installed-app cache', () => {
-  assert.match(sw, /olddex-shell-v0(?:62-hidden3|63-data-rebuild|64-match-guidance)/)
+  assert.match(sw, /olddex-shell-v0(?:62-hidden3|63-data-rebuild|64-match-guidance|65-turn-context)/)
 })

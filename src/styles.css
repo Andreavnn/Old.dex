@@ -2858,3 +2858,28 @@ html[data-background]:not([data-background="none"]) .roster-list-heading-panel{b
 .friendly-only-deployment-grid{grid-template-columns:1fr}.deployment-unit-guidance{grid-template-columns:minmax(0,1fr);align-items:stretch;gap:8px;padding:11px 12px;cursor:default}.deployment-unit-guidance.reserved{background:color-mix(in srgb,#dce6f2 46%,var(--paper))}.deployment-unit-status-controls{display:flex;flex-wrap:wrap;gap:8px 14px}.deployment-unit-status-controls label{display:inline-flex;align-items:center;gap:6px;font-weight:700;cursor:pointer}.deployment-unit-status-controls input{width:17px;height:17px;accent-color:var(--accent)}.deployment-unit-copy{display:grid;gap:7px}.deployment-unit-title{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.deployment-unit-title small{color:var(--ink-soft)}.deployment-formations,.deployment-rule-list{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.deployment-detail-label{font-size:calc(8px + var(--font-offset));font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}.deployment-formations a,.deployment-rule-list a{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px 7px;background:var(--paper-2);color:var(--ink);font-weight:700;text-decoration:none}.deployment-rule-list>article{display:grid;gap:2px;flex:1 1 100%;padding:7px 8px;border-left:2px solid var(--accent);background:color-mix(in srgb,var(--paper-2) 82%,transparent)}.deployment-rule-list>article a{width:max-content}.deployment-rule-list p,.deployment-reserve-reason{margin:0;color:var(--ink-soft);line-height:1.4}.deployment-reserve-reason{font-weight:700}
 .start-round-rule-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.start-round-rule-panel{display:grid;align-content:start;gap:8px;padding:12px}.start-round-rule-row{display:grid;gap:4px;padding:9px 0;border-top:1px solid var(--line)}.start-round-rule-row:first-of-type{border-top:0}.start-round-rule-row>div{display:flex;flex-wrap:wrap;align-items:center;gap:7px}.start-round-rule-row>div>strong{min-width:100px}.start-round-rule-row a{font-weight:700}.start-round-rule-row p{margin:0;color:var(--ink-soft);line-height:1.45}.start-round-rule-panel.battle{margin-top:2px}
 @media(max-width:700px){.setup-round-limit-card,.prebattle-overview-status-grid,.start-round-rule-columns{grid-template-columns:1fr}.deployment-unit-title{align-items:flex-start;flex-direction:column}.match-roster-issue-panel{grid-template-columns:1fr}}
+
+/* Alpha 0.65 — consistent non-editable interaction behavior. Non-input UI never
+   advertises a text caret; actual form fields retain a normal editing caret. */
+html,body,#app,.app-shell{caret-color:transparent}
+input,textarea,[contenteditable="true"]{caret-color:auto}
+button,[role="button"],label,summary,.primary-button,.secondary-button,.builder-mini-action,.rule-kind-pill,.game-phase-tabs,.game-step-list,.magic-picker-item-main,.spell-rule-choice{user-select:none;-webkit-user-select:none}
+input,select,textarea,button{font:inherit}
+input:not([type="checkbox"]):not([type="radio"]),select,textarea{cursor:text}
+select,button,input[type="checkbox"],input[type="radio"],label[for]{cursor:pointer}
+input:disabled,select:disabled,textarea:disabled,button:disabled{cursor:not-allowed}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 72%,white);outline-offset:2px}
+.magic-picker-item-main{cursor:default}
+.magic-picker-item-copy{display:grid;gap:2px;min-width:0;cursor:pointer;user-select:none;-webkit-user-select:none}
+.magic-picker-item-copy strong,.magic-picker-item-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.magic-picker-expand{width:28px;height:28px;display:inline-grid;place-items:center;border:0;border-radius:7px;background:transparent;color:var(--ink-soft);cursor:pointer;padding:0}
+.magic-picker-expand:hover,.magic-picker-expand:focus-visible{background:var(--paper-2);color:var(--ink)}
+.magic-picker-expand .magic-picker-chevron{display:block;line-height:1}
+
+/* Alpha 0.65 — turn-context battle assistant */
+.turn-context-panel{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:12px 0;padding:12px 14px}
+.turn-context-panel>div:first-child{display:grid;gap:2px;min-width:0}.turn-context-panel h3{margin:0;font-family:Georgia,'Times New Roman',serif}.turn-context-panel p{margin:0;color:var(--ink-soft);line-height:1.4}
+.turn-context-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto}.turn-context-actions .secondary-button.active{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.turn-guidance-shell{display:grid;gap:10px;margin:12px 0}.turn-guidance-panel{display:grid;gap:8px;padding:12px}.turn-guidance-panel.battle{border-left:4px solid var(--accent)}
+.end-round-actions{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.end-round-actions .primary-button,.end-round-actions .secondary-button{width:100%;justify-content:center}
+@media(max-width:700px){.turn-context-panel{align-items:stretch;flex-direction:column}.turn-context-actions{display:grid;grid-template-columns:1fr 1fr}.end-round-actions{grid-template-columns:1fr 1fr}}

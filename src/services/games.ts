@@ -79,8 +79,8 @@ export const gameWorkflow: GameWorkflowPhase[] = [
     { id: 'break-test', label: 'Break Test', description: 'Resolve any required Break Test and record the outcome.' },
     { id: 'follow-up', label: 'Follow Up & Pursuit', description: 'Resolve follow up, pursuit, restraint and fleeing movement.' },
   ] },
-  { id: 'end', label: 'End', steps: [
-    { id: 'end-turn', label: 'End of Turn', description: 'Record scoring and persistent effects, then advance to the next side or round.' },
+  { id: 'end', label: 'End of Round', steps: [
+    { id: 'end-turn', label: 'Turn & Round Control', description: 'Resolve End of Turn effects, then choose which turn begins next or record the round as complete.' },
   ] },
 ]
 

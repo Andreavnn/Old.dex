@@ -1272,11 +1272,11 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
             <div class="magic-picker-tabs" role="tablist" aria-label="Magical item types"><button v-for="type in magicPickerTabs" :key="type" type="button" role="tab" :aria-selected="magicPickerTab === type" :class="{ active: magicPickerTab === type }" @click="magicPickerTab = type">{{ magicTypeLabel(type) }}</button></div>
             <div class="magic-picker-list">
               <article v-for="item in magicPickerItems" :key="item.id" class="magic-picker-item" :class="{ selected: magicPickerCount(item.id) > 0 }">
-                <div class="magic-picker-item-main" @click="toggleMagicPickerDescription(item)">
-                  <input type="checkbox" :checked="magicPickerCount(item.id) > 0" :disabled="!magicPickerCanSelect(item)" @click.stop @change="handleMagicPickerCheckbox(item, $event)" />
-                  <span><strong>{{ item.name }}</strong><small>{{ magicPickerDetail(item)?.summary || magicPickerDetail(item)?.fluff || item.source }}</small></span>
+                <div class="magic-picker-item-main">
+                  <input :id="`magic-picker-${item.id}`" type="checkbox" :checked="magicPickerCount(item.id) > 0" :disabled="!magicPickerCanSelect(item)" @change="handleMagicPickerCheckbox(item, $event)" />
+                  <label class="magic-picker-item-copy" :for="`magic-picker-${item.id}`"><strong>{{ item.name }}</strong><small>{{ magicPickerDetail(item)?.summary || magicPickerDetail(item)?.fluff || item.source }}</small></label>
                   <b>{{ item.points }} pts</b>
-                  <span class="magic-picker-chevron" :class="{ open: magicPickerExpanded.has(item.id) }">⌄</span>
+                  <button type="button" class="magic-picker-expand" :aria-expanded="magicPickerExpanded.has(item.id)" :aria-label="`${magicPickerExpanded.has(item.id) ? 'Hide' : 'Show'} ${item.name} details`" @click="toggleMagicPickerDescription(item)"><span class="magic-picker-chevron" :class="{ open: magicPickerExpanded.has(item.id) }">⌄</span></button>
                 </div>
                 <div v-if="magicPickerExpanded.has(item.id)" class="magic-picker-description">
                   <p v-if="magicPickerDetail(item)?.fluff" class="magic-picker-fluff">{{ magicPickerDetail(item)?.fluff }}</p>

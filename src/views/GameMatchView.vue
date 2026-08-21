@@ -5,7 +5,7 @@ import AppHeader from '../components/AppHeader.vue'
 import { compositionOptions, compositionRuleLabel } from '../data/listBuilder'
 import { completeSavedGame, deleteSavedGame, gameWorkflow, getSavedGame, resetSavedGame, updateSavedGame, type GameMagicCaster, type GameOutcome, type GameSide, type SavedGame } from '../services/games'
 import { getSavedArmyList } from '../services/savedLists'
-import { hydrateFriendlyMagicSetup, loadFriendlyDeploymentGuidance, loadMagicChoices, loadScenarioGuidance, loadStartOfRoundGuidance, magicSelectionLimit, randomHappeningOptions, type GameDeploymentGuidance, type GameStartRoundRule } from '../services/gameSetup'
+import { hydrateFriendlyMagicSetup, loadFriendlyDeploymentGuidance, loadMagicChoices, loadScenarioGuidance, loadStartOfRoundGuidance, loadTurnStepGuidance, magicSelectionLimit, randomHappeningOptions, type GameDeploymentGuidance, type GameStartRoundRule, type GameTurnRule } from '../services/gameSetup'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,6 +19,9 @@ const deploymentLoading = ref(false)
 const deploymentGuidance = ref<GameDeploymentGuidance[]>([])
 const startRoundLoading = ref(false)
 const startRoundGuidance = ref<GameStartRoundRule[]>([])
+const turnGuidanceLoading = ref(false)
+const turnGuidance = ref<GameTurnRule[]>([])
+const turnViewSide = ref<GameSide>(game.value?.activeSide || 'player')
 
 const phase = computed(() => game.value ? gameWorkflow[Math.min(game.value.phaseIndex, gameWorkflow.length - 1)] : null)
 const step = computed(() => phase.value && game.value ? phase.value.steps[Math.min(game.value.stepIndex, phase.value.steps.length - 1)] : null)
@@ -30,6 +33,9 @@ const isOverviewStep = computed(() => phase.value?.id === 'overview')
 const isDeploymentOrderStep = computed(() => phase.value?.id === 'deployment' && step.value?.id === 'deployment-order')
 const isDeployArmiesStep = computed(() => phase.value?.id === 'deployment' && step.value?.id === 'deploy-armies')
 const isRoundStartStep = computed(() => phase.value?.id === 'round-start')
+const battleTurnPhaseIds = new Set(['strategy', 'movement', 'shooting', 'combat', 'end'])
+const isBattleTurnPhase = computed(() => Boolean(phase.value && battleTurnPhaseIds.has(phase.value.id)))
+const isEndPhase = computed(() => phase.value?.id === 'end')
 const roundStartPhaseIndex = computed(() => Math.max(0, gameWorkflow.findIndex((item) => item.id === 'round-start')))
 const strategyPhaseIndex = computed(() => Math.max(0, gameWorkflow.findIndex((item) => item.id === 'strategy')))
 const stepKey = computed(() => game.value && phase.value && step.value ? `${game.value.round}:${game.value.activeSide}:${phase.value.id}:${step.value.id}` : '')
@@ -60,13 +66,19 @@ const deploymentFriendlyCount = computed(() => playerRoster.value.filter((row) =
 const friendlyStartRoundRules = computed(() => startRoundGuidance.value.filter((row) => row.side === 'player'))
 const enemyStartRoundRules = computed(() => startRoundGuidance.value.filter((row) => row.side === 'opponent'))
 const battleStartRoundRules = computed(() => startRoundGuidance.value.filter((row) => row.side === 'battle'))
+const friendlyTurnGuidance = computed(() => turnGuidance.value.filter((row) => row.side === 'player'))
+const battleTurnGuidance = computed(() => turnGuidance.value.filter((row) => row.side === 'battle'))
+const turnContextLabel = computed(() => turnViewSide.value === 'opponent' ? "Enemy's Turn" : 'Your Turn')
 
 watch(stepKey, () => { notes.value = game.value?.stepNotes?.[stepKey.value] || '' }, { immediate: true })
+watch(() => game.value?.activeSide, (side) => { if (side) turnViewSide.value = side }, { immediate: true })
 watch(() => step.value?.id, () => { if (isSetupSpellsStep.value) void preloadMagicChoices() })
-watch(() => [phase.value?.id, step.value?.id], () => {
+watch(() => [phase.value?.id, step.value?.id, turnViewSide.value], () => {
   if (isDeployArmiesStep.value) void hydrateDeploymentGuidance()
   if (isRoundStartStep.value) void hydrateStartRoundGuidance()
-})
+  if (isBattleTurnPhase.value) void hydrateTurnGuidance()
+  else turnGuidance.value = []
+}, { immediate: true })
 
 function persist(patch: Partial<Omit<SavedGame, 'id' | 'createdAt'>> = {}) {
   if (!game.value) return
@@ -102,21 +114,10 @@ function advance() {
 
   if (game.value.phaseIndex < gameWorkflow.length - 1) { persist({ phaseIndex: game.value.phaseIndex + 1, stepIndex: 0 }); return }
 
-  // The End phase finishes one player's turn. A round is complete after the
-  // player who went second has finished their End phase.
-  const firstSide = game.value.firstPlayerConfirmed ? game.value.firstPlayer : 'player'
-  const secondSide: GameSide = firstSide === 'player' ? 'opponent' : 'player'
-  if (game.value.activeSide === firstSide) {
-    persist({ activeSide: secondSide, phaseIndex: strategyPhaseIndex.value, stepIndex: 0, battleStarted: true })
-    return
-  }
-
-  const completed = Math.min(roundLimit.value, game.value.roundsCompleted + 1)
-  if (completed >= roundLimit.value) {
-    persist({ roundsCompleted: completed, battleStarted: true })
-    return
-  }
-  persist({ roundsCompleted: completed, round: game.value.round + 1, activeSide: firstSide, phaseIndex: roundStartPhaseIndex.value, stepIndex: 0, battleStarted: true })
+  // End of Round uses explicit controls rather than silently deciding which
+  // player goes next. This keeps turn order visible and makes round completion a
+  // deliberate action that can later host duration/effect expiry handling.
+  return
 }
 function back() {
   if (!game.value || !phase.value || isReadOnly.value) return
@@ -128,6 +129,33 @@ function back() {
     persist({ phaseIndex: game.value.phaseIndex - 1, stepIndex: Math.max(0, previous.steps.length - 1) })
   }
 }
+async function hydrateTurnGuidance() {
+  if (!game.value || !step.value || !isBattleTurnPhase.value) { turnGuidance.value = []; return }
+  turnGuidanceLoading.value = true
+  try { turnGuidance.value = await loadTurnStepGuidance(game.value, step.value.id, turnViewSide.value) }
+  finally { turnGuidanceLoading.value = false }
+}
+function selectTurnContext(side: GameSide) {
+  if (!game.value || isReadOnly.value || turnViewSide.value === side) return
+  turnViewSide.value = side
+}
+function startTurnFromEnd(side: GameSide) {
+  if (!game.value || isReadOnly.value || roundsComplete.value) return
+  saveNotes()
+  persist({ activeSide: side, phaseIndex: strategyPhaseIndex.value, stepIndex: 0, battleStarted: true })
+}
+function endRoundFromEnd() {
+  if (!game.value || isReadOnly.value || roundsComplete.value) return
+  saveNotes()
+  const completed = Math.min(roundLimit.value, game.value.roundsCompleted + 1)
+  if (completed >= roundLimit.value) {
+    persist({ roundsCompleted: completed, battleStarted: true })
+    return
+  }
+  const firstSide = game.value.firstPlayerConfirmed ? game.value.firstPlayer : 'player'
+  persist({ roundsCompleted: completed, round: game.value.round + 1, activeSide: firstSide, phaseIndex: roundStartPhaseIndex.value, stepIndex: 0, battleStarted: true })
+}
+
 function chooseFirstPlayer(side: GameSide) {
   if (!game.value || isReadOnly.value) return
   persist({ firstPlayer: side, firstPlayerConfirmed: true, activeSide: side })
@@ -337,6 +365,10 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
       <section v-if="phase && step" class="game-step-card card-surface">
         <div class="game-step-heading"><div><p class="eyebrow">{{ phase.label }}</p><h2>{{ step.label }}</h2><p>{{ step.description }}</p></div><span>{{ game.stepIndex + 1 }} / {{ phase.steps.length }}</span></div>
         <div class="game-step-list" aria-label="Current phase steps"><button v-for="(item, index) in phase.steps" :key="item.id" type="button" :class="{ active: game.stepIndex === index }" :disabled="isReadOnly" @click="saveNotes(); persist({ stepIndex: index })"><span>{{ index + 1 }}</span>{{ item.label }}</button></div>
+        <section v-if="isBattleTurnPhase" class="turn-context-panel card-inset" aria-label="Turn view">
+          <div><p class="eyebrow">TURN VIEW</p><h3>{{ turnContextLabel }}</h3><p>Show only friendly rules and actions that apply in this phase during the selected turn context. This is a view filter only; it does not change the active turn.</p></div>
+          <div class="turn-context-actions" role="group" aria-label="Choose turn context"><button type="button" class="secondary-button" :class="{ active: turnViewSide === 'player' }" :disabled="isReadOnly" @click="selectTurnContext('player')">Your Turn</button><button type="button" class="secondary-button" :class="{ active: turnViewSide === 'opponent' }" :disabled="isReadOnly" @click="selectTurnContext('opponent')">Enemy's Turn</button></div>
+        </section>
 
         <div v-if="isSetupArmiesStep" class="game-setup-content">
           <section class="match-setup-summary-grid">
@@ -463,8 +495,17 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
           <section v-if="battleStartRoundRules.length" class="start-round-rule-panel battle card-inset"><div class="setup-section-heading"><div><p class="eyebrow">BATTLE</p><h3>Scenario, Composition &amp; Battlefield</h3></div><span>{{ battleStartRoundRules.length }}</span></div><article v-for="rule in battleStartRoundRules" :key="`${rule.source}-${rule.label}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></section>
         </div>
 
+        <section v-if="isBattleTurnPhase" class="turn-guidance-shell">
+          <p v-if="turnGuidanceLoading" class="setup-inline-status">Checking the friendly roster and battle rules for this {{ turnContextLabel.toLowerCase() }} step…</p>
+          <template v-else>
+            <article class="turn-guidance-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">FRIENDLY ROSTER</p><h3>{{ turnContextLabel }} — {{ step.label }}</h3></div><span>{{ friendlyTurnGuidance.length }}</span></div><template v-if="friendlyTurnGuidance.length"><article v-for="rule in friendlyTurnGuidance" :key="`${rule.source}-${rule.label}-${rule.summary}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></template><p v-else class="setup-inline-status">No friendly rules or reactions were detected for this step in {{ turnContextLabel.toLowerCase() }}.</p></article>
+            <article v-if="battleTurnGuidance.length" class="turn-guidance-panel battle card-inset"><div class="setup-section-heading"><div><p class="eyebrow">BATTLE</p><h3>Scenario &amp; Battle Rules</h3></div><span>{{ battleTurnGuidance.length }}</span></div><article v-for="rule in battleTurnGuidance" :key="`${rule.source}-${rule.label}-${rule.summary}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></article>
+          </template>
+        </section>
+
         <label class="game-step-notes"><span>Step notes</span><textarea v-model="notes" :readonly="isReadOnly" rows="5" placeholder="Record targets, results, effects, or table notes for this step." @blur="saveNotes"></textarea></label>
-        <div v-if="!isReadOnly" class="game-step-actions"><button type="button" class="secondary-button" :disabled="battleStarted && isOverviewStep" @click="back">Back</button><button type="button" class="primary-button" :disabled="advanceButtonDisabled" @click="advance">{{ advanceButtonLabel }}</button></div>
+        <div v-if="!isReadOnly && isEndPhase" class="game-step-actions end-round-actions"><button type="button" class="secondary-button" @click="back">Back</button><button type="button" class="secondary-button" :disabled="roundsComplete" @click="startTurnFromEnd('player')">Your Turn</button><button type="button" class="secondary-button" :disabled="roundsComplete" @click="startTurnFromEnd('opponent')">Enemy's Turn</button><button type="button" class="primary-button" :disabled="roundsComplete" @click="endRoundFromEnd">End of Round</button></div>
+        <div v-else-if="!isReadOnly" class="game-step-actions"><button type="button" class="secondary-button" :disabled="battleStarted && isOverviewStep" @click="back">Back</button><button type="button" class="primary-button" :disabled="advanceButtonDisabled" @click="advance">{{ advanceButtonLabel }}</button></div>
       </section>
 
       <div v-if="!isReadOnly" class="game-finish-row match-lifecycle-actions">

@@ -346,6 +346,14 @@ export type GameStartRoundRule = {
   summary: string
 }
 
+export type GameTurnRule = {
+  side: 'player' | 'battle'
+  source: string
+  label: string
+  path?: string
+  summary: string
+}
+
 const formationNames = new Set(['close order', 'open order', 'skirmishers'])
 const deploymentNamePattern = /\b(?:ambushers?|scouts?|vanguard|reserve|reinforcement|deploy|deployment|hidden|tunnel|tunnelling|tunneling|underground|flank|outflank)\b/i
 const deploymentTextPattern = /\b(?:deploy|deployment|deployed|set up|setup|before either side deploys|after both sides have deployed|held in reserve|placed in reserve|reserve|reinforcement|scout|vanguard|ambush)\b/i
@@ -522,3 +530,127 @@ export const randomHappeningOptions = [
   { id: 'wilderness-terrain', label: 'Wilderness Terrain', path: '/battle-march/wilderness-terrain' },
   { id: 'chaos-of-war', label: 'Chaos of War', path: '/battle-march/the-chaos-of-war' },
 ] as const
+
+
+// Turn guidance uses the same canonical rule documents as profile cards, but caches
+// the cleaned sentence list once per rule path. The selected phase/subphase and
+// turn context then filter that stable source instead of issuing a new fetch for
+// each Your Turn / Enemy's Turn view.
+const turnSentenceCache = new Map<string, Promise<string[]>>()
+
+function turnRuleSentences(path: string) {
+  if (!path) return Promise.resolve([] as string[])
+  const existing = turnSentenceCache.get(path)
+  if (existing) return existing
+  const pending = (async () => {
+    try {
+      const document = await fetchRuleDocument(path)
+      const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
+      dom.querySelectorAll('script,style,nav,header,footer').forEach((node) => node.remove())
+      const blocks = Array.from(dom.querySelectorAll<HTMLElement>('p,li,td'))
+        .map((node) => compactText(node.textContent || ''))
+        .filter(Boolean)
+      const source = blocks.length ? blocks : [compactText(dom.body.textContent || '')]
+      const seen = new Set<string>()
+      return source.flatMap(sentenceRows).filter((row) => {
+        const key = row.toLowerCase()
+        if (!row || seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+    } catch (error) {
+      reportAppError(error, 'GAME_TURN_RULE_GUIDANCE', { path })
+      return [] as string[]
+    }
+  })()
+  turnSentenceCache.set(path, pending)
+  return pending
+}
+
+const turnStepPatterns: Record<string, RegExp> = {
+  'start-of-turn': /\b(?:start|beginning) of (?:your|the|each|every|a) turn\b|\bat the start of (?:your|the|each|every|a) turn\b/i,
+  command: /\bcommand (?:sub-?phase|phase)\b|\bduring (?:your|the) command\b/i,
+  conjuration: /\bconjuration (?:sub-?phase|phase)\b|\benchantment\b|\bhex\b|\bcast(?:ing)?\b.*\bspell\b/i,
+  rally: /\brally fleeing troops\b|\brally (?:sub-?phase|phase)\b|\brally test\b|\brallying\b/i,
+  'required-charges': /\brequired charge\b|\bimpetuous\b|\bmust (?:declare )?a charge\b|\bmust charge\b/i,
+  'declare-charges': /\bdeclare charges?\b|\bdeclare a charge\b|\bcharge reaction\b|\bwhen (?:this unit|the unit|a unit|it) is charged\b|\bwhen charged\b/i,
+  'charge-moves': /\bcharge moves?\b|\bcharge move\b|\bfailed charge\b|\bcharging unit\b/i,
+  'compulsory-moves': /\bcompulsory moves?\b|\bcompulsory movement\b|\bfleeing move\b|\brandom movement\b|\breserves?\b|\breinforcement\b/i,
+  'remaining-moves': /\bremaining moves?\b|\bremaining movement\b|\bmarch(?:ing)?\b|\bconveyance\b|\bduring (?:your|the) movement phase\b/i,
+  'special-shooting': /\bshooting phase\b|\bmagic missile\b|\bspecial shooting\b/i,
+  shooting: /\bshooting phase\b|\bshooting attack\b|\bmissile weapon\b|\bstand and shoot\b|\bfire and flee\b/i,
+  fight: /\bcombat phase\b|\bfight(?:ing)?\b|\bin initiative order\b|\bmelee\b/i,
+  'combat-result': /\bcombat result\b|\bcombat resolution\b/i,
+  'break-test': /\bbreak test\b|\bbreak tests\b/i,
+  'follow-up': /\bfollow up\b|\bpursu(?:e|it|ing)\b|\brestrain(?:ing)?\b|\bflee from combat\b/i,
+  'end-turn': /\bend of (?:your|the|each|every|a) turn\b|\bat the end of (?:your|the|each|every|a) turn\b/i,
+}
+
+const enemyTurnCue = /\b(?:enemy|opponent(?:'s)?|opposing player(?:'s)?) turn\b|\bduring (?:an?|the) enemy turn\b|\bduring your opponent(?:'s)? turn\b/i
+const reactionCue = /\b(?:charge reaction|when charged|when targeted|when attacked|when hit|when wounded|counter charge|stand and shoot|fire and flee|evasive|dispel|combat phase|break test)\b/i
+const ownTurnCue = /\b(?:your|controlling player's) turn\b/i
+
+function stepRelevantSentences(sentences: string[], stepId: string, viewSide: 'player' | 'opponent') {
+  const pattern = turnStepPatterns[stepId]
+  if (!pattern) return [] as string[]
+  const phaseRows = sentences.filter((row) => pattern.test(row))
+  if (viewSide === 'player') {
+    // On the player's turn, include normal phase rules but omit sentences that are
+    // explicitly limited to the opponent's turn unless they also describe a reaction.
+    return phaseRows.filter((row) => !enemyTurnCue.test(row) || reactionCue.test(row))
+  }
+  // During the enemy turn, keep only rules the friendly player can still resolve:
+  // reactions, opponent-turn triggers and shared Combat/Break interactions.
+  return phaseRows.filter((row) => enemyTurnCue.test(row) || reactionCue.test(row) || (!ownTurnCue.test(row) && ['fight','combat-result','break-test','follow-up'].includes(stepId)))
+}
+
+async function rosterTurnRules(roster: BuilderRosterSelection[], stepId: string, viewSide: 'player' | 'opponent') {
+  const output: GameTurnRule[] = []
+  const uniqueRules = uniqueRosterRules(roster).filter((rule) => Boolean(rule.path))
+  const sentences = new Map<string, string[]>()
+  await Promise.allSettled(uniqueRules.map(async (rule) => {
+    if (!rule.path) return
+    sentences.set(`${rule.label.toLowerCase()}|${rule.path}`, await turnRuleSentences(rule.path))
+  }))
+  for (const unit of roster) for (const rule of unit.specialRules || []) {
+    if (!rule.path) continue
+    const rows = stepRelevantSentences(sentences.get(`${rule.label.toLowerCase()}|${rule.path}`) || [], stepId, viewSide)
+    if (!rows.length) continue
+    output.push({ side: 'player', source: unit.name, label: rule.label, path: rule.path, summary: rows.slice(0, 3).join(' ') })
+  }
+  const seen = new Set<string>()
+  return output.filter((row) => {
+    const key = `${row.source}|${row.label}|${row.summary}`.toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+async function battleTurnRules(game: SavedGame, stepId: string, viewSide: 'player' | 'opponent') {
+  const output: GameTurnRule[] = []
+  const add = async (source: string, label: string, path?: string, text = '') => {
+    let rows = stepRelevantSentences(sentenceRows(text), stepId, viewSide)
+    if (!rows.length && path) rows = stepRelevantSentences(await turnRuleSentences(path), stepId, viewSide)
+    if (!rows.length) return
+    output.push({ side: 'battle', source, label, path, summary: rows.slice(0, 3).join(' ') })
+  }
+  if (game.scenarioGuidance) await add(game.scenario, 'Scenario', game.scenarioGuidance.sourcePath, game.scenarioGuidance.scenarioRules.join(' '))
+  for (const condition of randomHappeningOptions.filter((option) => (game.battlefieldConditions || []).includes(option.id))) {
+    await add('Battlefield', condition.label, condition.path)
+  }
+  const playerRule = String(game.playerCompositionRule || getSavedArmyList(game.playerListId)?.rule || '')
+  if (compositionRulePaths[playerRule]) await add('Friendly battle composition', playerRule, compositionRulePaths[playerRule])
+  const opponentRule = String(game.opponentCompositionRule || (game.opponentListId ? getSavedArmyList(game.opponentListId)?.rule || '' : ''))
+  if (compositionRulePaths[opponentRule]) await add('Enemy battle composition', opponentRule, compositionRulePaths[opponentRule])
+  return output
+}
+
+export async function loadTurnStepGuidance(game: SavedGame, stepId: string, viewSide: 'player' | 'opponent'): Promise<GameTurnRule[]> {
+  const friendly = game.playerRoster?.length ? game.playerRoster : (getSavedArmyList(game.playerListId)?.roster || [])
+  const [rosterRules, battleRules] = await Promise.all([
+    rosterTurnRules(friendly, stepId, viewSide),
+    battleTurnRules(game, stepId, viewSide),
+  ])
+  return [...rosterRules, ...battleRules]
+}
