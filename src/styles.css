@@ -2883,3 +2883,10 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .turn-guidance-shell{display:grid;gap:10px;margin:12px 0}.turn-guidance-panel{display:grid;gap:8px;padding:12px}.turn-guidance-panel.battle{border-left:4px solid var(--accent)}
 .end-round-actions{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.end-round-actions .primary-button,.end-round-actions .secondary-button{width:100%;justify-content:center}
 @media(max-width:700px){.turn-context-panel{align-items:stretch;flex-direction:column}.turn-context-actions{display:grid;grid-template-columns:1fr 1fr}.end-round-actions{grid-template-columns:1fr 1fr}}
+
+/* v0.66 match/rules interaction additions */
+.scenario-deployment-map{display:block;width:min(100%,760px);height:auto;margin:12px auto;border:1px solid var(--line);border-radius:10px;background:var(--paper-2)}
+.match-save-button{border-color:#a33!important;background:color-mix(in srgb,#a33 16%,var(--paper))!important;color:var(--ink)!important}
+.prototype-option-grid label.unavailable,.weapon-equipment-option.unavailable{opacity:.55;border-style:dashed}
+.end-round-score-panel{margin:14px 0}.end-round-score-board{margin-top:12px}
+.rules-reference-links{display:inline}

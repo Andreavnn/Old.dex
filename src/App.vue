@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useSettings } from './settings'
 import { initializeBuilderData } from './services/armyData'
@@ -13,6 +13,38 @@ const route = useRoute()
 const { installedApp, canInstall, requestInstall } = useInstallApp()
 const { language, languageOptions } = useLanguagePreference()
 const showGlobalPageTools = computed(() => route.name !== 'welcome')
+
+
+let rulesObserver: MutationObserver | null = null
+function patchRulesIntro() {
+  if (typeof document === 'undefined' || route.name !== 'rules') return
+  const intro = document.querySelector<HTMLElement>('.rules-intro-copy')
+  if (!intro) return
+  const welcome = Array.from(intro.querySelectorAll('p')).find((row) => /Welcome to the Old\.dex army builder/i.test(row.textContent || ''))
+  welcome?.remove()
+  const versionNote = intro.querySelector<HTMLElement>('.rules-version-note') || intro.querySelector<HTMLElement>('p')
+  if (!versionNote || versionNote.querySelector('.rules-reference-links')) return
+  const span = document.createElement('span')
+  span.className = 'rules-reference-links'
+  span.append(document.createTextNode(' The complete index of unofficial rules '))
+  const index = document.createElement('a'); index.href = 'https://tow.whfb.app/'; index.target = '_blank'; index.rel = 'noreferrer'; index.innerHTML = '<strong>Warhammer: The Old World Online Rules Index</strong>'
+  span.append(index, document.createTextNode(', and official '))
+  const faq = document.createElement('a'); faq.href = '/rules/read/faq'; faq.innerHTML = '<strong>Frequently Asked Questions</strong>'
+  const errata = document.createElement('a'); errata.href = '/rules/read/errata'; errata.innerHTML = '<strong>Errata & Amendments</strong>'
+  span.append(faq, document.createTextNode(' and '), errata, document.createTextNode(' are also available.'))
+  versionNote.append(span)
+}
+function syncRulesIntroPatch() {
+  rulesObserver?.disconnect(); rulesObserver = null
+  if (route.name !== 'rules' || typeof document === 'undefined') return
+  void nextTick(() => {
+    patchRulesIntro()
+    const host = document.querySelector('.app-shell')
+    if (host) { rulesObserver = new MutationObserver(patchRulesIntro); rulesObserver.observe(host, { childList: true, subtree: true }) }
+  })
+}
+watch(() => route.name, syncRulesIntroPatch, { immediate: true })
+onBeforeUnmount(() => rulesObserver?.disconnect())
 
 async function installFromFooter() {
   const result = await requestInstall()
@@ -47,7 +79,7 @@ onMounted(() => {
     </section>
 
     <footer class="app-footer">
-      <span>Old.dex Alpha Build 0.65</span>
+      <span>Old.dex Alpha Build 0.66</span>
     </footer>
   </div>
 </template>

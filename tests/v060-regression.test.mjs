@@ -19,7 +19,7 @@ test('v0.60 Support uses production URLs and centered side-by-side action button
   assert.match(settings, /https:\/\/buy\.stripe\.com\/eVq7sL0Zw2DwdYwcvv3Nm01/)
   assert.match(settings, /https:\/\/buy\.stripe\.com\/fZu8wP4bI2Dw6w4cvv3Nm00/)
   assert.doesNotMatch(settings, /buy\.stripe\.com\/test_/)
-  assert.match(settings, /support-button-row[\s\S]*One Time Support[\s\S]*Recurring Support/)
+  assert.match(settings, /support-button-row[\s\S]*One Time (?:Support|Gift)[\s\S]*Recurring (?:Support|Gift)/)
   assert.match(styles, /\.support-button-row\{display:flex;align-items:center;justify-content:center/)
 })
 

@@ -6,6 +6,18 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.66', title: 'Roster dependency rules, scenario deployment maps, and round-flow refinement', notes: [
+    'Reworked the Rules-page introduction so the redundant welcome/disclaimer paragraph is removed and the external Rules Index plus official FAQ/Errata links follow the Old World Downloads version note.',
+    'Renamed Settings and Welcome support actions to One Time Gift and Recurring Gift.',
+    'Expanded source-option interpretation with generic roster-wide prerequisites and 0-N selection limits, including requirements tied to another included model or the army General, and disabled unavailable upgrades instead of allowing illegal selections.',
+    'Added persistent upgrade-profile enrichment: selected upgrades can apply characteristic modifiers read from their own source notes/reference or from prerequisite-model special rules, so stronger variants update the displayed model profile rather than only changing the option label.',
+    'Moved Start New Match Roster Check below Battle Composition, moved Game Length above Scenario in Setup Step 1, removed the Friendly Magic panel from that page, and surfaced scenario/deployment map artwork from the canonical scenario source when available.',
+    'Split Start of Round into Battle Effects followed by Player Effects so shared scenario/battlefield/composition effects resolve before friendly and enemy army/model effects.',
+    'Changed match lifecycle controls so pre-battle Setup/Overview/Deployment use Cancel Match, Start Over and Save to Ongoing, while post-deployment battles use Concede, Enemy Yielded, Draw and Save to Ongoing.',
+    "Expanded Enemy's Turn guidance with core friendly responses including Wizardly/Fated Dispel, charge reactions and defensive shooting actions.",
+    'Moved the running score controls out of the match header and into End of Round Step 2, where round scoring and next-turn/end-round routing are resolved together.',
+    'Tightened the manual repository-cleanup workflow around root generated artifacts only and explicitly documented protected source/configuration paths.'
+  ] },
   { version: '0.65', title: 'Interaction standards and turn-context battle guidance', notes: [
     'Standardized non-editable interaction surfaces across Old.dex so buttons, labels, selection cards, and other controls no longer present a stray text-entry caret while genuine form fields retain normal editing and focus behavior.',
     'Rebuilt the shared Magical Item picker row around explicit checkbox/label and details-button controls so every army and model uses the same interaction path.',

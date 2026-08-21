@@ -33,9 +33,12 @@ const isOverviewStep = computed(() => phase.value?.id === 'overview')
 const isDeploymentOrderStep = computed(() => phase.value?.id === 'deployment' && step.value?.id === 'deployment-order')
 const isDeployArmiesStep = computed(() => phase.value?.id === 'deployment' && step.value?.id === 'deploy-armies')
 const isRoundStartStep = computed(() => phase.value?.id === 'round-start')
+const isRoundBattleEffectsStep = computed(() => phase.value?.id === 'round-start' && step.value?.id === 'round-battle-effects')
+const isRoundPlayerEffectsStep = computed(() => phase.value?.id === 'round-start' && step.value?.id === 'round-player-effects')
 const battleTurnPhaseIds = new Set(['strategy', 'movement', 'shooting', 'combat', 'end'])
 const isBattleTurnPhase = computed(() => Boolean(phase.value && battleTurnPhaseIds.has(phase.value.id)))
 const isEndPhase = computed(() => phase.value?.id === 'end')
+const isEndScoreStep = computed(() => phase.value?.id === 'end' && step.value?.id === 'round-score')
 const roundStartPhaseIndex = computed(() => Math.max(0, gameWorkflow.findIndex((item) => item.id === 'round-start')))
 const strategyPhaseIndex = computed(() => Math.max(0, gameWorkflow.findIndex((item) => item.id === 'strategy')))
 const stepKey = computed(() => game.value && phase.value && step.value ? `${game.value.round}:${game.value.activeSide}:${phase.value.id}:${step.value.id}` : '')
@@ -124,7 +127,7 @@ function back() {
   saveNotes()
   if (game.value.stepIndex > 0) { persist({ stepIndex: game.value.stepIndex - 1 }); return }
   if (game.value.phaseIndex > 0) {
-    if (battleStarted.value && phase.value.id === 'strategy') { persist({ phaseIndex: roundStartPhaseIndex.value, stepIndex: 0 }); return }
+    if (battleStarted.value && phase.value.id === 'strategy') { const previous = gameWorkflow[roundStartPhaseIndex.value]; persist({ phaseIndex: roundStartPhaseIndex.value, stepIndex: Math.max(0, previous.steps.length - 1) }); return }
     const previous = gameWorkflow[game.value.phaseIndex - 1]
     persist({ phaseIndex: game.value.phaseIndex - 1, stepIndex: Math.max(0, previous.steps.length - 1) })
   }
@@ -198,6 +201,7 @@ function adjustScore(side: GameSide, delta: number) {
   if (side === 'player') persist({ playerScore: Math.max(0, game.value.playerScore + delta) })
   else persist({ opponentScore: Math.max(0, game.value.opponentScore + delta) })
 }
+function saveMatchToOngoing() { if (!game.value || isReadOnly.value) return; saveNotes(); persist({ status: 'open' }) }
 function finishMatch(outcome: GameOutcome = 'completed') {
   if (!game.value || isReadOnly.value) return
   if (outcome === 'completed' && !roundsComplete.value) return
@@ -325,7 +329,7 @@ function handleBattlefieldCondition(id: string, event: Event) { toggleBattlefiel
 const setupTip = computed(() => {
   if (isSetupArmiesStep.value) return 'Confirm the roster, scenario and battle-composition details before deployment. Wizard lore choices are made when the model permits a choice; changing a lore here changes this match setup only and does not rewrite the saved roster.'
   if (isSetupSpellsStep.value) return 'Generate spells before deployment. For a Wizard, roll one D6 per Wizard Level and re-roll duplicates; each result selects the matching numbered spell. One generated spell may be exchanged for the signature spell. A single Wizard cannot know the same spell twice.'
-  if (isOverviewStep.value) return 'Use Overview as the at-a-glance battle dashboard. Check the matchup, scenario, score, prepared magic and current turn state here before moving into Deployment and the turn phases.'
+  if (isOverviewStep.value) return 'Use Overview as the at-a-glance battle dashboard. Check the matchup, scenario, prepared magic and current turn state here before moving into Deployment and the turn phases.'
   return ''
 })
 
@@ -333,14 +337,16 @@ const deploymentTip = computed(() => {
   if (isDeploymentOrderStep.value) return 'Review the scenario deployment instructions before placing models. Record which side begins deployment here; this is separate from determining which side takes the first turn.'
   if (isDeployArmiesStep.value) return 'Follow the selected scenario’s deployment instructions and alternate placing eligible units as required. For each friendly unit, choose one of its legal formations when it is deployed and resolve any deployment rules shown here. Units with rules or scenario instructions that allow them to begin off-table may be marked Reserve instead of Deployed. Resolve post-deployment rules such as Scouts or Vanguard exactly when their linked rule instructs.'
   if (isFirstTurnStep.value) return 'After deployment is complete, resolve the scenario’s first-turn procedure and record the result. The selected side becomes the active side when Round 1 begins.'
-  if (isRoundStartStep.value) return 'Start of Round happens once before either player begins their turn. Resolve the friendly, enemy, scenario, battlefield and composition effects listed here before moving to the first player’s Strategy phase.'
+  if (isRoundBattleEffectsStep.value) return 'Start of Round begins with effects that apply to the battle as a whole. Resolve scenario, battlefield and battle-composition effects before either player resolves army or model-specific Start of Round rules.'
+  if (isRoundPlayerEffectsStep.value) return 'After shared battle effects, resolve the friendly and enemy army, unit and model rules that trigger at Start of Round. Keep each side separate so no model-specific effect is missed.'
   return ''
 })
 const advanceButtonLabel = computed(() => {
   if (roundsComplete.value && phase.value?.id === 'end') return 'Round limit reached'
   if (isOverviewStep.value) return 'Prepare For Battle! (Next)'
   if (phase.value?.id === 'deployment' && game.value?.stepIndex === phase.value.steps.length - 1) return 'To War! - (Start Battle)'
-  if (isRoundStartStep.value) return 'Begin Round'
+  if (isRoundBattleEffectsStep.value) return 'Player Effects (Next)'
+  if (isRoundPlayerEffectsStep.value) return 'Begin Round'
   return 'Next'
 })
 const advanceButtonDisabled = computed(() => Boolean(
@@ -357,7 +363,6 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
     <section v-if="game" class="game-match-shell">
       <header class="game-match-hero card-surface">
         <div><p class="eyebrow">{{ game.status === 'complete' ? 'MATCH HISTORY' : !game.firstPlayerConfirmed ? 'TURN ORDER PENDING' : `ROUND ${game.round} · ${game.activeSide === 'player' ? 'YOUR TURN' : 'OPPONENT TURN'}` }}</p><h1>{{ game.name }}</h1><p>{{ game.scenario }} · {{ game.points }} pts</p></div>
-        <div class="game-score-board"><div class="game-score-side"><small>{{ game.playerListName }}</small><div><button type="button" :disabled="isReadOnly" @click="adjustScore('player', -1)">−</button><strong>{{ game.playerScore }}</strong><button type="button" :disabled="isReadOnly" @click="adjustScore('player', 1)">+</button></div></div><span class="game-score-divider">—</span><div class="game-score-side"><small>{{ game.opponentListName || game.opponentName }}</small><div><button type="button" :disabled="isReadOnly" @click="adjustScore('opponent', -1)">−</button><strong>{{ game.opponentScore }}</strong><button type="button" :disabled="isReadOnly" @click="adjustScore('opponent', 1)">+</button></div></div></div>
       </header>
 
       <nav class="game-phase-tabs" aria-label="Battle phases"><button v-for="(item, index) in gameWorkflow" :key="item.id" type="button" :class="{ active: game.phaseIndex === index }" :disabled="isReadOnly" @click="setPhase(index)">{{ item.label }}</button></nav>
@@ -376,27 +381,14 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
             <article class="match-roster-summary enemy"><p class="eyebrow">ENEMY GENERAL</p><h3>{{ game.opponentName }}</h3><strong>{{ game.opponentListName || 'No enemy roster selected' }}</strong><p>{{ game.opponentArmyName || 'Opponent details only' }}</p><dl><div><dt>Points</dt><dd>{{ opponentActualPoints || game.points }} / {{ game.points }}</dd></div><div><dt>Composition</dt><dd>{{ opponentCompositionName }}</dd></div><div><dt>Battle composition</dt><dd>{{ opponentCompositionRule }}</dd></div></dl></article>
           </section>
 
-          <section class="setup-scenario-card"><span class="value-chip">SCENARIO</span><div><h3>{{ game.scenario }}</h3><p v-if="scenarioLoading">Loading scenario guidance…</p><p v-else>{{ scenarioGuidance?.gameLength || 'Scenario-specific deployment and scoring checks will be surfaced as the relevant battle steps are expanded.' }}</p><RouterLink v-if="scenarioGuidance?.sourcePath" :to="`/rules/read${scenarioGuidance.sourcePath}`">Open scenario rules</RouterLink></div></section>
-
           <section class="setup-round-limit-card card-inset"><div><p class="eyebrow">GAME LENGTH</p><h3>Number of rounds</h3><p>Set how many rounds this match will last. This value carries into Overview and controls when Complete Match becomes available.</p></div><label class="round-limit-input"><span>Rounds</span><input :value="roundLimit" type="number" min="1" max="20" :readonly="isReadOnly || battleStarted" @change="handleRoundLimit" /></label></section>
+
+          <section class="setup-scenario-card"><span class="value-chip">SCENARIO</span><div><h3>{{ game.scenario }}</h3><p v-if="scenarioLoading">Loading scenario guidance…</p><img v-if="scenarioGuidance?.mapImageUrl" class="scenario-deployment-map" :src="scenarioGuidance.mapImageUrl" :alt="`${game.scenario} deployment map`" loading="lazy" decoding="async" /><p v-if="!scenarioLoading">{{ scenarioGuidance?.setupText || 'Scenario-specific deployment and scoring checks will be surfaced as the relevant battle steps are expanded.' }}</p><RouterLink v-if="scenarioGuidance?.sourcePath" :to="`/rules/read${scenarioGuidance.sourcePath}`">Open scenario rules</RouterLink></div></section>
 
           <section v-if="battleMarchEnabled" class="setup-caster-section battlefield-condition-picker">
             <div class="setup-section-heading"><div><p class="eyebrow">BATTLEFIELD</p><h3>Random Happenings</h3></div><span>{{ battlefieldConditionRows.length }}</span></div>
             <p class="setup-inline-status">Mark the Battle March random-happening tables being used for this battle. They will remain visible on Overview.</p>
             <div class="battlefield-condition-options"><label v-for="option in randomHappeningOptions" :key="option.id"><input type="checkbox" :checked="selectedBattlefieldConditions.has(option.id)" :disabled="isReadOnly" @change="handleBattlefieldCondition(option.id, $event)" /><span><strong>{{ option.label }}</strong><RouterLink :to="`/rules/read${option.path}`">Rules</RouterLink></span></label></div>
-          </section>
-
-          <section class="setup-caster-section">
-            <div class="setup-section-heading"><div><p class="eyebrow">FRIENDLY MAGIC</p><h3>Wizards & Priests</h3></div><span>{{ magicCasters.length }}</span></div>
-            <p v-if="magicLoading" class="setup-inline-status">Loading caster and lore options from the army source…</p>
-            <p v-else-if="!magicCasters.length" class="setup-inline-status">No Wizards or Priests were detected in the friendly roster.</p>
-            <div v-else class="setup-caster-grid">
-              <article v-for="caster in magicCasters" :key="caster.instanceId" class="setup-caster-card">
-                <div><span class="rule-kind-pill">{{ caster.kind }}<template v-if="caster.kind === 'Wizard'"> · Level {{ caster.level }}</template></span><h4>{{ caster.name }}</h4></div>
-                <label v-if="caster.availableLores.length > 1" class="field-label compact-field">Lore<select class="field-control" :value="caster.selectedLore" :disabled="isReadOnly" @change="handleLoreChange(caster, $event)"><option v-for="lore in caster.availableLores" :key="lore" :value="lore">{{ lore }}</option></select></label>
-                <div v-else class="caster-fixed-lore"><small>{{ caster.kind === 'Priest' ? 'Prayer lore' : 'Lore' }}</small><strong>{{ caster.selectedLore || 'Source lore unavailable' }}</strong></div>
-              </article>
-            </div>
           </section>
 
           <aside class="game-tip-card"><span class="game-tip-icon">i</span><div><strong>Tip</strong><p>{{ setupTip }}</p></div></aside>
@@ -453,7 +445,7 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
 
         <div v-else-if="isDeploymentOrderStep" class="deployment-step-content">
           <aside class="game-tip-card"><span class="game-tip-icon">i</span><div><strong>Tip — Deployment Order</strong><p>{{ deploymentTip }}</p><RouterLink v-if="scenarioGuidance?.sourcePath" :to="`/rules/read${scenarioGuidance.sourcePath}`">Open scenario rules</RouterLink></div></aside>
-          <section class="deployment-guidance-panel card-inset"><p class="eyebrow">SCENARIO DEPLOYMENT</p><h3>{{ game.scenario }}</h3><p>{{ scenarioGuidance?.setupText || 'Use the deployment instructions for the selected scenario, alternating units as required.' }}</p></section>
+          <section class="deployment-guidance-panel card-inset"><p class="eyebrow">SCENARIO DEPLOYMENT</p><h3>{{ game.scenario }}</h3><img v-if="scenarioGuidance?.mapImageUrl" class="scenario-deployment-map" :src="scenarioGuidance.mapImageUrl" :alt="`${game.scenario} deployment map`" loading="lazy" decoding="async" /><p>{{ scenarioGuidance?.setupText || 'Use the deployment instructions for the selected scenario, alternating units as required.' }}</p></section>
           <section class="deployment-order-panel card-inset"><p class="eyebrow">FIRST TO DEPLOY</p><h3>Who begins deployment?</h3><div class="deployment-side-actions"><button type="button" class="secondary-button" :class="{ active: game.deploymentFirstSide === 'player' }" :disabled="isReadOnly" @click="chooseDeploymentFirstSide('player')">{{ game.playerName }}</button><button type="button" class="secondary-button" :class="{ active: game.deploymentFirstSide === 'opponent' }" :disabled="isReadOnly" @click="chooseDeploymentFirstSide('opponent')">{{ game.opponentName }}</button></div></section>
         </div>
 
@@ -488,11 +480,11 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
           <aside class="game-tip-card"><span class="game-tip-icon">i</span><div><strong>Tip — Start of Round</strong><p>{{ deploymentTip }}</p><RouterLink to="/rules/read/the-turn-sequence">Open Turn Sequence rules</RouterLink></div></aside>
           <section class="round-start-summary card-inset"><div><p class="eyebrow">ROUND</p><strong>{{ game.round }} / {{ roundLimit }}</strong></div><div><p class="eyebrow">FIRST PLAYER</p><strong>{{ game.firstPlayer === 'player' ? game.playerName : game.opponentName }}</strong></div><div><p class="eyebrow">BATTLE CONDITIONS</p><strong>{{ battlefieldConditionRows.length ? battlefieldConditionRows.map((row) => row.label).join(' · ') : 'No additional condition selected' }}</strong></div></section>
           <p v-if="startRoundLoading" class="setup-inline-status">Checking both rosters and battle rules for Start of Round effects…</p>
-          <section class="start-round-rule-columns">
-            <article class="start-round-rule-panel friendly card-inset"><div class="setup-section-heading"><div><p class="eyebrow">FRIENDLY</p><h3>Start of Round Rules</h3></div><span>{{ friendlyStartRoundRules.length }}</span></div><template v-if="friendlyStartRoundRules.length"><article v-for="rule in friendlyStartRoundRules" :key="`${rule.source}-${rule.label}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></template><p v-else class="setup-inline-status">No friendly Start of Round rules detected.</p></article>
-            <article class="start-round-rule-panel enemy card-inset"><div class="setup-section-heading"><div><p class="eyebrow">ENEMY</p><h3>Start of Round Rules</h3></div><span>{{ enemyStartRoundRules.length }}</span></div><template v-if="enemyStartRoundRules.length"><article v-for="rule in enemyStartRoundRules" :key="`${rule.source}-${rule.label}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></template><p v-else class="setup-inline-status">No enemy Start of Round rules detected.</p></article>
+          <section v-if="isRoundBattleEffectsStep" class="start-round-rule-panel battle card-inset"><div class="setup-section-heading"><div><p class="eyebrow">STEP 1 · BATTLE</p><h3>Scenario, Composition &amp; Battlefield</h3></div><span>{{ battleStartRoundRules.length }}</span></div><template v-if="battleStartRoundRules.length"><article v-for="rule in battleStartRoundRules" :key="`${rule.source}-${rule.label}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></template><p v-else class="setup-inline-status">No shared scenario, battlefield or composition Start of Round effects were detected.</p></section>
+          <section v-if="isRoundPlayerEffectsStep" class="start-round-rule-columns">
+            <article class="start-round-rule-panel friendly card-inset"><div class="setup-section-heading"><div><p class="eyebrow">STEP 2 · FRIENDLY</p><h3>Army &amp; Model Rules</h3></div><span>{{ friendlyStartRoundRules.length }}</span></div><template v-if="friendlyStartRoundRules.length"><article v-for="rule in friendlyStartRoundRules" :key="`${rule.source}-${rule.label}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></template><p v-else class="setup-inline-status">No friendly Start of Round rules detected.</p></article>
+            <article class="start-round-rule-panel enemy card-inset"><div class="setup-section-heading"><div><p class="eyebrow">STEP 2 · ENEMY</p><h3>Army &amp; Model Rules</h3></div><span>{{ enemyStartRoundRules.length }}</span></div><template v-if="enemyStartRoundRules.length"><article v-for="rule in enemyStartRoundRules" :key="`${rule.source}-${rule.label}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></template><p v-else class="setup-inline-status">No enemy Start of Round rules detected.</p></article>
           </section>
-          <section v-if="battleStartRoundRules.length" class="start-round-rule-panel battle card-inset"><div class="setup-section-heading"><div><p class="eyebrow">BATTLE</p><h3>Scenario, Composition &amp; Battlefield</h3></div><span>{{ battleStartRoundRules.length }}</span></div><article v-for="rule in battleStartRoundRules" :key="`${rule.source}-${rule.label}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></section>
         </div>
 
         <section v-if="isBattleTurnPhase" class="turn-guidance-shell">
@@ -503,15 +495,17 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
           </template>
         </section>
 
+        <section v-if="isEndScoreStep" class="end-round-score-panel card-inset" aria-label="Round score calculation"><div class="setup-section-heading"><div><p class="eyebrow">END OF ROUND · STEP 2</p><h3>Round &amp; Score Calculation</h3></div><span>Round {{ game.round }}</span></div><p>Record the current running score after resolving this round’s scoring conditions, then choose which turn begins next or mark the round complete.</p><div class="game-score-board end-round-score-board"><div class="game-score-side"><small>{{ game.playerListName }}</small><div><button type="button" :disabled="isReadOnly" @click="adjustScore('player', -1)">−</button><strong>{{ game.playerScore }}</strong><button type="button" :disabled="isReadOnly" @click="adjustScore('player', 1)">+</button></div></div><span class="game-score-divider">—</span><div class="game-score-side"><small>{{ game.opponentListName || game.opponentName }}</small><div><button type="button" :disabled="isReadOnly" @click="adjustScore('opponent', -1)">−</button><strong>{{ game.opponentScore }}</strong><button type="button" :disabled="isReadOnly" @click="adjustScore('opponent', 1)">+</button></div></div></div></section>
+
         <label class="game-step-notes"><span>Step notes</span><textarea v-model="notes" :readonly="isReadOnly" rows="5" placeholder="Record targets, results, effects, or table notes for this step." @blur="saveNotes"></textarea></label>
-        <div v-if="!isReadOnly && isEndPhase" class="game-step-actions end-round-actions"><button type="button" class="secondary-button" @click="back">Back</button><button type="button" class="secondary-button" :disabled="roundsComplete" @click="startTurnFromEnd('player')">Your Turn</button><button type="button" class="secondary-button" :disabled="roundsComplete" @click="startTurnFromEnd('opponent')">Enemy's Turn</button><button type="button" class="primary-button" :disabled="roundsComplete" @click="endRoundFromEnd">End of Round</button></div>
+        <div v-if="!isReadOnly && isEndScoreStep" class="game-step-actions end-round-actions"><button type="button" class="secondary-button" @click="back">Back</button><button type="button" class="secondary-button" :disabled="roundsComplete" @click="startTurnFromEnd('player')">Your Turn</button><button type="button" class="secondary-button" :disabled="roundsComplete" @click="startTurnFromEnd('opponent')">Enemy's Turn</button><button type="button" class="primary-button" :disabled="roundsComplete" @click="endRoundFromEnd">End of Round</button></div>
         <div v-else-if="!isReadOnly" class="game-step-actions"><button type="button" class="secondary-button" :disabled="battleStarted && isOverviewStep" @click="back">Back</button><button type="button" class="primary-button" :disabled="advanceButtonDisabled" @click="advance">{{ advanceButtonLabel }}</button></div>
       </section>
 
       <div v-if="!isReadOnly" class="game-finish-row match-lifecycle-actions">
-        <button type="button" class="secondary-button danger-button" @click="cancelMatch">Cancel Match</button>
-        <button type="button" class="secondary-button" @click="startOver">Start Over</button>
-        <template v-if="battleStarted"><button type="button" class="secondary-button" @click="endMatchEarly('conceded')">Concede</button><button type="button" class="secondary-button" @click="endMatchEarly('enemy-yielded')">Enemy Yielded</button><button type="button" class="secondary-button" @click="endMatchEarly('draw')">Draw</button></template>
+        <template v-if="!battleStarted"><button type="button" class="secondary-button danger-button" @click="cancelMatch">Cancel Match</button><button type="button" class="secondary-button" @click="startOver">Start Over</button></template>
+        <template v-else><button type="button" class="secondary-button" @click="endMatchEarly('conceded')">Concede</button><button type="button" class="secondary-button" @click="endMatchEarly('enemy-yielded')">Enemy Yielded</button><button type="button" class="secondary-button" @click="endMatchEarly('draw')">Draw</button></template>
+        <button type="button" class="secondary-button match-save-button" @click="saveMatchToOngoing">Save to Ongoing</button>
         <button v-if="roundsComplete" type="button" class="primary-button" @click="finishMatch('completed')">Complete Match</button>
       </div>
       <div v-else class="game-finish-row"><button type="button" class="secondary-button" @click="returnToGames">Return to Match History</button></div>

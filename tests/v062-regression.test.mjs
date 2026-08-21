@@ -76,9 +76,9 @@ test('v0.62 Setup detects friendly Wizards and Priests from roster and source da
   assert.match(setup, /rawLooksLikePriest/)
   assert.match(setup, /hydrateFriendlyMagicSetup/)
   assert.match(setup, /rawLores/)
-  assert.match(match, />Wizards & Priests</)
-  assert.match(match, /caster\.availableLores\.length > 1/)
-  assert.match(match, /Prayer lore/)
+  assert.match(match, /spell-caster-panel/)
+  assert.match(match, /caster\.selectedLore/)
+  assert.match(match, /prayer-choice-list/)
 })
 
 test('v0.62 Setup step two records Wizard spells, exposes prayers, and provides Tips', () => {

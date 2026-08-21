@@ -13,6 +13,7 @@ export type GameScenarioGuidance = {
   setupText: string
   scenarioRules: string[]
   specificTerrain: boolean
+  mapImageUrl?: string
 }
 
 
@@ -54,7 +55,8 @@ export const gameWorkflow: GameWorkflowPhase[] = [
     { id: 'first-turn', label: 'First Turn', description: 'Resolve and record the first-turn procedure after deployment is complete.' },
   ] },
   { id: 'round-start', label: 'Start of Round', steps: [
-    { id: 'round-start', label: 'Start of Round', description: 'Confirm the new round, active first player, scenario effects and battlefield conditions before beginning the first turn.' },
+    { id: 'round-battle-effects', label: 'Battle Effects', description: 'Resolve scenario, battlefield, battle-composition and other shared Start of Round effects before either player resolves model-specific effects.' },
+    { id: 'round-player-effects', label: 'Player Effects', description: 'Resolve friendly and enemy army, unit and model Start of Round effects after shared battle effects.' },
   ] },
   { id: 'strategy', label: 'Strategy', steps: [
     { id: 'start-of-turn', label: 'Start of Turn', description: 'Resolve mandatory Start of Turn actions and active Magical Vortex movement.' },
@@ -80,7 +82,8 @@ export const gameWorkflow: GameWorkflowPhase[] = [
     { id: 'follow-up', label: 'Follow Up & Pursuit', description: 'Resolve follow up, pursuit, restraint and fleeing movement.' },
   ] },
   { id: 'end', label: 'End of Round', steps: [
-    { id: 'end-turn', label: 'Turn & Round Control', description: 'Resolve End of Turn effects, then choose which turn begins next or record the round as complete.' },
+    { id: 'end-effects', label: 'End of Round Effects', description: 'Resolve effects that expire, trigger or must be checked at the end of the round.' },
+    { id: 'round-score', label: 'Round & Score', description: 'Record the current score, then choose the next turn or record this round as complete.' },
   ] },
 ]
 
@@ -168,7 +171,7 @@ function parseGames(value: unknown): SavedGame[] {
     return {
       ...row,
       status: row.status === 'complete' ? 'complete' : 'open',
-      workflowVersion: 2,
+      workflowVersion: 3,
       round: Math.max(1, Number(row.round || 1)),
       phaseIndex: Math.max(0, Math.min(gameWorkflow.length - 1, migratedPhaseIndex)),
       stepIndex: Math.max(0, Number(row.stepIndex || 0)),
@@ -237,7 +240,7 @@ export function createSavedGame(input: {
   const game: SavedGame = {
     id: `game-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     status: 'open',
-    workflowVersion: 2,
+    workflowVersion: 3,
     name: `${playerName} - ${opponentName}`,
     playerListId: input.playerList.id,
     playerListName: input.playerList.name,

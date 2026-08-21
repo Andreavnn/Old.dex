@@ -72,6 +72,16 @@ export type PrototypeEquipmentOption = {
   requiresMounted?: boolean
   /** Characteristic bonuses granted to the rider by this mount. */
   riderProfileModifiers?: Partial<Record<ProfileKey, number>>
+  /** Canonical Old World Builder/TOW reference resolved for this option. */
+  referencePath?: string
+  /** Roster-wide prerequisite: one of these models must be the army General. */
+  requiresRosterGeneral?: string[]
+  /** Roster-wide prerequisite: one of these models/units must be included. */
+  requiresRosterUnit?: string[]
+  /** Maximum number of roster entries that may select this option when source notes specify a 0-N limit. */
+  maximumPerRoster?: number
+  /** Persistent characteristic bonuses granted by a selected upgrade. */
+  profileModifiers?: Partial<Record<ProfileKey, number>>
   kind?: 'equipment' | 'armour' | 'special' | 'mount' | 'mount-option' | 'role'
   note?: string
   magicAllowance?: PrototypeMagicAllowance

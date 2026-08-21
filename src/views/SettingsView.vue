@@ -228,8 +228,8 @@ async function updateBuilderRules() {
           <span><strong>Support Old.dex</strong><small>Voluntary Support for Old.Dex – Not Affiliated with Games Workshop – Contributions Used Only for Domain and Hosting Costs</small></span>
         </div>
         <div class="support-button-row" aria-label="Old.dex support options">
-          <a class="secondary-button support-action-button" href="https://buy.stripe.com/eVq7sL0Zw2DwdYwcvv3Nm01" target="_blank" rel="noopener noreferrer">One Time Support</a>
-          <a class="secondary-button support-action-button" href="https://buy.stripe.com/fZu8wP4bI2Dw6w4cvv3Nm00" target="_blank" rel="noopener noreferrer">Recurring Support</a>
+          <a class="secondary-button support-action-button" href="https://buy.stripe.com/eVq7sL0Zw2DwdYwcvv3Nm01" target="_blank" rel="noopener noreferrer">One Time Gift</a>
+          <a class="secondary-button support-action-button" href="https://buy.stripe.com/fZu8wP4bI2Dw6w4cvv3Nm00" target="_blank" rel="noopener noreferrer">Recurring Gift</a>
         </div>
       </section>
     </section>

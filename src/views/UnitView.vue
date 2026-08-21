@@ -177,6 +177,30 @@ const otherGeneralName = computed(() => {
   const row = loadBuilderRoster(backPath.value).find((candidate) => candidate.instanceId !== instanceId.value && rosterRowHasGeneral(candidate))
   return row?.name || ''
 })
+function rosterRequirementName(value: string) { return normalizedModelName(value).replace(/\b(?:the|a|an|unit|model)\b/g, ' ').replace(/\s+/g, ' ').trim() }
+function currentBuilderRosterRows() { return backPath.value.startsWith('/lists/builder') ? loadBuilderRoster(backPath.value) : [] }
+function rosterRowMatchesName(row: { name?: string; unitId?: string }, name: string) {
+  const wanted = rosterRequirementName(name)
+  if (!wanted) return false
+  return [row.name, row.unitId].some((value) => { const current = rosterRequirementName(String(value || '')); return current === wanted || current.includes(wanted) || wanted.includes(current) })
+}
+function rosterRowHasOption(row: { options?: string[]; optionalSelections?: string[] }, option: PrototypeEquipmentOption) {
+  const wanted = rosterRequirementName(canonicalOptionName(option))
+  return [...(row.options || []), ...(row.optionalSelections || [])].some((value) => rosterRequirementName(String(value).replace(/\s*[×x]\s*\d+\s*$/, '')) === wanted)
+}
+function equipmentRosterRequirementsMet(option: PrototypeEquipmentOption) {
+  if (!backPath.value.startsWith('/lists/builder')) return true
+  const rows = currentBuilderRosterRows()
+  if (option.requiresRosterGeneral?.length && !option.requiresRosterGeneral.some((name) => rows.some((row) => rosterRowMatchesName(row, name) && rosterRowHasGeneral(row)))) return false
+  if (option.requiresRosterUnit?.length && !option.requiresRosterUnit.some((name) => rows.some((row) => rosterRowMatchesName(row, name)))) return false
+  if (Number(option.maximumPerRoster || 0) > 0 && !selectedEquipmentIds.value.has(option.id)) {
+    const selectedElsewhere = rows.filter((row) => row.instanceId !== instanceId.value && rosterRowHasOption(row, option)).length
+    if (selectedElsewhere >= Number(option.maximumPerRoster)) return false
+  }
+  return true
+}
+function equipmentOptionUnavailable(option: PrototypeEquipmentOption) { return !equipmentRosterRequirementsMet(option) }
+
 function contextualOptionName(option: PrototypeEquipmentOption) {
   const label = displayOptionName(option)
   if (!/^General$/i.test(canonicalOptionName(option).trim()) || selectedEquipmentIds.value.has(option.id) || !otherGeneralName.value) return label
@@ -505,6 +529,65 @@ watch([isWizard, isPrayerCaster], ([wizard, priest]) => {
   if (!wizard && !priest && selectedLores.value.size) selectedLores.value = new Set()
 })
 
+const upgradeProfileModifiers = ref(new Map<string, Partial<Record<ProfileKey, number>>>())
+function characteristicModifiersFromRuleText(value: string) {
+  const out: Partial<Record<ProfileKey, number>> = {}
+  const labels: Array<[ProfileKey, RegExp]> = [
+    ['M', /\b(?:Movement|M)\b/i], ['WS', /\b(?:Weapon Skill|WS)\b/i], ['BS', /\b(?:Ballistic Skill|BS)\b/i],
+    ['S', /\b(?:Strength|S)\b/i], ['T', /\b(?:Toughness|T)\b/i], ['W', /\b(?:Wounds?|W)\b/i],
+    ['I', /\b(?:Initiative|I)\b/i], ['A', /\b(?:Attacks?|A)\b/i], ['Ld', /\b(?:Leadership|Ld)\b/i],
+  ]
+  const clean = String(value || '').replace(/\s+/g, ' ')
+  for (const match of clean.matchAll(/\+(\d+)\s+modifier\s+to\s+(?:their|its|the model[’']s|the unit[’']s)?\s*([^.;]+?)\s+characteristics?/gi)) {
+    const amount = Math.max(0, Number(match[1]) || 0)
+    for (const [key, pattern] of labels) if (pattern.test(match[2])) out[key] = Math.max(out[key] || 0, amount)
+  }
+  for (const [key, pattern] of labels) {
+    const named = clean.match(new RegExp(`(?:${pattern.source.replace(/^\\b|\\b$/g, '')})(?:\\s+characteristic)?[^.;]{0,50}?(?:increased|improved|raised|gains?)[^0-9+]{0,18}(?:by\\s+)?\\+?(\\d+)`, 'i'))
+    const plus = clean.match(new RegExp(`\\+(\\d+)[^.;]{0,45}(?:to\\s+)?(?:the\\s+)?(?:${pattern.source.replace(/^\\b|\\b$/g, '')})(?:\\s+characteristic)?`, 'i'))
+    const amount = Math.max(0, Number(named?.[1] || plus?.[1] || 0))
+    if (amount) out[key] = Math.max(out[key] || 0, amount)
+  }
+  return out
+}
+function mergeCharacteristicModifiers(target: Partial<Record<ProfileKey, number>>, source: Partial<Record<ProfileKey, number>>) {
+  for (const [key, amount] of Object.entries(source) as Array<[ProfileKey, number]>) if (amount > 0) target[key] = Math.max(target[key] || 0, amount)
+}
+async function hydrateUpgradeProfileModifiers() {
+  const unit = prototypeUnit.value
+  if (!unit) { upgradeProfileModifiers.value = new Map(); return }
+  const selected = unit.equipmentOptions.filter((option) => selectedEquipmentIds.value.has(option.id))
+  const next = new Map<string, Partial<Record<ProfileKey, number>>>()
+  const rosterRows = currentBuilderRosterRows()
+  await Promise.allSettled(selected.map(async (option) => {
+    const combined: Partial<Record<ProfileKey, number>> = { ...(option.profileModifiers || {}) }
+    mergeCharacteristicModifiers(combined, characteristicModifiersFromRuleText(option.note || ''))
+    const documents: string[] = []
+    if (option.referencePath) documents.push(option.referencePath)
+    const requirementNames = [...(option.requiresRosterGeneral || []), ...(option.requiresRosterUnit || [])]
+    for (const row of rosterRows.filter((candidate) => requirementNames.some((name) => rosterRowMatchesName(candidate, name)))) {
+      for (const rule of row.specialRules || []) if (rule.path) documents.push(rule.path)
+    }
+    const seen = new Set<string>()
+    for (const path of documents) {
+      if (!path || seen.has(path)) continue
+      seen.add(path)
+      try {
+        const document = await fetchRuleDocument(path)
+        const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
+        const body = dom.body.textContent?.replace(/\s+/g, ' ').trim() || ''
+        const optionName = canonicalOptionName(option).replace(/[’']/g, "'").toLowerCase()
+        const normalizedBody = body.replace(/[’']/g, "'").toLowerCase()
+        if (optionName && !normalizedBody.includes(optionName) && requirementNames.length) continue
+        mergeCharacteristicModifiers(combined, characteristicModifiersFromRuleText(body))
+      } catch (error) { reportAppError(error, 'UNIT_UPGRADE_PROFILE_REFERENCE', { unitId: unit.id, optionId: option.id, path }) }
+    }
+    if (Object.keys(combined).length) next.set(option.id, combined)
+  }))
+  upgradeProfileModifiers.value = next
+}
+watch(() => [prototypeUnit.value?.id, [...selectedEquipmentIds.value].sort().join('|')], () => { void hydrateUpgradeProfileModifiers() }, { immediate: true })
+
 const bigUnsSelected = computed(() => selectedEquipment.value.some((option) => /^Big [’']Uns$/i.test(canonicalOptionName(option))))
 function magicProfileOverridesFor(profileName: string) {
   const override: Partial<Record<ProfileKey, string>> = {}
@@ -546,6 +629,19 @@ function effectiveProfileFor(baseProfile: Record<ProfileKey, string>, profileNam
   // Wounds value, preventing the same mount bonus from being counted twice.
   const woundBonus = !selectedMountProfile ? Math.max(0, Number(selectedMount?.riderProfileModifiers?.W || 0)) : 0
   if (woundBonus > 0 && profile.W === baseProfile.W) profile.W = incrementCharacteristic(baseProfile.W || '—', woundBonus)
+  if (!selectedMountProfile) {
+    for (const option of selectedEquipment.value) {
+      const modifiers = upgradeProfileModifiers.value.get(option.id)
+      if (!modifiers) continue
+      for (const [key, amount] of Object.entries(modifiers) as Array<[ProfileKey, number]>) {
+        if (amount <= 0 || key === 'Sv' || key === 'Ward' || key === 'Rn') continue
+        const base = profile[key] || '—'
+        const updated = incrementCharacteristic(base, amount)
+        const numeric = Number(updated)
+        profile[key] = Number.isFinite(numeric) ? String(Math.min(10, numeric)) : updated
+      }
+    }
+  }
   return profile
 }
 function equipmentDisplayName(option: PrototypeEquipmentOption) {
@@ -774,6 +870,7 @@ function normalizeEquipmentCounts() {
   selectedEquipmentIds.value = normalized.selectedIds
 }
 function adjustEquipmentCount(option: PrototypeEquipmentOption, delta: number) {
+  if (delta > 0 && equipmentOptionUnavailable(option)) return
   if (isReadOnly.value || !isPerModelEquipmentSelection(option)) return
   restoreScrollAfterMutation(() => {
     const next = new Map(equipmentCounts.value)
@@ -840,7 +937,7 @@ function handleWeaponCheckbox(row: { source: 'base' | 'magic'; weapon: Prototype
   setWeaponSelected(row.weapon, Boolean((event.target as HTMLInputElement | null)?.checked))
 }
 function setEquipmentSelected(option: PrototypeEquipmentOption, selected: boolean) {
-  if (isReadOnly.value || mundaneEquipmentSuperseded(option)) return
+  if (isReadOnly.value || mundaneEquipmentSuperseded(option) || (selected && equipmentOptionUnavailable(option))) return
   const currentlySelected = selectedEquipmentIds.value.has(option.id)
   if (equipmentOptionEffectivelyLocked(option) && !selected) return
   if (!selected && isLoreEquipmentOption(option) && option.exclusiveGroup) {
@@ -1191,19 +1288,19 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
               <div class="equipment-group-heading"><h3>{{ group.title }}</h3><span v-if="group.key === 'wizard' && magicalMaelstromEnabled && isWizard" class="rule-kind-pill magical-maelstrom-pill">Magical Maelstrom</span></div>
               <div class="prototype-option-grid equipment-option-grid">
                 <template v-for="option in group.options" :key="option.id">
-                  <div v-if="isPerModelEquipmentSelection(option)" class="weapon-equipment-option count-option-card" :class="{ selected: selectedEquipmentIds.has(option.id), superseded: mundaneEquipmentSuperseded(option) }">
+                  <div v-if="isPerModelEquipmentSelection(option)" class="weapon-equipment-option count-option-card" :class="{ selected: selectedEquipmentIds.has(option.id), superseded: mundaneEquipmentSuperseded(option), unavailable: equipmentOptionUnavailable(option) }">
                     <span class="option-name">{{ contextualOptionName(option) }}<small v-if="showOtherGeneralCurrent(option)" class="current-general-note"> (Current)</small></span>
                     <small v-if="option.note" class="option-effect">{{ option.note }}</small>
                     <strong v-if="option.points > 0" class="option-cost">{{ optionCost(option.points) }} / model</strong>
                     <span class="equipment-quantity-controls option-stepper">
                       <button type="button" aria-label="Remove one model" :disabled="isReadOnly || equipmentCount(option) <= 0" @click="adjustEquipmentCount(option, -1)">−</button>
                       <strong>{{ equipmentCount(option) }}</strong>
-                      <button type="button" aria-label="Add one model" :disabled="isReadOnly || equipmentCount(option) >= equipmentCountMaximum(option)" @click="adjustEquipmentCount(option, 1)">+</button>
+                      <button type="button" aria-label="Add one model" :disabled="isReadOnly || equipmentOptionUnavailable(option) || equipmentCount(option) >= equipmentCountMaximum(option)" @click="adjustEquipmentCount(option, 1)">+</button>
                       <small>models</small>
                     </span>
                   </div>
-                  <label v-else :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option), superseded: mundaneEquipmentSuperseded(option) }">
-                    <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionEffectivelyLocked(option) || mundaneEquipmentSuperseded(option) || (magicalMaelstromEnabled && isWizardLevelOption(option))" @change="handleEquipmentCheckbox(option, $event)" />
+                  <label v-else :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option), superseded: mundaneEquipmentSuperseded(option), unavailable: equipmentOptionUnavailable(option) }">
+                    <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionUnavailable(option) || equipmentOptionEffectivelyLocked(option) || mundaneEquipmentSuperseded(option) || (magicalMaelstromEnabled && isWizardLevelOption(option))" @change="handleEquipmentCheckbox(option, $event)" />
                     <span class="option-name">{{ contextualOptionName(option) }}<small v-if="showOtherGeneralCurrent(option)" class="current-general-note"> (Current)</small></span>
                     <small v-if="option.note" class="option-effect">{{ option.note }}</small>
                     <strong v-if="option.points > 0 || (magicalMaelstromEnabled && isWizardLevelOption(option))" class="option-cost">{{ magicalMaelstromEnabled && isWizardLevelOption(option) ? 'Free' : optionCost(option.points) }}<small v-if="!magicalMaelstromEnabled && (option.costMode === 'per-model' || option.perModel)"> / model</small></strong>
@@ -1214,24 +1311,24 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
             <section v-if="showWizardLoreGroup" class="equipment-option-group wizard-lore-group">
               <div class="equipment-group-heading"><h3>Wizards &amp; Magic</h3><span v-if="magicalMaelstromEnabled && isWizard" class="rule-kind-pill magical-maelstrom-pill">Magical Maelstrom</span></div>
               <div v-if="wizardLevelOptions.length" class="prototype-option-grid equipment-option-grid wizard-level-grid">
-                <label v-for="option in wizardLevelOptions" :key="option.id" :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option) }">
-                  <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionEffectivelyLocked(option) || (magicalMaelstromEnabled && isWizardLevelOption(option))" @change="handleEquipmentCheckbox(option, $event)" />
+                <label v-for="option in wizardLevelOptions" :key="option.id" :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option), unavailable: equipmentOptionUnavailable(option) }">
+                  <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionUnavailable(option) || equipmentOptionEffectivelyLocked(option) || (magicalMaelstromEnabled && isWizardLevelOption(option))" @change="handleEquipmentCheckbox(option, $event)" />
                   <span class="option-name">{{ displayOptionName(option) }}</span>
                   <small v-if="option.note" class="option-effect">{{ option.note }}</small>
                   <strong v-if="option.points > 0 || magicalMaelstromEnabled" class="option-cost">{{ magicalMaelstromEnabled ? 'Free' : optionCost(option.points) }}</strong>
                 </label>
               </div>
               <div v-if="wizardMagicEquipmentOptions.length" class="prototype-option-grid equipment-option-grid wizard-magic-option-grid">
-                <label v-for="option in wizardMagicEquipmentOptions" :key="option.id" :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option) }">
-                  <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionEffectivelyLocked(option)" @change="handleEquipmentCheckbox(option, $event)" />
+                <label v-for="option in wizardMagicEquipmentOptions" :key="option.id" :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option), unavailable: equipmentOptionUnavailable(option) }">
+                  <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionUnavailable(option) || equipmentOptionEffectivelyLocked(option)" @change="handleEquipmentCheckbox(option, $event)" />
                   <span class="option-name">{{ displayOptionName(option) }}</span>
                   <small v-if="option.note" class="option-effect">{{ option.note }}</small>
                   <strong v-if="option.points > 0" class="option-cost">{{ optionCost(option.points) }}</strong>
                 </label>
               </div>
               <div v-if="loreEquipmentOptions.length" class="prototype-option-grid equipment-option-grid lore-source-option-grid">
-                <label v-for="option in loreEquipmentOptions" :key="option.id" :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option) }">
-                  <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionEffectivelyLocked(option)" @change="handleEquipmentCheckbox(option, $event)" />
+                <label v-for="option in loreEquipmentOptions" :key="option.id" :class="{ selected: selectedEquipmentIds.has(option.id), locked: equipmentOptionEffectivelyLocked(option), unavailable: equipmentOptionUnavailable(option) }">
+                  <input type="checkbox" :checked="selectedEquipmentIds.has(option.id)" :disabled="isReadOnly || equipmentOptionUnavailable(option) || equipmentOptionEffectivelyLocked(option)" @change="handleEquipmentCheckbox(option, $event)" />
                   <span class="option-name">{{ formatLoreName(option.name) }}</span>
                   <strong v-if="option.points > 0" class="option-cost">{{ optionCost(option.points) }}</strong>
                 </label>

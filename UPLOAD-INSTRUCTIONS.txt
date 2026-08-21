@@ -1,14 +1,14 @@
-Old.dex v0.65 direct-source update
+Old.dex v0.66 direct-source update
 
 Upload the CONTENTS of this package to the root of Andreavnn/Old.dex on main,
 replacing matching paths and adding new files/directories.
 
-Do not upload it as a nested Old.dex-v0.65-DIRECT-SOURCE folder.
+Do not upload it as a nested Old.dex-v0.66-DIRECT-SOURCE folder.
 
 After deployment, perform a hard refresh (or fully close/reopen the installed PWA once)
-so the v0.65 service-worker cache is active.
+so the v0.66 service-worker cache is active.
 
-Primary v0.65 changes
+Primary v0.66 changes
 ---------------------
 - Standardized click/input behavior and removed stray text carets from non-editable UI.
 - Magical Item selection now uses explicit shared checkbox/label/details controls.

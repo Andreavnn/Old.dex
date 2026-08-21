@@ -1,4 +1,4 @@
-# Old.dex GUI v0.65
+# Old.dex GUI v0.66
 
 Old.dex is an alpha Warhammer: The Old World army-roster, rules-reference, and match-companion application. The Vue/TypeScript application in `src/` is the implementation source used by the hosted build.
 
@@ -6,7 +6,7 @@ Old.dex is an alpha Warhammer: The Old World army-roster, rules-reference, and m
 
 ## Current build
 
-Alpha Build 0.65 standardizes interactive control behavior across Old.dex, removes stray non-editable text carets from selection surfaces, and introduces view-only turn-context battle guidance so each phase/subphase can focus on what the friendly roster can do during Your Turn or Enemy's Turn. End of Round now uses explicit turn-routing and round-completion controls so round tracking advances only when the player records the round as complete.
+Alpha Build 0.66 standardizes interactive control behavior across Old.dex, removes stray non-editable text carets from selection surfaces, and introduces view-only turn-context battle guidance so each phase/subphase can focus on what the friendly roster can do during Your Turn or Enemy's Turn. End of Round now uses explicit turn-routing and round-completion controls so round tracking advances only when the player records the round as complete.
 
 Unit and mount profiles prefer Old World Builder's indexed statistics. Army-composition overrides remain authoritative, punctuation-aware source parsing avoids corrupting canonical names, and the data layer includes a whole-army reference audit for unresolved entities.
 

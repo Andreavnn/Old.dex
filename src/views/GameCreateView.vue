@@ -168,8 +168,6 @@ function createMatch() {
       <label class="field-label">Scenario<select v-model="scenario" class="field-control"><option v-for="option in scenarioOptions" :key="option.name" :value="option.name">{{ option.name }}</option></select></label>
       <aside class="scenario-info-window" aria-live="polite"><span class="value-chip">SCENARIO</span><div><strong>{{ selectedScenario.name }}</strong><p>{{ selectedScenario.description }}</p></div></aside>
 
-      <aside v-if="matchRosterIssues.length" class="match-roster-issue-panel" aria-live="polite" aria-label="Roster issues"><span class="value-chip">ROSTER CHECK</span><div><strong>Resolve or acknowledge these match setup issues</strong><ul><li v-for="(issue, index) in matchRosterIssues" :key="`${issue.message}-${index}`" :class="`severity-${issue.severity}`">{{ issue.message }}</li></ul></div></aside>
-
       <aside v-if="playerList" class="battle-composition-window" aria-label="Friendly roster battle composition">
         <span class="value-chip">BATTLE COMPOSITION</span>
         <div class="battle-composition-copy">
@@ -181,6 +179,8 @@ function createMatch() {
           </ul>
         </div>
       </aside>
+
+      <aside v-if="matchRosterIssues.length" class="match-roster-issue-panel" aria-live="polite" aria-label="Roster issues"><span class="value-chip">ROSTER CHECK</span><div><strong>Resolve or acknowledge these match setup issues</strong><ul><li v-for="(issue, index) in matchRosterIssues" :key="`${issue.message}-${index}`" :class="`severity-${issue.severity}`">{{ issue.message }}</li></ul></div></aside>
 
       <div class="game-create-actions">
         <button type="button" class="primary-button" :disabled="!canCreate" @click="createMatch">Create Match</button>

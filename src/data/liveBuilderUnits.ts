@@ -318,6 +318,29 @@ function magicAllowanceFromValue(value: unknown) {
   return { maxPoints: Number(value.maxPoints || value.maximum || value.points || 0), types: allowed } as PrototypeUnit['magicAllowance']
 }
 
+function rosterOptionRequirements(value: unknown) {
+  const note = noteText(value).replace(/\s+/g, ' ').trim()
+  const requiresRosterGeneral: string[] = []
+  const requiresRosterUnit: string[] = []
+  const add = (rows: string[], name: string) => {
+    const clean = name.replace(/^(?:a|an|the)\s+/i, '').replace(/\s+(?:model|unit)$/i, '').trim()
+    if (clean && !rows.some((row) => row.toLowerCase() === clean.toLowerCase())) rows.push(clean)
+  }
+  for (const match of note.matchAll(/(?:if|provided|only if)\s+(.+?)\s+is\s+(?:the\s+)?army[’']s\s+General\b/gi)) add(requiresRosterGeneral, match[1])
+  for (const match of note.matchAll(/(?:if|provided|only if)\s+(.+?)\s+is\s+(?:your\s+)?General\b/gi)) add(requiresRosterGeneral, match[1])
+  for (const match of note.matchAll(/(?:if|provided|only if)\s+(?:the\s+)?army\s+(?:includes|contains|has)\s+(.+?)(?=[.;]|$)/gi)) add(requiresRosterUnit, match[1])
+  for (const match of note.matchAll(/(?:if|provided|only if)\s+(.+?)\s+is\s+(?:included|present)\s+in\s+(?:the|your)\s+army\b/gi)) add(requiresRosterUnit, match[1])
+  for (const match of note.matchAll(/(?:may|can)\s+only\s+be\s+(?:taken|selected|chosen|used)\s+if\s+(.+?)\s+is\s+(?:included|present)\s+in\s+(?:the|your)\s+army\b/gi)) add(requiresRosterUnit, match[1])
+  for (const match of note.matchAll(/(?:requires?|only available with)\s+(.+?)\s+(?:in|included in|present in)\s+(?:the|your)\s+army\b/gi)) add(requiresRosterUnit, match[1])
+  for (const match of note.matchAll(/(?:if|provided|only if)\s+(?:the\s+)?army\s+(?:includes|contains|has)\s+(?:at least one\s+)?(.+?)(?=[.;]|$)/gi)) add(requiresRosterUnit, match[1])
+  const maximumMatch = note.match(/\b0\s*[–-]\s*(\d+)\s+(?:unit|model|choice|selection)s?\b/i)
+  return {
+    requiresRosterGeneral: requiresRosterGeneral.length ? requiresRosterGeneral : undefined,
+    requiresRosterUnit: requiresRosterUnit.length ? requiresRosterUnit : undefined,
+    maximumPerRoster: maximumMatch ? Math.max(0, Number(maximumMatch[1]) || 0) : undefined,
+  }
+}
+
 function equipmentOptions(raw: RawBuilderUnit, catalog: OwbRuleCatalog, compositionId: string): PrototypeEquipmentOption[] {
   const rows: PrototypeEquipmentOption[] = []
   const idCounts = new Map<string, number>()
@@ -355,6 +378,8 @@ function equipmentOptions(raw: RawBuilderUnit, catalog: OwbRuleCatalog, composit
       note: notes,
       exclusiveGroup: item.exclusive ? `${extra.requiresSelection || prefix}-exclusive` : undefined,
       magicAllowance: magicAllowanceFromValue(item.magic),
+      referencePath: resolveOwbRuleFromCatalog(catalog, sourceName)?.path,
+      ...rosterOptionRequirements(item.notes),
       ...extra,
     }
     // Source data already enforces mutually exclusive choices. Hide explanatory

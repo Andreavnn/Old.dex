@@ -300,7 +300,7 @@ function parseRoundLimit(value: string) {
 export async function loadScenarioGuidance(scenario: string): Promise<GameScenarioGuidance> {
   const scenarioSlug = slug(scenario)
   const sourcePath = scenarioPathOverrides[scenarioSlug] || `/warhammer-battles/${scenarioSlug}`
-  const fallback: GameScenarioGuidance = { sourcePath, roundLimit: 6, gameLength: 'Most battles last for six rounds.', setupText: '', scenarioRules: [], specificTerrain: false }
+  const fallback: GameScenarioGuidance = { sourcePath, roundLimit: 6, gameLength: 'Most battles last for six rounds.', setupText: '', scenarioRules: [], specificTerrain: false, mapImageUrl: undefined }
   try {
     const document = await fetchRuleDocument(sourcePath)
     const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
@@ -310,6 +310,9 @@ export async function loadScenarioGuidance(scenario: string): Promise<GameScenar
     const setupText = setupRows.join(' ').slice(0, 1800)
     const gameLength = lengthRows.join(' ').slice(0, 1300) || fallback.gameLength
     const specificTerrain = Boolean(setupText && !/^Place terrain as described\.?$/i.test(setupText) && /(?:terrain|feature|hill|wood|woods|building|road|river|stream|marsh|ruin|tower|objective|impassable|battlefield|centre|center|zone)/i.test(setupText))
+    const images = Array.from(dom.querySelectorAll<HTMLImageElement>('img[src]'))
+    const mapImage = images.find((image) => /(?:deployment|scenario|battlefield|map|zone)/i.test(`${image.alt} ${image.src}`))
+    const mapImageUrl = mapImage?.src || undefined
     return {
       sourcePath,
       roundLimit: parseRoundLimit(gameLength),
@@ -317,6 +320,7 @@ export async function loadScenarioGuidance(scenario: string): Promise<GameScenar
       setupText,
       scenarioRules: ruleRows.filter((row) => !/^This scenario has no special rules\.?$/i.test(row)).slice(0, 6),
       specificTerrain,
+      mapImageUrl,
     }
   } catch (error) {
     reportAppError(error, 'GAME_SCENARIO_GUIDANCE', { scenario, sourcePath })
@@ -570,7 +574,7 @@ function turnRuleSentences(path: string) {
 const turnStepPatterns: Record<string, RegExp> = {
   'start-of-turn': /\b(?:start|beginning) of (?:your|the|each|every|a) turn\b|\bat the start of (?:your|the|each|every|a) turn\b/i,
   command: /\bcommand (?:sub-?phase|phase)\b|\bduring (?:your|the) command\b/i,
-  conjuration: /\bconjuration (?:sub-?phase|phase)\b|\benchantment\b|\bhex\b|\bcast(?:ing)?\b.*\bspell\b/i,
+  conjuration: /\bconjuration (?:sub-?phase|phase)\b|\benchantment\b|\bhex\b|\bcast(?:ing)?\b.*\bspell\b|\bdispel(?:ling)?\b/i,
   rally: /\brally fleeing troops\b|\brally (?:sub-?phase|phase)\b|\brally test\b|\brallying\b/i,
   'required-charges': /\brequired charge\b|\bimpetuous\b|\bmust (?:declare )?a charge\b|\bmust charge\b/i,
   'declare-charges': /\bdeclare charges?\b|\bdeclare a charge\b|\bcharge reaction\b|\bwhen (?:this unit|the unit|a unit|it) is charged\b|\bwhen charged\b/i,
@@ -646,11 +650,26 @@ async function battleTurnRules(game: SavedGame, stepId: string, viewSide: 'playe
   return output
 }
 
+function enemyTurnCoreGuidance(stepId: string, viewSide: 'player' | 'opponent'): GameTurnRule[] {
+  if (viewSide !== 'opponent') return []
+  const rows: GameTurnRule[] = []
+  if (['conjuration', 'remaining-moves', 'special-shooting'].includes(stepId)) {
+    rows.push({ side: 'player', source: 'Core Rules', label: 'Wizardly Dispel', path: '/magic/dispelling-enemy-spells', summary: "When the enemy casts an eligible spell, a friendly Wizard that is allowed to dispel may make a Wizardly Dispel attempt. Check range, Wizard state and any restrictions before rolling." })
+    rows.push({ side: 'player', source: 'Core Rules', label: 'Fated Dispel', path: '/magic/dispelling-enemy-spells', summary: 'The friendly player may use the army’s Fated Dispel when permitted by the core magic rules. Track its once-per-turn use separately from Wizardly Dispel attempts.' })
+  }
+  if (stepId === 'declare-charges') rows.push({ side: 'player', source: 'Core Rules', label: 'Charge Reactions', path: '/the-movement-phase/charge-reactions', summary: 'When an enemy charge is declared against a friendly unit, choose and resolve any legal charge reaction such as Hold, Flee or Stand & Shoot, plus reactions granted by special rules.' })
+  if (stepId === 'shooting') rows.push({ side: 'player', source: 'Core Rules', label: 'Resolve Enemy Shooting', path: '/the-shooting-phase', summary: 'During enemy shooting, resolve friendly defensive rules, modifiers, armour/ward/regeneration saves and any reactions or effects triggered when targeted, hit or wounded.' })
+  return rows
+}
+
 export async function loadTurnStepGuidance(game: SavedGame, stepId: string, viewSide: 'player' | 'opponent'): Promise<GameTurnRule[]> {
   const friendly = game.playerRoster?.length ? game.playerRoster : (getSavedArmyList(game.playerListId)?.roster || [])
   const [rosterRules, battleRules] = await Promise.all([
     rosterTurnRules(friendly, stepId, viewSide),
     battleTurnRules(game, stepId, viewSide),
   ])
-  return [...rosterRules, ...battleRules]
+  const coreRules = enemyTurnCoreGuidance(stepId, viewSide)
+  const rows = [...coreRules, ...rosterRules, ...battleRules]
+  const seen = new Set<string>()
+  return rows.filter((row) => { const key = `${row.side}|${row.source}|${row.label}|${row.summary}`.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true })
 }

@@ -1,0 +1,22 @@
+Old.dex Alpha Build 0.66 verification
+
+Implemented
+- Rules-page intro cleanup and reference-link relocation
+- One Time Gift / Recurring Gift support labels
+- Generic roster-dependent option prerequisites and 0-N roster limits
+- Characteristic-profile upgrades from option/reference/prerequisite rule mechanics
+- Roster Check below Battle Composition
+- Game Length before Scenario; scenario deployment maps in Setup and Deployment
+- Friendly Magic removed from Setup Step 1
+- Two-step Start of Round: shared Battle Effects, then Player Effects
+- Pre-battle Cancel / Start Over / Save to Ongoing lifecycle and post-battle Concede / Enemy Yielded / Draw / Save lifecycle
+- Enemy-turn Wizardly Dispel, Fated Dispel, charge-reaction, and defensive-shooting guidance
+- Score controls moved to End of Round Step 2
+- Root-generated-artifact-only GitHub cleanup workflow with protected source/configuration paths
+
+Verification
+- Regression tests: 98 passed, 0 failed
+- TypeScript/Vue script syntax transpilation: 37 checked, 0 failed
+- Representative generic dependency check: "0-1 unit if Miao Ying is the army's General" resolves General=Miao Ying and maximum=1
+- Representative upgrade profile parsing: "+1 modifier to their Weapon Skill and Leadership characteristics" resolves WS +1 and Ld +1
+- ZIP integrity: passed (81 packaged entries)
