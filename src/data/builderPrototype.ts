@@ -7,6 +7,7 @@ export type CostMode = 'flat' | 'per-model'
 export type PrototypeWeapon = {
   id: string
   name: string
+  sourceName?: string
   kind: 'melee' | 'missile'
   range: string
   strength: string
@@ -40,6 +41,7 @@ export type PrototypeWeapon = {
 export type PrototypeEquipmentOption = {
   id: string
   name: string
+  sourceName?: string
   points: number
   default: boolean
   /** Pricing scope. Kept separate from how the option is selected. */
@@ -85,6 +87,7 @@ export type PrototypeMagicAllowance = {
 export type PrototypeUnit = {
   id: string
   name: string
+  sourceName?: string
   category: BuilderCategory
   points: number
   unitSize: string
@@ -103,6 +106,7 @@ export type PrototypeUnit = {
   }
   specialRules: Array<{
     name: string
+    sourceName?: string
     path: string
     timing: string
     tone: RuleTone
@@ -114,7 +118,7 @@ export type PrototypeUnit = {
   }>
   keywords: Array<{ label: string; path: string }>
   profiles?: Array<{ name: string; profile: Record<ProfileKey, string> }>
-  optionalProfiles?: Array<{ selectionId: string; name: string; profile: Record<ProfileKey, string>; equipment?: string[] }>
+  optionalProfiles?: Array<{ selectionId: string; name: string; sourceName?: string; profile: Record<ProfileKey, string>; equipment?: string[] }>
   minimumModels?: number
   maximumModels?: number
   basePointsPerModel?: number

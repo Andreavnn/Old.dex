@@ -395,7 +395,7 @@ export function importSavedArmyListJson(text: string) {
 
 
 export function savedArmyListExportJson(row: SavedArmyList) {
-  return JSON.stringify({ format: 'olddex-army-roster', version: '0.62', ...row, roster: cloneRoster(row.roster || []) }, null, 2)
+  return JSON.stringify({ format: 'olddex-army-roster', version: '0.63', ...row, roster: cloneRoster(row.roster || []) }, null, 2)
 }
 
 export function exportSavedArmyList(row: SavedArmyList) {

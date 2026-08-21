@@ -29,7 +29,6 @@ test('v0.62 hidden patch removes changelog build ranges without adding a new bui
   assert.doesNotMatch(changelog, range)
   assert.doesNotMatch(dataChangelog, range)
   assert.match(changelog, /## Alpha Build 0\.62/)
-  assert.doesNotMatch(changelog, /## Alpha Build 0\.63/)
 })
 
 test('v0.62 hidden patch normalizes Settings summary text sizing including Backgrounds', () => {
@@ -95,11 +94,11 @@ test('v0.62 hidden patch includes a safe manual repository cleanup workflow', ()
   assert.match(workflow, /workflow_dispatch:/)
   assert.match(workflow, /apply_changes:/)
   assert.match(workflow, /default: false/)
-  assert.match(workflow, /ODX_V062_VERIFICATION\.txt/)
+  assert.match(workflow, /ODX_V0(?:62|63)_VERIFICATION\.txt/)
   assert.match(workflow, /git status --short/)
   assert.match(workflow, /chore: clean generated repository artifacts/)
 })
 
 test('v0.62 hidden patch rotates the PWA shell cache so installed clients receive the patch', () => {
-  assert.match(sw, /olddex-shell-v062-hidden3/)
+  assert.match(sw, /olddex-shell-v0(?:62-hidden3|63-data-rebuild)/)
 })

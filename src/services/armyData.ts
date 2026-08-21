@@ -7,9 +7,10 @@ export type { CompositionRuleCatalog } from '../domain/composition'
 import type { ArmyDataDocument, MagicItemDataDocument } from '../domain/rawArmyData'
 import { fetchWithTimeout } from './http'
 import { reportAppError } from './appErrors'
+import { clearOwbRuleCatalog, loadOwbRuleCatalog } from './owbRuleResolver'
 
-// Internal data adapter. Source URLs and file extensions intentionally stay out of the UI.
-// Keep the upstream root isolated here so it can be swapped without changing any views.
+// Old.dex deliberately uses the same structured army source as Old World Builder.
+// Source URLs remain isolated here so views never need to know where the data lives.
 const RAW_DATA_ROOT = 'https://raw.githubusercontent.com/nthiebes/old-world-builder/refs/heads/main/public/games/the-old-world'
 const SHARED_DATA_KEYS = ['magic-items']
 const memoryCache = new Map<string, unknown>()
@@ -29,7 +30,6 @@ export async function loadArmyData(dataKey: string, force = false): Promise<Army
   return data
 }
 
-
 export async function initializeBuilderData() {
   const keys = [...new Set([...armies.map((army) => army.dataKey), ...SHARED_DATA_KEYS])]
   const results = await Promise.allSettled(keys.map((key) => loadArmyData(key, false)))
@@ -48,7 +48,9 @@ export function clearArmyDataCache() {
 
 export async function forceRefreshBuilderData(onProgress?: (completed: number, total: number) => void) {
   clearArmyDataCache()
+  clearOwbRuleCatalog()
   const keys = [...new Set([...armies.map((army) => army.dataKey), ...SHARED_DATA_KEYS])]
+  const total = keys.length + 1
   let completed = 0
   const failures: string[] = []
 
@@ -60,8 +62,19 @@ export async function forceRefreshBuilderData(onProgress?: (completed: number, t
       failures.push(key)
     } finally {
       completed += 1
-      onProgress?.(completed, keys.length)
+      onProgress?.(completed, total)
     }
+  }
+
+  try {
+    const catalog = await loadOwbRuleCatalog(true)
+    if (Object.keys(catalog.rules).length < 500) throw new Error('Old World Builder rules index did not refresh completely.')
+  } catch (error) {
+    reportAppError(error, 'BUILDER_RULE_INDEX_REFRESH_FAILED')
+    failures.push('owb-rule-index')
+  } finally {
+    completed += 1
+    onProgress?.(completed, total)
   }
 
   if (typeof window !== 'undefined' && 'caches' in window) {
@@ -73,7 +86,7 @@ export async function forceRefreshBuilderData(onProgress?: (completed: number, t
     throw new Error(`Unable to refresh ${failures.length} data source${failures.length === 1 ? '' : 's'}.`)
   }
 
-  return { refreshed: keys.length, refreshedAt: new Date().toISOString() }
+  return { refreshed: total, refreshedAt: new Date().toISOString() }
 }
 
 const RULES_SOURCE = 'https://raw.githubusercontent.com/nthiebes/old-world-builder/refs/heads/main/src/utils/rules.js'

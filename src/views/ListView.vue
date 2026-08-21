@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import { getArmy } from '../data/armies'
@@ -7,8 +7,10 @@ import { loadLiveUnitProfile } from '../data/liveBuilderUnits'
 import type { PrototypeUnit } from '../data/builderPrototype'
 import { exportSavedArmyList, getSavedArmyList, savedArmyListRoute } from '../services/savedLists'
 import type { BuilderRosterSelection } from '../domain/rosterTypes'
+import { useLanguagePreference } from '../services/language'
 
 const route = useRoute()
+const { language } = useLanguagePreference()
 const list = ref(getSavedArmyList(String(route.params.listId || '')))
 const profiles = ref(new Map<string, PrototypeUnit>())
 const army = computed(() => list.value ? getArmy(list.value.army) : null)
@@ -33,7 +35,7 @@ function profileRows(row: BuilderRosterSelection) {
 }
 function exportList() { if (list.value) exportSavedArmyList(list.value) }
 
-onMounted(async () => {
+async function loadProfiles() {
   if (!list.value || !army.value) return
   const next = new Map<string, PrototypeUnit>()
   await Promise.all((list.value.roster || []).map(async (row) => {
@@ -43,7 +45,9 @@ onMounted(async () => {
     } catch { /* saved selections remain readable without a live profile */ }
   }))
   profiles.value = next
-})
+}
+onMounted(() => { void loadProfiles() })
+watch(language, () => { void loadProfiles() })
 </script>
 
 <template>

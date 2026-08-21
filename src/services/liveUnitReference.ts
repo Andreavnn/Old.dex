@@ -1,11 +1,43 @@
 import type { BuilderCategory, ProfileKey, PrototypeUnit, PrototypeWeapon } from '../data/builderPrototype'
-import type { RawBuilderUnit, RawRecord } from '../domain/rawArmyData'
+import type { ArmyDataDocument, RawBuilderItem, RawBuilderUnit, RawRecord } from '../domain/rawArmyData'
 import { isRecord } from '../domain/schemas'
 import { baseUnitSize, blankProfile, maximumModels, minimumModels, normalizeDisplayLabel, noteText, phaseLabel, slug, specialRuleTone, text } from '../domain/liveUnitShared'
 import { normalizeRepositoryPath } from '../data/ruleRepository'
 import { fetchRuleDocument } from './ruleContent'
 import { extractMechanicalRuleText } from './ruleText'
 import { reportAppError } from './appErrors'
+import { localizedSourceText } from './language'
+import { loadOwbRuleCatalog, owbStatsRows, resolveOwbRuleFromCatalog, splitOwbSourceList, type OwbRuleCatalog, type OwbRuleIndexEntry } from './owbRuleResolver'
+
+
+function owbProfileRows(entry: OwbRuleIndexEntry | undefined, fallbackName: string) {
+  return owbStatsRows(entry).map((row) => {
+    const profile = blankProfile()
+    const aliases: Array<[ProfileKey, string[]]> = [
+      ['M', ['M']], ['WS', ['WS']], ['BS', ['BS']], ['S', ['S']], ['T', ['T']], ['W', ['W']], ['I', ['I']], ['A', ['A']], ['Ld', ['Ld']],
+      ['Sv', ['Sv', 'Save']], ['Ward', ['Ward', 'Wd']], ['Rn', ['Rn', 'Regen']],
+    ]
+    for (const [key, names] of aliases) {
+      const value = names.map((name) => row[name]).find((candidate) => candidate !== undefined && candidate !== null && String(candidate).trim() !== '')
+      if (value !== undefined) profile[key] = String(value).trim()
+    }
+    return { name: String(row.Name || fallbackName).trim() || fallbackName, profile }
+  }).filter((row) => Object.values(row.profile).some((value) => value !== '—'))
+}
+
+
+function rawUnitForResolvedReference(data: ArmyDataDocument | undefined, catalog: OwbRuleCatalog, path: string) {
+  if (!data || !path) return null
+  for (const value of Object.values(data)) {
+    if (!Array.isArray(value)) continue
+    for (const raw of value as RawBuilderUnit[]) {
+      const name = text(raw)
+      if (!name) continue
+      if (resolveOwbRuleFromCatalog(catalog, name)?.path === path) return raw
+    }
+  }
+  return null
+}
 
 function parseProfileTable(dom: Document) {
   const statNames = new Set(['M', 'WS', 'BS', 'S', 'T', 'W', 'I', 'A', 'Ld', 'Sv', 'Ward', 'Wd', 'Rn'])
@@ -67,8 +99,8 @@ function normalizedProfileName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
-async function resolveUnitReference(unitId: string, unitName: string, dataKey: string) {
-  const directPaths = [...new Set([`/unit/${unitId}`, `/unit/${slug(unitName)}`])]
+async function resolveUnitReference(unitId: string, unitName: string, dataKey: string, canonicalPath = '') {
+  const directPaths = [...new Set([canonicalPath, `/unit/${unitId}`, `/unit/${slug(unitName)}`].filter(Boolean))]
   let firstDocument: Awaited<ReturnType<typeof fetchRuleDocument>> | null = null
   for (const path of directPaths) {
     try {
@@ -361,9 +393,11 @@ function parseWeaponReference(document: Awaited<ReturnType<typeof fetchRuleDocum
   }
 }
 
-async function enrichWeapon(weapon: PrototypeWeapon, paths: Map<string, string>) {
-  const name = weapon.name.trim()
-  const path = matchingPath(paths, name, `/weapons-of-war/${slug(name)}`)
+async function enrichWeapon(weapon: PrototypeWeapon, paths: Map<string, string>, catalog: OwbRuleCatalog) {
+  const name = (weapon.sourceName || weapon.name).trim()
+  const resolved = resolveOwbRuleFromCatalog(catalog, name)
+  const path = resolved?.path || matchingPath(paths, name, '')
+  if (!path) return weapon
   try {
     let document = await fetchRuleDocument(path)
     let parsed = parseWeaponReference(document, name)
@@ -397,7 +431,8 @@ async function enrichWeapon(weapon: PrototypeWeapon, paths: Map<string, string>)
     for (const rule of rules) {
       const existing = ruleLinks.find((link) => link.label.toLowerCase() === rule.toLowerCase())
       if (existing) continue
-      const link = universalWeaponRuleLink(rule)
+      const resolvedRule = resolveOwbRuleFromCatalog(catalog, rule)
+      const link = resolvedRule?.path ? { label: rule, path: resolvedRule.path } : universalWeaponRuleLink(rule)
       if (link) ruleLinks.push(link)
     }
 
@@ -420,23 +455,31 @@ async function enrichWeapon(weapon: PrototypeWeapon, paths: Map<string, string>)
 }
 
 
-export async function enrichLiveUnitReference(unit: PrototypeUnit, raw: RawBuilderUnit, category: BuilderCategory, armyName: string, dataKey: string) {
+export async function enrichLiveUnitReference(unit: PrototypeUnit, raw: RawBuilderUnit, category: BuilderCategory, armyName: string, dataKey: string, compositionId = '', armyData?: ArmyDataDocument) {
   const rawProfiles = rawProfileRows(raw, unit.name)
   if (rawProfiles.length) { unit.profile = rawProfiles[0].profile; unit.profiles = rawProfiles }
+  const ruleCatalog = await loadOwbRuleCatalog()
+  const unitSourceName = unit.sourceName || unit.name
+  const unitIndex = resolveOwbRuleFromCatalog(ruleCatalog, unitSourceName)
+  const indexedProfiles = owbProfileRows(unitIndex?.entry, unit.name)
+  if (indexedProfiles.length) { unit.profile = indexedProfiles[0].profile; unit.profiles = indexedProfiles }
+  if (unitIndex?.entry.troopType && !unit.details.troopType) unit.details.troopType = String(unitIndex.entry.troopType)
+  if (unitIndex?.entry.page) unit.details.publication = String(unitIndex.entry.page)
 
   try {
-    const reference = await resolveUnitReference(unit.id, unit.name, dataKey)
-    if (!reference) return unit
-    const { dom, profiles } = reference
-    if (profiles.length) { unit.profile = profiles[0].profile; unit.profiles = profiles }
-    const metadata = parseMetadata(dom, raw, category, armyName)
-    const hasBuilderMinimum = raw.minimum !== undefined && raw.minimum !== null && Number.isFinite(Number(raw.minimum)) && Number(raw.minimum) > 0
-    const hasBuilderMaximum = raw.maximum !== undefined && raw.maximum !== null && Number.isFinite(Number(raw.maximum))
+    const reference = await resolveUnitReference(unit.id, unitSourceName, dataKey, unitIndex?.path || '')
+    const dom = reference?.dom || new DOMParser().parseFromString('<main></main>', 'text/html')
+    const profiles = reference?.profiles || []
+    if (!indexedProfiles.length && profiles.length) { unit.profile = profiles[0].profile; unit.profiles = profiles }
+    const metadata = reference ? parseMetadata(dom, raw, category, armyName) : { unitCategory: category, troopType: unit.details.troopType || '', baseSize: unit.details.baseSize || '', unitSize: unit.unitSize, army: armyName, publication: unit.details.publication || '', notes: noteText(raw.notes) }
+    const composition = isRecord(raw.armyComposition) && isRecord(raw.armyComposition[compositionId]) ? raw.armyComposition[compositionId] : null
+    const hasBuilderMinimum = (raw.minimum !== undefined && raw.minimum !== null && Number.isFinite(Number(raw.minimum)) && Number(raw.minimum) > 0) || (composition?.minimum !== undefined && Number.isFinite(Number(composition.minimum)) && Number(composition.minimum) > 0)
+    const hasBuilderMaximum = (raw.maximum !== undefined && raw.maximum !== null && Number.isFinite(Number(raw.maximum))) || (composition?.maximum !== undefined && Number.isFinite(Number(composition.maximum)))
     const bounds = unitSizeBounds(metadata.unitSize)
     if (hasBuilderMinimum || hasBuilderMaximum) {
-      unit.minimumModels = minimumModels(raw)
-      unit.maximumModels = maximumModels(raw)
-      unit.unitSize = baseUnitSize(raw)
+      // The Builder JSON (including army-composition overrides) is authoritative.
+      // makeCatalogUnit already normalized those values; reference-page metadata is
+      // only a fallback for units where OWB itself does not provide structured size data.
       if (unit.basePointsPerModel !== undefined) unit.points = unit.basePointsPerModel * unit.minimumModels
     } else {
       unit.unitSize = metadata.unitSize || unit.unitSize
@@ -450,40 +493,57 @@ export async function enrichLiveUnitReference(unit: PrototypeUnit, raw: RawBuild
     if (unit.named && /\bmust (?:be|always be|serve as|be chosen as) (?:your|the|this army(?:'s)?) General\b/i.test(referenceText)) unit.mustBeGeneral = true
     if (/\bcannot be (?:your|the) General\b/i.test(referenceText)) unit.cannotBeGeneral = true
     if (unit.mustBeGeneral) {
-      const general = unit.equipmentOptions.find((option) => option.kind === 'role' && /^General$/i.test(option.name))
+      const general = unit.equipmentOptions.find((option) => option.kind === 'role' && /^General$/i.test(option.sourceName || option.name))
       if (general) { general.default = true; general.locked = true }
     }
     unit.details = { ...unit.details, ...metadata, publication: metadata.publication || unit.details.publication }
     const paths = anchorMap(dom)
     unit.specialRules = await Promise.all(unit.specialRules.map(async (rule) => {
-      const path = matchingPath(paths, rule.name, rule.path)
-      const tone = specialRuleTone(rule.name)
+      const ruleSourceName = rule.sourceName || rule.name
+      const resolvedRule = resolveOwbRuleFromCatalog(ruleCatalog, ruleSourceName)
+      const path = resolvedRule?.path || matchingPath(paths, ruleSourceName, rule.path)
+      const tone = specialRuleTone(ruleSourceName)
       return enrichSpecialRule({ ...rule, path, tone, timing: phaseLabel(tone), keywords: [{ label: rule.name, path }] })
     }))
     unit.keywords = [
       { label: metadata.unitCategory || category, path: `/army/${dataKey}` },
       ...(metadata.troopType ? [{ label: metadata.troopType, path: '/troop-types-in-detail' }] : []),
     ]
-    unit.weapons = await Promise.all(unit.weapons.map((weapon) => enrichWeapon(weapon, paths)))
+    unit.weapons = await Promise.all(unit.weapons.map((weapon) => enrichWeapon(weapon, paths, ruleCatalog)))
     const optionalProfiles: NonNullable<PrototypeUnit['optionalProfiles']> = []
-    const profileOptions = unit.equipmentOptions.filter((candidate) => candidate.addsProfile || (candidate.kind === 'mount' && !/^On foot$/i.test(candidate.name)))
+    const profileOptions = unit.equipmentOptions.filter((candidate) => candidate.addsProfile || (candidate.kind === 'mount' && !/^On foot$/i.test(candidate.sourceName || candidate.name)))
     for (const option of profileOptions) {
       const profileName = option.addsProfile || option.name
+      const profileSourceName = option.sourceName || profileName
       if (option.kind === 'mount') {
         const noteModifiers = riderCharacteristicModifiers(option.note || '')
         if (Object.keys(noteModifiers).length) option.riderProfileModifiers = { ...(option.riderProfileModifiers || {}), ...noteModifiers }
       }
       try {
-        const optionalReference = await resolveUnitReference(slug(profileName), profileName, dataKey)
-        const row = optionalReference?.profiles.find((candidate) => normalizedProfileName(candidate.name).includes(normalizedProfileName(profileName))) || optionalReference?.profiles[0]
+        const resolvedProfile = resolveOwbRuleFromCatalog(ruleCatalog, profileSourceName)
+        const indexed = owbProfileRows(resolvedProfile?.entry, profileName)
+        const optionalReference = await resolveUnitReference(slug(profileSourceName), profileSourceName, dataKey, resolvedProfile?.path || '')
+        const row = indexed.find((candidate) => normalizedProfileName(candidate.name).includes(normalizedProfileName(profileSourceName))) || indexed[0] || optionalReference?.profiles.find((candidate) => normalizedProfileName(candidate.name).includes(normalizedProfileName(profileSourceName))) || optionalReference?.profiles[0]
         if (row && !optionalProfiles.some((existing) => existing.selectionId === option.id)) {
           const equipment: string[] = []
-          for (const label of [...(referenceEquipment(optionalReference!.dom) || []), ...(option.profileEquipment || [])]) if (!equipment.some((existing) => existing.toLowerCase() === label.toLowerCase())) equipment.push(label)
-          optionalProfiles.push({ selectionId: option.id, name: profileName, profile: row.profile, equipment })
+          const referencedRaw = rawUnitForResolvedReference(armyData, ruleCatalog, resolvedProfile?.path || '')
+          const rawEquipment = referencedRaw && Array.isArray(referencedRaw.equipment) ? referencedRaw.equipment.map((entry: RawBuilderItem) => text(entry)).filter(Boolean) : []
+          for (const label of [...(optionalReference ? referenceEquipment(optionalReference.dom) : []), ...rawEquipment, ...(option.profileEquipment || [])]) if (!equipment.some((existing) => existing.toLowerCase() === label.toLowerCase())) equipment.push(label)
+          optionalProfiles.push({ selectionId: option.id, name: profileName, sourceName: profileSourceName, profile: row.profile, equipment })
           if (option.kind === 'mount') {
             const mountText = optionalReference?.dom.body.textContent || ''
             const modifiers = riderCharacteristicModifiers(`${option.note || ''} ${mountText}`)
             if (Object.keys(modifiers).length) option.riderProfileModifiers = { ...(option.riderProfileModifiers || {}), ...modifiers }
+            if (referencedRaw?.specialRules) {
+              const sourceNames = splitOwbSourceList(text(referencedRaw.specialRules), ruleCatalog)
+              const displayNames = splitOwbSourceList(localizedSourceText(referencedRaw.specialRules) || text(referencedRaw.specialRules))
+              for (const [index, sourceName] of sourceNames.entries()) {
+                if (unit.specialRules.some((rule) => (rule.sourceName || rule.name).toLowerCase() === sourceName.toLowerCase() && rule.requiresSelection === option.id)) continue
+                const resolvedRule = resolveOwbRuleFromCatalog(ruleCatalog, sourceName)
+                const tone = specialRuleTone(sourceName)
+                unit.specialRules.push(await enrichSpecialRule({ name: displayNames[index] || sourceName, sourceName, path: resolvedRule?.path || '', timing: phaseLabel(tone), tone, summary: '', keywords: [], requiresSelection: option.id }))
+              }
+            }
           }
         }
       } catch (error) {

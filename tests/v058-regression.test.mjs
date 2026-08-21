@@ -62,7 +62,7 @@ test('v0.58 imports JSON rosters from Army Lists, builder, and Start New Match',
 test('v0.58 fixes nested option IDs and merges source-specific weapon rules site-wide', () => {
   assert.match(live, /const itemId = selectableId\(item, prefix\)/)
   assert.match(live, /walkOptions\(item\.options, `\$\{itemId\}-option`, childParent\)/)
-  assert.match(live, /rules: sourceRuleNames\(item\)/)
+  assert.match(live, /rules: sourceRuleNames\(item, catalog\)/)
   assert.match(live, /bomb\|grenade/)
   assert.match(reference, /\.\.\.\(weapon\.rules \|\| \[\]\), \.\.\.parsed\.referenceRules/)
   assert.doesNotMatch(live, /Cathayan Grand Cannon|Gunpowder bombs/)

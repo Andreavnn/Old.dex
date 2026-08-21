@@ -15,8 +15,10 @@ import { loadCompositionRules, type CompositionRuleCatalog } from '../services/a
 import { validateRoster } from '../services/rosterValidation'
 import { duplicateSavedArmyList, exportSavedArmyList, getSavedArmyList, importSavedArmyListJson, updateSavedArmyList, savedArmyListRoute } from '../services/savedLists'
 import { reportAppError } from '../services/appErrors'
+import { useLanguagePreference } from '../services/language'
 
 const route = useRoute()
+const { language } = useLanguagePreference()
 const router = useRouter()
 const requestedArmy = computed(() => String(route.query.army || ''))
 const selectedArmy = computed(() => getArmy(requestedArmy.value) || armies[0])
@@ -131,7 +133,7 @@ function loadRosterMetadata() {
 watch(builderPath, loadRosterMetadata)
 watch(savedListId, loadRosterMetadata)
 watch(() => selectedArmy.value.slug, () => { void loadCompositions() })
-watch(() => [selectedArmy.value.slug, selectedComposition.value.id], loadCatalog)
+watch(() => [selectedArmy.value.slug, selectedComposition.value.id, language.value], loadCatalog)
 watch(() => String(route.query.options || ''), () => applyCompositionEffectsToRoster())
 onMounted(() => {
   loadRosterMetadata()

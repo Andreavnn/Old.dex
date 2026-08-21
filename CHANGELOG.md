@@ -1,5 +1,15 @@
 # Old.dex Changelog
 
+## Alpha Build 0.63 — Old World Builder data-resolver rebuild and live source languages
+
+- Rebuilt Old.dex data identity around Old World Builder’s own rules-index-export, additional rule mappings, synonym table, and name-normalization logic instead of relying on guessed slugs as the primary resolver.
+- Moved unit and mount characteristic profiles to Old World Builder’s indexed stats first, with TOW page parsing retained only as secondary enrichment for metadata and full rule text.
+- Made weapon and special-rule paths resolve through the canonical Old World Builder map before TOW fetching, while retaining the existing incomplete-transport safeguards for pages whose browser-visible content is richer than the fetched HTML.
+- Replaced naive comma splitting in source rule/equipment interpretation with resolver-aware parsing so canonical names containing punctuation are preserved while compound source selections still separate correctly.
+- Expanded mount enrichment so a selected mount can inherit indexed profile data and referenced source-unit rules/equipment when those details are stored on the standalone model rather than repeated on the parent character option.
+- Added a whole-army resolver audit service that can enumerate unresolved units, mounts, weapons, and rules and report a resolution rate for future data-integrity regression checks.
+- Activated footer language preferences for live Builder-source data by reading the same localized name fields used by Old World Builder and reloading roster-builder, model-profile, and roster-view data when the language changes.
+
 ## Alpha Build 0.62 — Installable app, source-rule cleanup, and guided match setup
 
 - Added Progressive Web App installation support for phones, tablets, and desktop browsers, using the supplied Old.dex artwork for browser, home-screen, and installed-app icons.

@@ -2,21 +2,21 @@ import { ref, watch } from 'vue'
 
 export type OldDexLanguage = 'en' | 'de' | 'fr' | 'es' | 'it' | 'pl' | 'zh'
 
-export const languageOptions: Array<{ code: OldDexLanguage; label: string; short: string }> = [
-  { code: 'en', label: 'English', short: 'EN' },
-  { code: 'de', label: 'Deutsch', short: 'DE' },
-  { code: 'fr', label: 'Français', short: 'FR' },
-  { code: 'es', label: 'Español', short: 'ES' },
-  { code: 'it', label: 'Italiano', short: 'IT' },
-  { code: 'pl', label: 'Polski', short: 'PL' },
-  { code: 'zh', label: '中文', short: '中文' },
+export const languageOptions: Array<{ code: OldDexLanguage; label: string; short: string; sourceCode: string }> = [
+  { code: 'en', label: 'English', short: 'EN', sourceCode: 'en' },
+  { code: 'de', label: 'Deutsch', short: 'DE', sourceCode: 'de' },
+  { code: 'fr', label: 'Français', short: 'FR', sourceCode: 'fr' },
+  { code: 'es', label: 'Español', short: 'ES', sourceCode: 'es' },
+  { code: 'it', label: 'Italiano', short: 'IT', sourceCode: 'it' },
+  { code: 'pl', label: 'Polski', short: 'PL', sourceCode: 'pl' },
+  { code: 'zh', label: '中文', short: '中文', sourceCode: 'cn' },
 ]
 
-const KEY = 'olddex.language.v1'
+const KEY = 'olddex.language.v2'
 function initialLanguage(): OldDexLanguage {
   if (typeof window === 'undefined') return 'en'
   try {
-    const stored = window.localStorage.getItem(KEY) as OldDexLanguage | null
+    const stored = (window.localStorage.getItem(KEY) || window.localStorage.getItem('olddex.language.v1')) as OldDexLanguage | null
     return languageOptions.some((option) => option.code === stored) ? stored! : 'en'
   } catch { return 'en' }
 }
@@ -31,6 +31,19 @@ watch(language, (value) => {
     try { window.localStorage.setItem(KEY, value) } catch { /* storage may be unavailable */ }
   }
 }, { immediate: true })
+
+export function currentOldDexLanguage() { return language.value }
+export function sourceLanguageCode(value: OldDexLanguage = language.value) { return languageOptions.find((option) => option.code === value)?.sourceCode || 'en' }
+
+export function localizedSourceText(value: unknown, lang: OldDexLanguage = language.value) {
+  if (typeof value === 'string' || typeof value === 'number') return String(value).trim()
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+  const row = value as Record<string, unknown>
+  const code = sourceLanguageCode(lang)
+  const candidates = [row[`name_${code}`], row[`text_${code}`], row.name_en, row.text_en, row.name, row.text]
+  const found = candidates.find((candidate) => typeof candidate === 'string' || typeof candidate === 'number')
+  return found === undefined ? '' : String(found).trim()
+}
 
 export function useLanguagePreference() {
   return { language, languageOptions }

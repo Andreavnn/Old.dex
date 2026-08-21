@@ -74,7 +74,7 @@ test('v0.57 magical item picker stages changes, tabs item types, enforces afford
   assert.match(unit, /magicPickerCanSelect/)
   assert.match(unit, /function finishMagicPicker\(\)/)
   assert.match(unit, /function cancelMagicPicker\(\)/)
-  assert.match(unit, /fluff: String\(raw\.fluff_en/)
+  assert.match(unit, /localizedFluff[\s\S]*raw\.fluff_en[\s\S]*fluff: String\(localizedFluff\)/)
   assert.match(unit, /old-rule-fluff|fluff: detail\?\.fluff/)
 })
 

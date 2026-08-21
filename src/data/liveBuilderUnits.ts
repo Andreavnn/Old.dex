@@ -6,8 +6,12 @@ import { inferEquipmentOptionDependencies } from '../domain/optionDependencies'
 import { isRecord } from '../domain/schemas'
 import type { ArmyDataDocument, RawBuilderItem, RawBuilderUnit } from '../domain/rawArmyData'
 import { baseUnitSize, blankProfile, maximumModels, minimumModels, noteText, phaseLabel, slug, specialRuleTone, text } from '../domain/liveUnitShared'
+import { loadOwbRuleCatalog, owbStatsRows, resolveOwbRuleFromCatalog, splitOwbSourceList, type OwbRuleCatalog } from '../services/owbRuleResolver'
+import { localizedSourceText } from '../services/language'
 
 export type { RawBuilderUnit } from '../domain/rawArmyData'
+
+function displayText(value: unknown) { return localizedSourceText(value) || text(value) }
 
 const categoryMap: Record<string, BuilderCategory> = {
   characters: 'Characters', character: 'Characters', lords: 'Characters', lord: 'Characters', heroes: 'Characters', hero: 'Characters',
@@ -28,9 +32,49 @@ function compositionCategory(raw: RawBuilderUnit, compositionId: string, sourceK
   return categoryMap[sourceKey.toLowerCase()] || null
 }
 
-function baseSelectionPoints(raw: RawBuilderUnit) {
-  const base = Number(raw.points || 0)
-  return base * minimumModels(raw)
+function compositionRecord(raw: RawBuilderUnit, compositionId: string) {
+  const composition = raw.armyComposition
+  if (!compositionId || !isRecord(composition)) return null
+  const entry = composition[compositionId]
+  return isRecord(entry) ? entry : null
+}
+
+function sourceAppliesToComposition(item: RawBuilderItem, compositionId: string) {
+  const scope = item.armyComposition
+  if (!scope || !compositionId) return true
+  if (typeof scope === 'string') return scope === compositionId
+  if (Array.isArray(scope)) return scope.map(String).includes(compositionId)
+  if (isRecord(scope)) return Boolean(scope[compositionId])
+  return true
+}
+
+function compositionModelBounds(raw: RawBuilderUnit, compositionId: string) {
+  const entry = compositionRecord(raw, compositionId)
+  const entryMinimum = Number(entry?.minimum)
+  const entryMaximum = Number(entry?.maximum)
+  const minimum = Number.isFinite(entryMinimum) && entryMinimum > 0 ? entryMinimum : minimumModels(raw)
+  const maximum = Number.isFinite(entryMaximum) && entryMaximum > 0 ? entryMaximum : maximumModels(raw)
+  return { minimum, maximum }
+}
+
+function compositionPointsPerModel(raw: RawBuilderUnit, compositionId: string) {
+  const entry = compositionRecord(raw, compositionId)
+  const points = Number(entry?.points)
+  return Number.isFinite(points) && points >= 0 ? points : Number(raw.points || 0)
+}
+
+function compositionUnitSize(raw: RawBuilderUnit, compositionId: string) {
+  const { minimum, maximum } = compositionModelBounds(raw, compositionId)
+  if (minimum <= 1 && maximum === 1) return '1 model'
+  if (maximum && maximum === minimum) return `${minimum} models`
+  if (maximum && maximum > minimum) return `${minimum}–${maximum} models`
+  if (minimum > 0) return `${minimum}+ models`
+  return baseUnitSize(raw)
+}
+
+function baseSelectionPoints(raw: RawBuilderUnit, compositionId: string) {
+  const { minimum } = compositionModelBounds(raw, compositionId)
+  return compositionPointsPerModel(raw, compositionId) * minimum
 }
 
 function armourSaveFromName(name: string) {
@@ -59,20 +103,20 @@ function sourceRuleValue(item: RawBuilderItem | RawBuilderUnit) {
   return item?.specialRules ?? item?.special_rules ?? item?.rules ?? item?.rule ?? ''
 }
 
-function sourceRuleNames(item: RawBuilderItem | RawBuilderUnit) {
+function sourceRuleNames(item: RawBuilderItem | RawBuilderUnit, catalog?: OwbRuleCatalog) {
   const value = sourceRuleValue(item)
   const rows = Array.isArray(value) ? value : [value]
   const names: string[] = []
   for (const row of rows) {
     const valueText = text(row) || (typeof row === 'string' ? row : '')
-    for (const name of String(valueText || '').split(',').map((entry) => entry.trim()).filter(Boolean)) {
+    for (const name of splitOwbSourceList(String(valueText || ''), catalog)) {
       if (!names.some((existing) => existing.toLowerCase() === name.toLowerCase())) names.push(name)
     }
   }
   return names
 }
 
-function sourceRuleText(item: RawBuilderItem | RawBuilderUnit) { return sourceRuleNames(item).join(', ') }
+function sourceRuleText(item: RawBuilderItem | RawBuilderUnit, catalog?: OwbRuleCatalog) { return sourceRuleNames(item, catalog).join(', ') }
 
 function sourceIncluded(item: RawBuilderItem) { return Boolean(item?.active || item?.alwaysActive || item?.equippedDefault) }
 function sourceAlwaysIncluded(item: RawBuilderItem) { return Boolean(item?.alwaysActive) }
@@ -99,13 +143,14 @@ function selectableId(item: RawBuilderItem, prefix: string) {
   return String(item?.id || `${prefix}-${slug(name)}`)
 }
 
-function descriptorParts(name: string) {
-  return name.split(',').map((part) => part.trim()).filter(Boolean)
+function descriptorParts(name: string, catalog?: OwbRuleCatalog) {
+  return splitOwbSourceList(name, catalog)
 }
 
-function splitWeaponDescriptor(name: string) {
-  const parts = descriptorParts(name)
-  return { weaponParts: parts.filter(weaponLike), nonWeaponParts: parts.filter((part) => !weaponLike(part)) }
+function splitWeaponDescriptor(name: string, catalog?: OwbRuleCatalog) {
+  const parts = descriptorParts(name, catalog)
+  const isWeapon = (part: string) => resolveOwbRuleFromCatalog(catalog || { rules: {}, synonyms: {} }, part)?.path.startsWith('/weapons-of-war/') || weaponLike(part)
+  return { weaponParts: parts.filter(isWeapon), nonWeaponParts: parts.filter((part) => !isWeapon(part)) }
 }
 
 function mountedOnlyNote(value: unknown) {
@@ -122,22 +167,27 @@ function handWeaponExplicitlyExcluded(raw: RawBuilderUnit) {
   return /(?:does not|doesn't|do not|cannot|can't) (?:have|carry|use|count as having).*hand weapons?|(?:has|have) no hand weapons?|not equipped with (?:a )?hand weapons?/i.test(source)
 }
 
-function equipmentRows(raw: RawBuilderUnit): PrototypeWeapon[] {
+function equipmentRows(raw: RawBuilderUnit, catalog: OwbRuleCatalog, compositionId: string): PrototypeWeapon[] {
   const rows: PrototypeWeapon[] = []
   const seen = new Set<string>()
   const isHandWeapon = (name: string) => /^hand weapons?$/i.test(name.trim())
   const assumeHandWeapon = !handWeaponExplicitlyExcluded(raw)
   const mixedUnit = mixedArmamentRule(raw)
   const addWeapon = (item: RawBuilderItem, prefix: string, options: { fromOption?: boolean; parentId?: string; locked?: boolean; exclusiveGroup?: string; forceAllParts?: boolean } = {}) => {
+    if (!sourceAppliesToComposition(item, compositionId)) return
     const descriptor = text(item)
     if (!descriptor) return
-    const parsed = splitWeaponDescriptor(descriptor)
-    const weaponParts = options.forceAllParts ? descriptorParts(descriptor) : parsed.weaponParts
+    const displayDescriptor = displayText(item) || descriptor
+    const allParts = descriptorParts(descriptor, catalog)
+    const localizedParts = descriptorParts(displayDescriptor)
+    const displayForPart = (part: string) => { const index = allParts.indexOf(part); return index >= 0 ? (localizedParts[index] || part) : part }
+    const parsed = splitWeaponDescriptor(descriptor, catalog)
+    const weaponParts = options.forceAllParts ? allParts : parsed.weaponParts
     const nonWeaponParts = options.forceAllParts ? [] : parsed.nonWeaponParts
     if (!weaponParts.length) return
     const mixedOwner = Boolean(nonWeaponParts.length)
     const selfSelectionId = selectableId(item, prefix)
-    const visibleWeaponParts = weaponParts.filter((name) => !(options.fromOption && weaponParts.length > 1 && isHandWeapon(name) && rows.some((row) => isHandWeapon(row.name) && (row.default || row.locked))))
+    const visibleWeaponParts = weaponParts.filter((name) => !(options.fromOption && weaponParts.length > 1 && isHandWeapon(name) && rows.some((row) => isHandWeapon(row.sourceName || row.name) && (row.default || row.locked))))
     const firstUpgrade = visibleWeaponParts.findIndex((part) => !isHandWeapon(part))
     const costIndex = firstUpgrade >= 0 ? firstUpgrade : 0
     visibleWeaponParts.forEach((name, partIndex) => {
@@ -153,12 +203,13 @@ function equipmentRows(raw: RawBuilderUnit): PrototypeWeapon[] {
       seen.add(id)
       rows.push({
         id,
-        name,
+        name: displayForPart(name),
+        sourceName: name,
         kind,
         range: kind === 'missile' ? 'See rule' : 'Combat',
         strength: 'See rule',
         ap: 'See rule',
-        rules: sourceRuleNames(item),
+        rules: sourceRuleNames(item, catalog),
         points: mixedOwner || partIndex !== costIndex ? 0 : Number(item.points || 0),
         // Weapons that are intrinsic to an optional model/profile (for example an
         // Orc Bully's Whip) are conditional defaults: once that owner is selected
@@ -197,11 +248,13 @@ function equipmentRows(raw: RawBuilderUnit): PrototypeWeapon[] {
   }
   const walkOptions = (items: RawBuilderItem[], prefix: string, parentId?: string) => {
     for (const item of items) {
+      if (!sourceAppliesToComposition(item, compositionId)) continue
       const name = text(item)
       const itemId = selectableId(item, prefix)
       const choiceGroup = item?.exclusive ? `${parentId || prefix}-weapon-choice` : undefined
-      if (splitWeaponDescriptor(name).weaponParts.length) addWeapon(item, prefix, { fromOption: true, parentId, exclusiveGroup: choiceGroup })
-      const childParent = splitWeaponDescriptor(name).nonWeaponParts.length ? itemId : (weaponLike(name) ? itemId : (name ? itemId : parentId))
+      if (splitWeaponDescriptor(name, catalog).weaponParts.length) addWeapon(item, prefix, { fromOption: true, parentId, exclusiveGroup: choiceGroup })
+      const childDescriptor = splitWeaponDescriptor(name, catalog)
+      const childParent = childDescriptor.nonWeaponParts.length ? itemId : (childDescriptor.weaponParts.length ? itemId : (name ? itemId : parentId))
       if (Array.isArray(item.options)) walkOptions(item.options, `${itemId}-option`, childParent)
     }
   }
@@ -219,15 +272,17 @@ function equipmentRows(raw: RawBuilderUnit): PrototypeWeapon[] {
   }
   walkOptions(Array.isArray(raw.options) ? raw.options : [], 'option')
   for (const item of Array.isArray(raw.command) ? raw.command : []) {
+    if (!sourceAppliesToComposition(item, compositionId)) continue
     const parentId = selectableId(item, 'command')
     if (Array.isArray(item.options)) walkOptions(item.options, `${parentId}-option`, parentId)
   }
   for (const item of Array.isArray(raw.mounts) ? raw.mounts : []) {
+    if (!sourceAppliesToComposition(item, compositionId)) continue
     const parentId = `mount-${slug(text(item))}`
     if (Array.isArray(item.options)) walkOptions(item.options, `${parentId}-option`, parentId)
   }
   if (assumeHandWeapon) {
-    const persistentHandWeapon = rows.find((row) => isHandWeapon(row.name) && !row.requiresSelection)
+    const persistentHandWeapon = rows.find((row) => isHandWeapon(row.sourceName || row.name) && !row.requiresSelection)
     if (persistentHandWeapon) {
       persistentHandWeapon.default = true
       persistentHandWeapon.locked = true
@@ -237,7 +292,7 @@ function equipmentRows(raw: RawBuilderUnit): PrototypeWeapon[] {
       let id = 'hand-weapon'
       let index = 2
       while (seen.has(id)) id = `hand-weapon-${index++}`
-      rows.unshift({ id, name: 'Hand weapon', kind: 'melee', range: 'Combat', strength: 'S', ap: '—', rules: [], points: 0, default: true, locked: true, alwaysIncluded: true, selectionMode: 'unit-toggle', costMode: 'flat', path: '/weapons-of-war/hand-weapon' })
+      rows.unshift({ id, name: displayText({ name_en: 'Hand weapon' }) || 'Hand weapon', sourceName: 'Hand weapon', kind: 'melee', range: 'Combat', strength: 'S', ap: '—', rules: [], points: 0, default: true, locked: true, alwaysIncluded: true, selectionMode: 'unit-toggle', costMode: 'flat', path: '/weapons-of-war/hand-weapon' })
     }
   }
   return rows
@@ -263,7 +318,7 @@ function magicAllowanceFromValue(value: unknown) {
   return { maxPoints: Number(value.maxPoints || value.maximum || value.points || 0), types: allowed } as PrototypeUnit['magicAllowance']
 }
 
-function equipmentOptions(raw: RawBuilderUnit): PrototypeEquipmentOption[] {
+function equipmentOptions(raw: RawBuilderUnit, catalog: OwbRuleCatalog, compositionId: string): PrototypeEquipmentOption[] {
   const rows: PrototypeEquipmentOption[] = []
   const idCounts = new Map<string, number>()
   const uniqueId = (base: string) => {
@@ -272,20 +327,23 @@ function equipmentOptions(raw: RawBuilderUnit): PrototypeEquipmentOption[] {
     return count === 1 ? base : `${base}-${count}`
   }
   const add = (item: RawBuilderItem, kind: PrototypeEquipmentOption['kind'], prefix: string, extra: Partial<PrototypeEquipmentOption> = {}) => {
-    const name = text(item)
-    if (!name) return null
-    const requestedId = extra.id || String(item.id || `${prefix}-${slug(name)}`)
-    const notes = [noteText(item.notes), magicOptionNote(item)].filter(Boolean).join(' • ')
+    if (!sourceAppliesToComposition(item, compositionId)) return null
+    const sourceName = text(item)
+    if (!sourceName) return null
+    const name = displayText(item) || sourceName
+    const requestedId = extra.id || String(item.id || `${prefix}-${slug(sourceName)}`)
+    const notes = [localizedSourceText(item.notes) || noteText(item.notes), magicOptionNote(item)].filter(Boolean).join(' • ')
     const row: PrototypeEquipmentOption = {
       id: uniqueId(requestedId),
       name,
+      sourceName,
       points: Number(item.points || 0),
       default: extra.default ?? sourceIncluded(item),
       costMode: Boolean(item.perModel) ? 'per-model' : 'flat',
-      selectionMode: Boolean(item.stackable) && kind !== 'armour' && !/\b(?:armour|armor|shield)\b/i.test(name) && !unitWidePerModelRule(name) ? 'per-model-count' : 'unit-toggle',
-      allocationGroup: Boolean(item.stackable) && kind !== 'armour' && !/\b(?:armour|armor|shield)\b/i.test(name) && !unitWidePerModelRule(name) ? String(item.allocationGroup || item.group || `${prefix}-${slug(name)}`) : undefined,
+      selectionMode: Boolean(item.stackable) && kind !== 'armour' && !/\b(?:armour|armor|shield)\b/i.test(sourceName) && !unitWidePerModelRule(sourceName) ? 'per-model-count' : 'unit-toggle',
+      allocationGroup: Boolean(item.stackable) && kind !== 'armour' && !/\b(?:armour|armor|shield)\b/i.test(sourceName) && !unitWidePerModelRule(sourceName) ? String(item.allocationGroup || item.group || `${prefix}-${slug(sourceName)}`) : undefined,
       perModel: Boolean(item.perModel),
-      stackable: Boolean(item.stackable) && kind !== 'armour' && !/\b(?:armour|armor|shield)\b/i.test(name) && !unitWidePerModelRule(name),
+      stackable: Boolean(item.stackable) && kind !== 'armour' && !/\b(?:armour|armor|shield)\b/i.test(sourceName) && !unitWidePerModelRule(sourceName),
       minimum: Number(item.minimum || 0) > 0 ? Number(item.minimum) : undefined,
       maximum: Number(item.maximum || 0) > 0 ? Number(item.maximum) : undefined,
       rawId: item.id ? String(item.id) : undefined,
@@ -304,16 +362,17 @@ function equipmentOptions(raw: RawBuilderUnit): PrototypeEquipmentOption[] {
     // “Must choose Lore of Yang or Lore of Yin”) without changing the source
     // default/locked state of the selected option.
     if (row.exclusiveGroup && /^must choose\b.*\bor\b/i.test(String(row.note || '').trim())) row.note = ''
-    const ward = `${name} ${notes}`.match(/(?:Ward\s+save(?:\s+of)?\s*\(?\s*(2\+|3\+|4\+|5\+|6\+)\s*\)?|(2\+|3\+|4\+|5\+|6\+)\s+Ward\s+save)/i)
+    const ward = `${sourceName} ${noteText(item.notes)}`.match(/(?:Ward\s+save(?:\s+of)?\s*\(?\s*(2\+|3\+|4\+|5\+|6\+)\s*\)?|(2\+|3\+|4\+|5\+|6\+)\s+Ward\s+save)/i)
     if (ward) row.profileOverride = { ...(row.profileOverride || {}), Ward: ward[1] || ward[2] }
     rows.push(row)
     return row
   }
   const addChildren = (items: RawBuilderItem[], parentId: string, prefix: string, inheritedKind: PrototypeEquipmentOption['kind'] = 'special') => {
     for (const child of items) {
+      if (!sourceAppliesToComposition(child, compositionId)) continue
       const childName = text(child)
       if (!childName) continue
-      const childDescriptor = splitWeaponDescriptor(childName)
+      const childDescriptor = splitWeaponDescriptor(childName, catalog)
       if (childDescriptor.weaponParts.length && !childDescriptor.nonWeaponParts.length) continue
       const optionName = childDescriptor.nonWeaponParts.length ? childDescriptor.nonWeaponParts.join(', ') : childName
       const kind: PrototypeEquipmentOption['kind'] = /shield|armour|armor/i.test(optionName) ? 'equipment' : inheritedKind
@@ -340,7 +399,7 @@ function equipmentOptions(raw: RawBuilderUnit): PrototypeEquipmentOption[] {
   for (const item of Array.isArray(raw.options) ? raw.options : []) {
     const name = text(item)
     if (!name) continue
-    const descriptor = splitWeaponDescriptor(name)
+    const descriptor = splitWeaponDescriptor(name, catalog)
     if (descriptor.weaponParts.length && !descriptor.nonWeaponParts.length) continue
     const optionName = descriptor.nonWeaponParts.length ? descriptor.nonWeaponParts.join(', ') : name
     const mixedProfile = descriptor.weaponParts.length && descriptor.nonWeaponParts.length
@@ -362,15 +421,15 @@ function equipmentOptions(raw: RawBuilderUnit): PrototypeEquipmentOption[] {
   // an ordinary unchecked, unlocked upgrade.
   const startingWizardLevel = sourceWizardStartingLevel(raw)
   const wizardLevel = (value: string) => wizardLevelValue(value)
-  const wizardParents = rows.filter((option) => /^Wizard$/i.test(option.name.trim()))
+  const wizardParents = rows.filter((option) => /^Wizard$/i.test((option.sourceName || option.name).trim()))
   wizardParents.forEach((parent) => {
-    const levels = rows.filter((option) => option.requiresSelection === parent.id && wizardLevel(option.name) > 0).sort((a, b) => wizardLevel(a.name) - wizardLevel(b.name))
+    const levels = rows.filter((option) => option.requiresSelection === parent.id && wizardLevel(option.sourceName || option.name) > 0).sort((a, b) => wizardLevel(a.sourceName || a.name) - wizardLevel(b.sourceName || b.name))
     if (!levels.length) return
     const sourceLevel = levels.find((option) => option.default || option.locked)
     const parentIncluded = Boolean(parent.default || parent.locked || sourceLevel || (wizardParents.length === 1 && startingWizardLevel > 0))
     parent.default = parentIncluded
     parent.locked = parentIncluded
-    const includedLevel = parentIncluded ? (sourceLevel || levels.find((option) => wizardLevel(option.name) === startingWizardLevel) || levels[0]) : undefined
+    const includedLevel = parentIncluded ? (sourceLevel || levels.find((option) => wizardLevel(option.sourceName || option.name) === startingWizardLevel) || levels[0]) : undefined
     levels.forEach((option) => {
       option.exclusiveGroup = `${parent.id}-wizard-level`
       const included = Boolean(includedLevel && option.id === includedLevel.id)
@@ -379,11 +438,11 @@ function equipmentOptions(raw: RawBuilderUnit): PrototypeEquipmentOption[] {
       option.alwaysIncluded = false
     })
   })
-  const hasWizardParent = rows.some((option) => /^Wizard$/i.test(option.name.trim()))
+  const hasWizardParent = rows.some((option) => /^Wizard$/i.test((option.sourceName || option.name).trim()))
   if (!hasWizardParent) {
-    const directLevels = rows.filter((option) => wizardLevel(option.name) > 0).sort((a, b) => wizardLevel(a.name) - wizardLevel(b.name))
+    const directLevels = rows.filter((option) => wizardLevel(option.sourceName || option.name) > 0).sort((a, b) => wizardLevel(a.sourceName || a.name) - wizardLevel(b.sourceName || b.name))
     if (directLevels.length) {
-      const includedLevel = directLevels.find((option) => wizardLevel(option.name) === startingWizardLevel) || (startingWizardLevel > 0 ? directLevels[0] : undefined)
+      const includedLevel = directLevels.find((option) => wizardLevel(option.sourceName || option.name) === startingWizardLevel) || (startingWizardLevel > 0 ? directLevels[0] : undefined)
       directLevels.forEach((option) => {
         option.exclusiveGroup = 'wizard-level'
         const included = Boolean(includedLevel && option.id === includedLevel.id)
@@ -393,29 +452,33 @@ function equipmentOptions(raw: RawBuilderUnit): PrototypeEquipmentOption[] {
       })
     }
   }
-  return inferEquipmentOptionDependencies(rows, sourceRuleText(raw))
+  const inferred = inferEquipmentOptionDependencies(rows.map((row) => ({ ...row, name: row.sourceName || row.name })), sourceRuleText(raw, catalog))
+  return inferred.map((row, index) => ({ ...row, name: rows[index]?.name || row.name, sourceName: rows[index]?.sourceName || row.sourceName }))
 }
 
 
-function selectedSpecialRules(raw: RawBuilderUnit, options: PrototypeEquipmentOption[]) {
+function selectedSpecialRules(raw: RawBuilderUnit, options: PrototypeEquipmentOption[], catalog: OwbRuleCatalog, compositionId: string) {
   const rules: PrototypeUnit['specialRules'] = []
   const used = new Set<string>()
   const matchingOption = (name: string, kind?: PrototypeEquipmentOption['kind'], parentId?: string) => {
-    const row = options.find((option) => !used.has(option.id) && option.name === name && (!kind || option.kind === kind) && (!parentId || option.requiresSelection === parentId))
+    const row = options.find((option) => !used.has(option.id) && (option.sourceName || option.name) === name && (!kind || option.kind === kind) && (!parentId || option.requiresSelection === parentId))
     if (row) used.add(row.id)
     return row
   }
   const push = (value: unknown, selectionId: string) => {
-    const names = text(value).split(',').map((item) => item.trim()).filter(Boolean)
-    for (const name of names) {
-      if (/^(?:Level\s*\d+\s*Wizard|Wizard\s*Level\s*\d+|(?:The\s+)?Lore\s+of\b)/i.test(name)) continue
-      const tone = specialRuleTone(name)
-      const clean = name.replace(/\s*\([^)]*\)\s*$/, '')
-      rules.push({ name, path: `/special-rules/${slug(clean)}`, timing: phaseLabel(tone), tone, summary: '', keywords: [], requiresSelection: selectionId })
-    }
+    const names = splitOwbSourceList(text(value), catalog)
+    const displayNames = splitOwbSourceList(localizedSourceText(value) || text(value))
+    names.forEach((sourceName, index) => {
+      if (/^(?:Level\s*\d+\s*Wizard|Wizard\s*Level\s*\d+|(?:The\s+)?Lore\s+of\b)/i.test(sourceName)) return
+      const name = displayNames[index] || sourceName
+      const tone = specialRuleTone(sourceName)
+      const resolved = resolveOwbRuleFromCatalog(catalog, sourceName)
+      rules.push({ name, sourceName, path: resolved?.path || '', timing: phaseLabel(tone), tone, summary: '', keywords: [], requiresSelection: selectionId })
+    })
   }
   const walk = (items: RawBuilderItem[], parentId?: string, kind?: PrototypeEquipmentOption['kind']) => {
     for (const item of items) {
+      if (!sourceAppliesToComposition(item, compositionId)) continue
       const name = text(item)
       if (!name) continue
       let option: PrototypeEquipmentOption | undefined
@@ -424,7 +487,7 @@ function selectedSpecialRules(raw: RawBuilderUnit, options: PrototypeEquipmentOp
       if (option && itemRules) push(itemRules, option.id)
       if (option && /^Big [’']Uns$/i.test(name)) {
         const tone = specialRuleTone(name)
-        rules.push({ name, path: '/special-rules/big-uns', timing: phaseLabel(tone), tone, summary: '', keywords: [], requiresSelection: option.id })
+        rules.push({ name: displayText(item) || name, sourceName: name, path: '/special-rules/big-uns', timing: phaseLabel(tone), tone, summary: '', keywords: [], requiresSelection: option.id })
       }
       if (Array.isArray(item.options)) walk(item.options, option?.id || parentId, kind === 'mount' || kind === 'mount-option' ? 'mount-option' : undefined)
     }
@@ -436,8 +499,8 @@ function selectedSpecialRules(raw: RawBuilderUnit, options: PrototypeEquipmentOp
   return rules
 }
 
-function magicAllowance(raw: RawBuilderUnit) {
-  const item = (Array.isArray(raw.items) ? raw.items : []).find((candidate: RawBuilderItem) => /magic items/i.test(text(candidate)))
+function magicAllowance(raw: RawBuilderUnit, compositionId: string) {
+  const item = (Array.isArray(raw.items) ? raw.items : []).find((candidate: RawBuilderItem) => sourceAppliesToComposition(candidate, compositionId) && /magic items/i.test(text(candidate)))
   return item ? magicAllowanceFromValue({ types: item.types, maxPoints: item.maxPoints }) : undefined
 }
 
@@ -448,14 +511,15 @@ function spellLikeSpecialRules(raw: RawBuilderUnit) {
     const rows = Array.isArray(value) ? value : []
     for (const rawEntry of rows) {
       const entry = isRecord(rawEntry) ? rawEntry : null
-      const name = entry ? text(entry) : String(rawEntry || '').trim()
-      if (!name) continue
-      const key = name.toLowerCase()
+      const sourceName = entry ? text(entry) : String(rawEntry || '').trim()
+      const name = entry ? (displayText(entry) || sourceName) : sourceName
+      if (!sourceName) continue
+      const key = sourceName.toLowerCase()
       if (seen.has(key)) continue
       seen.add(key)
       const summary = entry ? noteText(entry.text_en || entry.text || entry.notes || entry.effect || entry.description) : ''
       const path = entry && typeof entry.path === 'string' && entry.path.startsWith('/') ? entry.path : '/magic/casting-spells'
-      rules.push({ name, path, timing: kind, tone: 'magic', summary, keywords: [{ label: kind, path: '/magic/casting-spells' }] })
+      rules.push({ name, sourceName, path, timing: kind, tone: 'magic', summary, keywords: [{ label: kind, path: '/magic/casting-spells' }] })
     }
   }
   push(raw.spells, 'Spell')
@@ -464,16 +528,21 @@ function spellLikeSpecialRules(raw: RawBuilderUnit) {
   return rules
 }
 
-function baseSpecialRules(raw: RawBuilderUnit) {
+function baseSpecialRules(raw: RawBuilderUnit, catalog: OwbRuleCatalog, compositionId: string) {
   // Wizard level and available-lore metadata are profile configuration, not
   // standalone special rules. The current Wizard level is rendered from the
   // selected option state in UnitView instead.
-  const names = sourceRuleText(raw).split(',').map((item) => item.trim()).filter(Boolean).filter((name) => !/^(?:Level\s*\d+\s*Wizard|Wizard\s*Level\s*\d+|(?:The\s+)?Lore\s+of\b)/i.test(name))
-  return names.map((name) => {
-    const tone = specialRuleTone(name)
+  const compositionRules = compositionRecord(raw, compositionId)?.specialRules
+  const ruleSource = compositionRules ?? sourceRuleValue(raw)
+  const names = splitOwbSourceList(text(ruleSource), catalog).filter((name) => !/^(?:Level\s*\d+\s*Wizard|Wizard\s*Level\s*\d+|(?:The\s+)?Lore\s+of\b)/i.test(name))
+  const localizedRuleSource = localizedSourceText(ruleSource) || text(ruleSource)
+  const displayNames = names.length === 1 ? [localizedRuleSource || names[0]] : splitOwbSourceList(localizedRuleSource)
+  return names.map((sourceName, index) => {
+    const tone = specialRuleTone(sourceName)
     return {
-      name,
-      path: `/special-rules/${slug(name.replace(/\s*\([^)]*\)\s*$/, ''))}`,
+      name: displayNames[index] || sourceName,
+      sourceName,
+      path: resolveOwbRuleFromCatalog(catalog, sourceName)?.path || '',
       timing: phaseLabel(tone),
       tone,
       summary: '',
@@ -538,6 +607,25 @@ function namedGeneralRequirement(raw: RawBuilderUnit, compositionId: string) {
   return false
 }
 
+function indexedProfileRows(catalog: OwbRuleCatalog, sourceName: string, displayName: string) {
+  const entry = resolveOwbRuleFromCatalog(catalog, sourceName)?.entry
+  const rows = owbStatsRows(entry).map((row) => {
+    const profile = blankProfile()
+    for (const key of ['M', 'WS', 'BS', 'S', 'T', 'W', 'I', 'A', 'Ld'] as const) {
+      const value = row[key]
+      if (value !== undefined && value !== null && String(value).trim()) profile[key] = String(value).trim()
+    }
+    const save = row.Sv ?? row.Save
+    const ward = row.Ward ?? row.Wd
+    const regen = row.Rn ?? row.Regen
+    if (save !== undefined && save !== null && String(save).trim()) profile.Sv = String(save).trim()
+    if (ward !== undefined && ward !== null && String(ward).trim()) profile.Ward = String(ward).trim()
+    if (regen !== undefined && regen !== null && String(regen).trim()) profile.Rn = String(regen).trim()
+    return { name: String(row.Name || displayName).trim() || displayName, profile }
+  }).filter((row) => Object.values(row.profile).some((value) => value !== '—'))
+  return { entry, rows }
+}
+
 function formatLoreName(value: string) {
   const words = String(value || '').trim().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').split(' ').filter(Boolean)
   return words.map((word, index) => {
@@ -547,42 +635,52 @@ function formatLoreName(value: string) {
   }).join(' ')
 }
 
-function makeCatalogUnit(raw: RawBuilderUnit, category: BuilderCategory, armyName: string, compositionId = ''): PrototypeUnit {
-  const options = equipmentOptions(raw)
-  const weapons = equipmentRows(raw)
+function makeCatalogUnit(raw: RawBuilderUnit, category: BuilderCategory, armyName: string, compositionId: string, catalog: OwbRuleCatalog): PrototypeUnit {
+  const options = equipmentOptions(raw, catalog, compositionId)
+  const weapons = equipmentRows(raw, catalog, compositionId)
+  const sourceName = text(raw) || String(raw.id)
+  const displayName = displayText(raw) || sourceName
+  const indexed = indexedProfileRows(catalog, sourceName, displayName)
   return {
     id: String(raw.id),
-    name: text(raw) || String(raw.id),
+    name: displayName,
+    sourceName,
     category,
-    points: baseSelectionPoints(raw),
-    unitSize: baseUnitSize(raw),
-    profile: blankProfile(),
+    points: baseSelectionPoints(raw, compositionId),
+    unitSize: compositionUnitSize(raw, compositionId),
+    profile: indexed.rows[0]?.profile || blankProfile(),
+    profiles: indexed.rows.length ? indexed.rows : undefined,
     weapons,
     equipmentOptions: options,
-    magicAllowance: magicAllowance(raw),
+    magicAllowance: magicAllowance(raw, compositionId),
     details: {
-      troopType: text(raw.troopType || raw.troop_type || raw.unitType || raw.type),
+      troopType: text(raw.troopType || raw.troop_type || raw.unitType || raw.type) || String(indexed.entry?.troopType || ''),
       baseSize: '',
-      publication: listPublication(raw, armyName),
+      publication: String(indexed.entry?.page || '') || listPublication(raw, armyName),
       army: armyName,
       unitCategory: category,
-      notes: noteText(raw.notes),
+      notes: localizedSourceText(raw.notes) || noteText(raw.notes),
     },
-    specialRules: [...baseSpecialRules(raw), ...selectedSpecialRules(raw, options), ...spellLikeSpecialRules(raw)],
+    specialRules: [...baseSpecialRules(raw, catalog, compositionId), ...selectedSpecialRules(raw, options, catalog, compositionId), ...spellLikeSpecialRules(raw)],
     keywords: [],
-    minimumModels: minimumModels(raw),
-    maximumModels: maximumModels(raw),
-    basePointsPerModel: Number(raw.points || 0),
+    minimumModels: compositionModelBounds(raw, compositionId).minimum,
+    maximumModels: compositionModelBounds(raw, compositionId).maximum,
+    basePointsPerModel: compositionPointsPerModel(raw, compositionId),
     named: Boolean(raw.named),
     mustBeGeneral: namedGeneralRequirement(raw, compositionId),
     cannotBeGeneral: /\bcannot be (?:your|the) general\b/i.test(noteText(raw.notes)),
-    compositionNotes: (() => { const composition = isRecord(raw.armyComposition) ? raw.armyComposition : null; const entry = composition?.[compositionId]; return isRecord(entry) ? [noteText(entry.notes)].filter(Boolean) : [] })(),
-    lores: [...new Set([
-      ...(Array.isArray(raw.lores) ? raw.lores : []),
-      ...(Array.isArray(raw.magicLores) ? raw.magicLores : []),
-      ...(Array.isArray(raw.prayerLores) ? raw.prayerLores : []),
-      ...(Array.isArray(raw.prayersLores) ? raw.prayersLores : []),
-    ].map((value: unknown) => formatLoreName(text(value))).filter(Boolean))],
+    compositionNotes: (() => { const entry = compositionRecord(raw, compositionId); return entry ? [localizedSourceText(entry.notes) || noteText(entry.notes)].filter(Boolean) : [] })(),
+    lores: (() => {
+      const entry = compositionRecord(raw, compositionId)
+      const scopedLores = Array.isArray(entry?.lores) ? entry.lores : null
+      const source = scopedLores || [
+        ...(Array.isArray(raw.lores) ? raw.lores : []),
+        ...(Array.isArray(raw.magicLores) ? raw.magicLores : []),
+        ...(Array.isArray(raw.prayerLores) ? raw.prayerLores : []),
+        ...(Array.isArray(raw.prayersLores) ? raw.prayersLores : []),
+      ]
+      return [...new Set(source.map((value: unknown) => formatLoreName(text(value))).filter(Boolean))]
+    })(),
     baseWizardLevel: sourceWizardStartingLevel(raw) || undefined,
     additionalDetails: additionalUnitDetails(raw),
     mixedWeaponAllocation: weapons.some((weapon) => weapon.selectionMode === 'per-model-count'),
@@ -648,7 +746,7 @@ export async function loadLiveArmyCompositions(dataKey: string, fallback: Array<
 }
 
 export async function loadLiveArmyCatalog(dataKey: string, armyName: string, compositionId: string) {
-  const data = await loadArmyData(dataKey) as ArmyDataDocument
+  const [data, ruleCatalog] = await Promise.all([loadArmyData(dataKey) as Promise<ArmyDataDocument>, loadOwbRuleCatalog()])
   const rows: PrototypeUnit[] = []
   for (const [sourceKey, value] of Object.entries(data)) {
     if (!Array.isArray(value)) continue
@@ -656,7 +754,7 @@ export async function loadLiveArmyCatalog(dataKey: string, armyName: string, com
       if (!raw?.id || !raw?.name_en) continue
       const category = compositionCategory(raw, compositionId, sourceKey)
       if (!category) continue
-      rows.push(makeCatalogUnit(raw, category, armyName, compositionId))
+      rows.push(makeCatalogUnit(raw, category, armyName, compositionId, ruleCatalog))
     }
   }
   const seen = new Set<string>()
@@ -677,6 +775,7 @@ type PreparedLiveUnitProfile = {
   raw: RawBuilderUnit
   category: BuilderCategory
   unit: PrototypeUnit
+  data: ArmyDataDocument
 }
 
 function clonePrototypeUnit(unit: PrototypeUnit): PrototypeUnit {
@@ -717,7 +816,7 @@ function clonePrototypeUnit(unit: PrototypeUnit): PrototypeUnit {
 }
 
 async function prepareLiveUnitProfile(dataKey: string, armyName: string, unitId: string, compositionId: string): Promise<PreparedLiveUnitProfile | null> {
-  const data = await loadArmyData(dataKey) as ArmyDataDocument
+  const [data, ruleCatalog] = await Promise.all([loadArmyData(dataKey) as Promise<ArmyDataDocument>, loadOwbRuleCatalog()])
   let raw: RawBuilderUnit | null = null
   let sourceKey = 'core'
   for (const [key, value] of Object.entries(data)) {
@@ -731,8 +830,8 @@ async function prepareLiveUnitProfile(dataKey: string, armyName: string, unitId:
   }
   if (!raw) return null
   const category = compositionCategory(raw, compositionId, sourceKey) || categoryMap[sourceKey] || 'Core'
-  const unit = makeCatalogUnit(raw, category, armyName, compositionId)
-  return { raw, category, unit }
+  const unit = makeCatalogUnit(raw, category, armyName, compositionId, ruleCatalog)
+  return { raw, category, unit, data }
 }
 
 export async function loadBaseLiveUnitProfile(dataKey: string, armyName: string, unitId: string, compositionId: string): Promise<PrototypeUnit | null> {
@@ -743,7 +842,7 @@ export async function loadBaseLiveUnitProfile(dataKey: string, armyName: string,
 export async function loadLiveUnitProfile(dataKey: string, armyName: string, unitId: string, compositionId: string): Promise<PrototypeUnit | null> {
   const prepared = await prepareLiveUnitProfile(dataKey, armyName, unitId, compositionId)
   if (!prepared) return null
-  const enriched = await enrichLiveUnitReference(clonePrototypeUnit(prepared.unit), prepared.raw, prepared.category, armyName, dataKey)
+  const enriched = await enrichLiveUnitReference(clonePrototypeUnit(prepared.unit), prepared.raw, prepared.category, armyName, dataKey, compositionId, prepared.data)
   return clonePrototypeUnit(enriched)
 }
 
@@ -758,7 +857,7 @@ export async function loadLiveUnitProfileProgressively(
   if (!prepared) return null
   const baseUnit = clonePrototypeUnit(prepared.unit)
   callbacks.onBase?.(clonePrototypeUnit(baseUnit))
-  const enriched = await enrichLiveUnitReference(clonePrototypeUnit(prepared.unit), prepared.raw, prepared.category, armyName, dataKey)
+  const enriched = await enrichLiveUnitReference(clonePrototypeUnit(prepared.unit), prepared.raw, prepared.category, armyName, dataKey, compositionId, prepared.data)
   const finalUnit = clonePrototypeUnit(enriched)
   callbacks.onEnriched?.(clonePrototypeUnit(finalUnit))
   return finalUnit

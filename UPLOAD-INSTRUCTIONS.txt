@@ -1,23 +1,22 @@
-Old.dex v0.62 direct-source upload — hidden patch refresh
+Old.dex v0.63 direct-source update
 
-Upload the CONTENTS of this folder to the root of Andreavnn/Old.dex on main,
-replacing matching paths and adding the new files/directories.
+Upload the CONTENTS of this package to the root of Andreavnn/Old.dex on main,
+replacing matching paths and adding new files/directories.
 
-This remains Alpha Build 0.62. No new changelog build entry is created for this refresh.
+Do not upload it as a nested Old.dex-v0.63-DIRECT-SOURCE folder.
 
-Do not upload it as a nested Old.dex-v0.62-DIRECT-SOURCE folder.
+This update changes the core data resolver. After deployment, perform a hard refresh
+(or fully close/reopen the installed PWA once) so the v0.63 service-worker cache is active.
 
-Repository cleanup workflow
----------------------------
-This package adds .github/workflows/repository-cleanup.yml.
-After it is uploaded:
-1. Open the Old.dex repository on GitHub.
-2. Open Actions.
-3. Choose "Repository cleanup".
-4. Choose "Run workflow" with apply_changes OFF first. This is a dry run.
-5. Review the proposed file removals in the workflow log.
-6. If they are correct, run it again with apply_changes ON to commit the cleanup.
+The package updates the Repository cleanup workflow default so
+ODX_V063_VERIFICATION.txt is treated as the current verification file.
 
-The workflow is intentionally limited to old generated verification/upload archives
-and preview artifacts at repository root. It does not remove src/, public/, tests/,
-package files, README.md, CHANGELOG.md, or the current verification file.
+Primary v0.63 data changes
+--------------------------
+- Old World Builder army JSON remains the structured roster source.
+- OWB rules-index-export.json + rules-map.js additions/synonyms are now the canonical identity resolver.
+- OWB indexed stats are preferred for unit and mount profiles.
+- TOW page fetching is secondary detail enrichment rather than the primary identity guesser.
+- Source parsing is resolver-aware so punctuation inside canonical names is preserved.
+- Footer language choices now select OWB localized source fields for live roster/profile data.
+- A whole-army resolver audit service is included for future completeness checks.

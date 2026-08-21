@@ -1,13 +1,19 @@
 /**
- * Parses the data-only subset of JavaScript object literals used by the upstream
- * Builder rules file. It deliberately rejects expressions, functions, spread,
- * template interpolation and executable identifiers.
+ * Parses the data-only JavaScript object/array literals published by Old World
+ * Builder without executing remote source code. The supported grammar covers
+ * JSON plus the small conveniences used in OWB data modules: quoted or bare
+ * object keys, single/double/backtick strings (without interpolation), trailing
+ * commas, line/block comments, and the primitive identifiers true/false/null.
  */
 export function parseDataLiteral(source: string): unknown {
   let index = 0
 
-  const fail = (message: string): never => { throw new Error(`${message} at offset ${index}.`) }
-  const peek = () => source[index]
+  const error = (message: string): never => {
+    const start = Math.max(0, index - 24)
+    const end = Math.min(source.length, index + 24)
+    throw new Error(`${message} near '${source.slice(start, end).replace(/\s+/g, ' ')}'.`)
+  }
+
   const skip = () => {
     while (index < source.length) {
       if (/\s/.test(source[index])) { index += 1; continue }
@@ -18,9 +24,9 @@ export function parseDataLiteral(source: string): unknown {
       }
       if (source[index] === '/' && source[index + 1] === '*') {
         index += 2
-        while (index < source.length && !(source[index] === '*' && source[index + 1] === '/')) index += 1
-        if (index >= source.length) fail('Unterminated comment')
-        index += 2
+        const end = source.indexOf('*/', index)
+        if (end < 0) error('Unterminated block comment')
+        index = end + 2
         continue
       }
       break
@@ -29,43 +35,58 @@ export function parseDataLiteral(source: string): unknown {
 
   const parseString = () => {
     const quote = source[index++]
-    if (quote === '`') fail('Template literals are not allowed')
-    let out = ''
+    let value = ''
     while (index < source.length) {
       const char = source[index++]
-      if (char === quote) return out
-      if (char !== '\\') { out += char; continue }
-      if (index >= source.length) fail('Unterminated string escape')
-      const escaped = source[index++]
-      const table: Record<string, string> = { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v', '0': '\0' }
-      if (escaped === 'u') {
-        const hex = source.slice(index, index + 4)
-        if (!/^[0-9a-f]{4}$/i.test(hex)) fail('Invalid unicode escape')
-        out += String.fromCharCode(Number.parseInt(hex, 16)); index += 4; continue
+      if (char === quote) return value
+      if (char === '\\') {
+        if (index >= source.length) error('Unterminated string escape')
+        const escaped = source[index++]
+        const simple: Record<string, string> = { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v', '0': '\0', '\\': '\\', "'": "'", '"': '"', '`': '`' }
+        if (escaped in simple) { value += simple[escaped]; continue }
+        if (escaped === 'x') {
+          const hex = source.slice(index, index + 2)
+          if (!/^[0-9a-f]{2}$/i.test(hex)) error('Invalid hexadecimal string escape')
+          value += String.fromCharCode(Number.parseInt(hex, 16)); index += 2; continue
+        }
+        if (escaped === 'u') {
+          if (source[index] === '{') {
+            const close = source.indexOf('}', index + 1)
+            if (close < 0) error('Invalid Unicode string escape')
+            const hex = source.slice(index + 1, close)
+            if (!/^[0-9a-f]{1,6}$/i.test(hex)) error('Invalid Unicode code point')
+            value += String.fromCodePoint(Number.parseInt(hex, 16)); index = close + 1; continue
+          }
+          const hex = source.slice(index, index + 4)
+          if (!/^[0-9a-f]{4}$/i.test(hex)) error('Invalid Unicode string escape')
+          value += String.fromCharCode(Number.parseInt(hex, 16)); index += 4; continue
+        }
+        // JavaScript permits escaping otherwise ordinary characters. Preserve
+        // the character rather than evaluating anything.
+        value += escaped
+        continue
       }
-      if (escaped === 'x') {
-        const hex = source.slice(index, index + 2)
-        if (!/^[0-9a-f]{2}$/i.test(hex)) fail('Invalid hex escape')
-        out += String.fromCharCode(Number.parseInt(hex, 16)); index += 2; continue
-      }
-      out += table[escaped] ?? escaped
+      if (quote === '`' && char === '$' && source[index] === '{') error('Template interpolation is not allowed in data literals')
+      value += char
     }
-    return fail('Unterminated string')
+    return error('Unterminated string')
   }
 
   const parseIdentifier = () => {
-    const match = source.slice(index).match(/^[A-Za-z_$][\w$-]*/)
-    if (!match) return fail('Expected identifier')
-    index += match[0].length
-    return match[0]
+    const start = index
+    if (!/[A-Za-z_$]/.test(source[index] || '')) error('Expected identifier')
+    index += 1
+    while (/[A-Za-z0-9_$-]/.test(source[index] || '')) index += 1
+    return source.slice(start, index)
   }
 
   const parseNumber = () => {
-    const match = source.slice(index).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/)
-    if (!match) return fail('Invalid number')
+    const match = source.slice(index).match(/^[+-]?(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)/)
+    if (!match) error('Invalid number')
     index += match[0].length
-    const value = Number(match[0])
-    if (!Number.isFinite(value)) return fail('Non-finite numbers are not allowed')
+    const raw = match[0]
+    const value = /^[-+]?0[xX]/.test(raw) ? Number.parseInt(raw, 16) : /^[-+]?0[bB]/.test(raw) ? Number.parseInt(raw.replace(/^[+-]?0[bB]/, ''), 2) : /^[-+]?0[oO]/.test(raw) ? Number.parseInt(raw.replace(/^[+-]?0[oO]/, ''), 8) : Number(raw)
+    if (!Number.isFinite(value)) error('Non-finite number is not allowed')
     return value
   }
 
@@ -73,56 +94,61 @@ export function parseDataLiteral(source: string): unknown {
     index += 1
     const rows: unknown[] = []
     skip()
-    if (peek() === ']') { index += 1; return rows }
+    if (source[index] === ']') { index += 1; return rows }
     while (index < source.length) {
       rows.push(parseValue())
       skip()
-      if (peek() === ']') { index += 1; return rows }
-      if (peek() !== ',') fail('Expected comma in array')
-      index += 1; skip()
-      if (peek() === ']') { index += 1; return rows }
+      if (source[index] === ']') { index += 1; return rows }
+      if (source[index] !== ',') error("Expected ',' or ']' in array")
+      index += 1
+      skip()
+      if (source[index] === ']') { index += 1; return rows }
     }
-    return fail('Unterminated array')
+    return error('Unterminated array')
   }
 
   const parseObject = (): Record<string, unknown> => {
     index += 1
     const row: Record<string, unknown> = {}
     skip()
-    if (peek() === '}') { index += 1; return row }
+    if (source[index] === '}') { index += 1; return row }
     while (index < source.length) {
       skip()
-      const char = peek()
-      const key = char === '"' || char === "'" ? parseString() : parseIdentifier()
+      const key = source[index] === '"' || source[index] === "'" || source[index] === '`' ? parseString() : parseIdentifier()
       skip()
-      if (peek() !== ':') fail('Expected colon in object')
+      if (source[index] !== ':') error("Expected ':' after object key")
       index += 1
       row[key] = parseValue()
       skip()
-      if (peek() === '}') { index += 1; return row }
-      if (peek() !== ',') fail('Expected comma in object')
-      index += 1; skip()
-      if (peek() === '}') { index += 1; return row }
+      if (source[index] === '}') { index += 1; return row }
+      if (source[index] !== ',') error("Expected ',' or '}' in object")
+      index += 1
+      skip()
+      if (source[index] === '}') { index += 1; return row }
     }
-    return fail('Unterminated object')
+    return error('Unterminated object')
   }
 
   const parseValue = (): unknown => {
     skip()
-    const char = peek()
+    const char = source[index]
     if (char === '{') return parseObject()
     if (char === '[') return parseArray()
     if (char === '"' || char === "'" || char === '`') return parseString()
-    if (char === '-' || /\d/.test(char || '')) return parseNumber()
-    const identifier = parseIdentifier()
-    if (identifier === 'true') return true
-    if (identifier === 'false') return false
-    if (identifier === 'null') return null
-    return fail(`Executable identifier '${identifier}' is not allowed`)
+    if (/[+\-.0-9]/.test(char || '')) return parseNumber()
+    if (/[A-Za-z_$]/.test(char || '')) {
+      const identifier = parseIdentifier()
+      if (identifier === 'true') return true
+      if (identifier === 'false') return false
+      if (identifier === 'null') return null
+      if (identifier === 'undefined') return undefined
+      error(`Unsupported identifier '${identifier}'`)
+    }
+    return error('Expected data value')
   }
 
   const result = parseValue()
   skip()
-  if (index !== source.length) fail('Unexpected trailing input')
+  if (index !== source.length) error('Unexpected trailing content')
   return result
 }

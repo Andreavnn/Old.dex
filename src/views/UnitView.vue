@@ -29,8 +29,10 @@ import { equipmentRequirementsMet, normalizeUnitSelections, selectExclusiveEquip
 import { applyProfileEffects, incrementCharacteristic, isMountProfileName, normalizedModelName } from '../domain/profileEffects'
 import { ruleDisplayName } from '../domain/rulePresentation'
 import { reportAppError } from '../services/appErrors'
+import { localizedSourceText, useLanguagePreference } from '../services/language'
 
 const route = useRoute()
+const { language } = useLanguagePreference()
 const army = computed(() => getArmy(String(route.params.armySlug)))
 const unitId = computed(() => String(route.params.unitSlug || ''))
 const liveUnit = ref<PrototypeUnit | null>(null)
@@ -126,7 +128,7 @@ async function loadLiveUnit() {
     if (token === liveLoadToken) liveLoading.value = false
   }
 }
-watch(() => [army.value?.slug, unitId.value, compositionId.value], () => {
+watch(() => [army.value?.slug, unitId.value, compositionId.value, language.value], () => {
   favourite.value = army.value ? isFavoriteUnit(army.value.slug, unitId.value) : false
   void loadLiveUnit()
 }, { immediate: true })
@@ -134,7 +136,7 @@ watch(() => [army.value?.slug, unitId.value, compositionId.value], () => {
 const selectedWeaponIds = ref(new Set<string>())
 const selectedEquipmentIds = ref(new Set<string>())
 
-type MagicItem = { id: string; baseId: string; ownerId: string; ownerLabel: string; poolMaxPoints: number; name: string; points: number; type: 'weapon' | 'armor' | 'talisman' | 'enchanted-item' | 'arcane-item' | 'banner'; source: string; stackable: boolean; maximum?: number; onePerArmy: boolean; slug: string; fluff?: string }
+type MagicItem = { id: string; baseId: string; ownerId: string; ownerLabel: string; poolMaxPoints: number; name: string; sourceName: string; points: number; type: 'weapon' | 'armor' | 'talisman' | 'enchanted-item' | 'arcane-item' | 'banner'; source: string; stackable: boolean; maximum?: number; onePerArmy: boolean; slug: string; fluff?: string }
 type MagicItemDetail = { kind?: 'melee' | 'missile'; range?: string; strength?: string; ap?: string; rules?: string[]; summary?: string; fluff?: string; profileOverride?: Partial<Record<ProfileKey, string>>; shield?: boolean }
 
 const magicItems = ref<MagicItem[]>([])
@@ -150,17 +152,20 @@ const magicPickerCounts = ref(new Map<string, number>())
 const magicPickerExpanded = ref(new Set<string>())
 
 function selectionHas(id: string) { return selectedEquipmentIds.value.has(id) || selectedWeaponIds.value.has(id) }
-function isWizardParentOption(option: PrototypeEquipmentOption) { return /^Wizard$/i.test(String(option.name || '').trim()) }
-function isWizardLevelOption(option: PrototypeEquipmentOption) { return wizardLevelFromName(option.name) > 0 }
-function isLoreEquipmentOption(option: PrototypeEquipmentOption) { return /^(?:The\s+)?Lore\s+of\b/i.test(String(option.name || '').trim()) }
-function isWizardMagicEquipmentOption(option: PrototypeEquipmentOption) { return isLoreEquipmentOption(option) || /\b(?:spell|prayer|wizard)\b/i.test(String(option.name || '').trim()) }
+function canonicalOptionName(option: PrototypeEquipmentOption) { return option.sourceName || option.name }
+function canonicalWeaponName(weapon: PrototypeWeapon) { return weapon.sourceName || weapon.name }
+function canonicalRuleName(rule: PrototypeUnit['specialRules'][number]) { return rule.sourceName || rule.name }
+function isWizardParentOption(option: PrototypeEquipmentOption) { return /^Wizard$/i.test(String(canonicalOptionName(option) || '').trim()) }
+function isWizardLevelOption(option: PrototypeEquipmentOption) { return wizardLevelFromName(canonicalOptionName(option)) > 0 }
+function isLoreEquipmentOption(option: PrototypeEquipmentOption) { return /^(?:The\s+)?Lore\s+of\b/i.test(String(canonicalOptionName(option) || '').trim()) }
+function isWizardMagicEquipmentOption(option: PrototypeEquipmentOption) { return isLoreEquipmentOption(option) || /\b(?:spell|prayer|wizard)\b/i.test(String(canonicalOptionName(option) || '').trim()) }
 function formatHandWeaponCountLabel(value: string) {
   const text = String(value || '').trim()
   const match = text.match(/^Hand weapons?\s*(?:[×x]\s*)?\(?\s*(\d+)\s*\)?$/i)
   return match ? `${Number(match[1])} – (Hand Weapon)` : text
 }
 function displayOptionName(option: PrototypeEquipmentOption) {
-  const level = wizardLevelFromName(option.name)
+  const level = wizardLevelFromName(canonicalOptionName(option))
   return level ? `Wizard Level ${level}` : formatHandWeaponCountLabel(option.name)
 }
 
@@ -174,21 +179,21 @@ const otherGeneralName = computed(() => {
 })
 function contextualOptionName(option: PrototypeEquipmentOption) {
   const label = displayOptionName(option)
-  if (!/^General$/i.test(option.name.trim()) || selectedEquipmentIds.value.has(option.id) || !otherGeneralName.value) return label
+  if (!/^General$/i.test(canonicalOptionName(option).trim()) || selectedEquipmentIds.value.has(option.id) || !otherGeneralName.value) return label
   return `${label} - ${otherGeneralName.value}`
 }
 function showOtherGeneralCurrent(option: PrototypeEquipmentOption) {
-  return /^General$/i.test(option.name.trim()) && !selectedEquipmentIds.value.has(option.id) && Boolean(otherGeneralName.value)
+  return /^General$/i.test(canonicalOptionName(option).trim()) && !selectedEquipmentIds.value.has(option.id) && Boolean(otherGeneralName.value)
 }
 
-const wizardLevelOptions = computed(() => (prototypeUnit.value?.equipmentOptions || []).filter(isWizardLevelOption).sort((a, b) => wizardLevelFromName(a.name) - wizardLevelFromName(b.name)))
+const wizardLevelOptions = computed(() => (prototypeUnit.value?.equipmentOptions || []).filter(isWizardLevelOption).sort((a, b) => wizardLevelFromName(canonicalOptionName(a)) - wizardLevelFromName(canonicalOptionName(b))))
 const startingWizardLevel = computed(() => {
   const configured = Math.max(0, Number(prototypeUnit.value?.baseWizardLevel || 0))
-  if (configured && wizardLevelOptions.value.some((option) => wizardLevelFromName(option.name) === configured)) return configured
+  if (configured && wizardLevelOptions.value.some((option) => wizardLevelFromName(canonicalOptionName(option)) === configured)) return configured
   const included = wizardLevelOptions.value.find((option) => option.default || option.locked)
-  return included ? wizardLevelFromName(included.name) : 0
+  return included ? wizardLevelFromName(canonicalOptionName(included)) : 0
 })
-function wizardLevelGroup(option: PrototypeEquipmentOption) { return wizardLevelGroupId(option) }
+function wizardLevelGroup(option: PrototypeEquipmentOption) { return wizardLevelGroupId({ ...option, name: canonicalOptionName(option) }) }
 
 function isStartingWizardLevelOption(option: PrototypeEquipmentOption) {
   return isWizardLevelOption(option) && Boolean(option.default && option.locked)
@@ -220,10 +225,10 @@ async function resetSelections() {
   // into a saved exclusive group (that was re-selecting the starting Wizard
   // level beside a purchased higher level). normalizeSelections() restores any
   // included default that is not legitimately displaced by a saved alternative.
-  selectedWeaponIds.value = new Set(saved?.weaponIds?.length ? savedWeaponIds : unit.weapons.filter((weapon) => defaultWeapons.includes(weapon.id) || saved?.options?.includes(weapon.name)).map((weapon) => weapon.id))
+  selectedWeaponIds.value = new Set(saved?.weaponIds?.length ? savedWeaponIds : unit.weapons.filter((weapon) => defaultWeapons.includes(weapon.id) || (saved?.options?.includes(weapon.name) || saved?.options?.includes(canonicalWeaponName(weapon)))).map((weapon) => weapon.id))
   const knownEquipmentIds = new Set(unit.equipmentOptions.map((option) => option.id))
   const savedEquipmentIds = (saved?.equipmentIds || []).filter((id) => knownEquipmentIds.has(id))
-  selectedEquipmentIds.value = new Set(saved?.equipmentIds?.length ? savedEquipmentIds : unit.equipmentOptions.filter((option) => defaultEquipment.includes(option.id) || saved?.options?.includes(option.name)).map((option) => option.id))
+  selectedEquipmentIds.value = new Set(saved?.equipmentIds?.length ? savedEquipmentIds : unit.equipmentOptions.filter((option) => defaultEquipment.includes(option.id) || (saved?.options?.includes(option.name) || saved?.options?.includes(canonicalOptionName(option)))).map((option) => option.id))
   if (!saved?.equipmentCounts) unit.equipmentOptions.filter((option) => isPerModelEquipmentSelection(option) && selectedEquipmentIds.value.has(option.id)).forEach((option) => equipmentCounts.value.set(option.id, modelCount.value))
   normalizeEquipmentCounts()
   if (!saved?.weaponCounts) {
@@ -268,10 +273,10 @@ const selectedEquipment = computed(() => prototypeUnit.value?.equipmentOptions.f
 type MagicPool = { id: string; label: string; maxPoints: number; types: MagicItem['type'][] }
 const wizardLevel = computed(() => {
   const unit = prototypeUnit.value
-  const levels = selectedEquipment.value.map((option) => wizardLevelFromName(option.name)).filter((level) => level > 0)
+  const levels = selectedEquipment.value.map((option) => wizardLevelFromName(canonicalOptionName(option))).filter((level) => level > 0)
   const normal = levels.length ? Math.max(...levels) : selectedEquipment.value.some(isWizardParentOption) ? Math.max(1, Number(unit?.baseWizardLevel || 0)) : Math.max(0, Number(unit?.baseWizardLevel || 0))
   if (!magicalMaelstromEnabled.value || normal <= 0 || !unit) return normal
-  return magicalMaelstromWizardLevel(unit.equipmentOptions, normal)
+  return magicalMaelstromWizardLevel(unit.equipmentOptions.map((option) => ({ ...option, name: canonicalOptionName(option) })), normal)
 })
 const isWizard = computed(() => wizardLevel.value > 0)
 function legalMagicTypes(types: MagicItem['type'][], owner?: PrototypeEquipmentOption) {
@@ -349,7 +354,7 @@ function weaponIsOptionalChoice(weapon: PrototypeWeapon) { return prototypeUnit.
 const baseMeleeWeapons = computed(() => prototypeUnit.value?.weapons.filter((weapon) => weapon.kind === 'melee' && weaponOwnerAvailable(weapon) && weaponIsEquipped(weapon)) || [])
 const baseRangedWeapons = computed(() => prototypeUnit.value?.weapons.filter((weapon) => weapon.kind === 'missile' && weaponOwnerAvailable(weapon) && weaponIsEquipped(weapon)) || [])
 type WeaponRow = { source: 'base' | 'magic'; weapon: PrototypeWeapon }
-function weaponDisplayKey(weapon: PrototypeWeapon) { return weapon.name.toLowerCase().replace(/\bweapons\b/g, 'weapon').replace(/\s+/g, ' ').trim() }
+function weaponDisplayKey(weapon: PrototypeWeapon) { return canonicalWeaponName(weapon).toLowerCase().replace(/\bweapons\b/g, 'weapon').replace(/\s+/g, ' ').trim() }
 function dedupeWeaponRows(rows: WeaponRow[]) {
   const map = new Map<string, WeaponRow>()
   rows.forEach((row) => {
@@ -393,9 +398,9 @@ function weaponBaseApMagnitude(weapon: PrototypeWeapon) {
 }
 function externalWeaponApBonus(row: WeaponRow) {
   const weapon = row.weapon
-  let bonus = activeSpecialRules.value.reduce((sum, rule) => sum + armourBaneValue(rule.name), 0)
-  if (row.source === 'base' && weapon.kind === 'melee' && activeSpecialRules.value.some((rule) => /^Choppas(?:\s|$)/i.test(rule.name))) bonus += 1
-  if (row.source === 'base' && /^Hand weapons?$/i.test(weapon.name.trim()) && activeSpecialRules.value.some((rule) => /^Ensorcelled Weapons?(?:\s|$)/i.test(rule.name))) bonus = Math.max(bonus, 1)
+  let bonus = activeSpecialRules.value.reduce((sum, rule) => sum + armourBaneValue(canonicalRuleName(rule)), 0)
+  if (row.source === 'base' && weapon.kind === 'melee' && activeSpecialRules.value.some((rule) => /^Choppas(?:\s|$)/i.test(canonicalRuleName(rule)))) bonus += 1
+  if (row.source === 'base' && /^Hand weapons?$/i.test(canonicalWeaponName(weapon).trim()) && activeSpecialRules.value.some((rule) => /^Ensorcelled Weapons?(?:\s|$)/i.test(canonicalRuleName(rule)))) bonus = Math.max(bonus, 1)
   return bonus
 }
 function weaponApDisplay(row: WeaponRow) {
@@ -414,7 +419,7 @@ function mundaneWeaponSuperseded(_weapon: PrototypeWeapon) { return false }
 function mundaneEquipmentSuperseded(_option: PrototypeEquipmentOption) { return false }
 function applyMagicSupersession() { normalizeSelections() }
 
-const selectedMountOption = computed(() => selectedEquipment.value.find((option) => option.kind === 'mount' && !/^On foot$/i.test(option.name)))
+const selectedMountOption = computed(() => selectedEquipment.value.find((option) => option.kind === 'mount' && !/^On foot$/i.test(canonicalOptionName(option))))
 const isMounted = computed(() => {
   const troopType = prototypeUnit.value?.details.troopType || ''
   return Boolean(selectedMountOption.value) || /cavalry|chariot/i.test(troopType)
@@ -448,11 +453,11 @@ const equipmentGroups = computed(() => {
 })
 const loreEquipmentOptions = computed(() => availableEquipmentOptions.value.filter(isLoreEquipmentOption))
 const wizardMagicEquipmentOptions = computed(() => availableEquipmentOptions.value.filter((option) => isWizardMagicEquipmentOption(option) && !isLoreEquipmentOption(option) && !isWizardLevelOption(option)))
-const loreChoices = computed(() => [...new Set((prototypeUnit.value?.lores || []).map((lore) => String(lore).trim()).filter(Boolean))].filter((lore) => !loreEquipmentOptions.value.some((option) => formatLoreName(option.name) === formatLoreName(lore))))
+const loreChoices = computed(() => [...new Set((prototypeUnit.value?.lores || []).map((lore) => String(lore).trim()).filter(Boolean))].filter((lore) => !loreEquipmentOptions.value.some((option) => formatLoreName(canonicalOptionName(option)) === formatLoreName(lore))))
 const isPrayerCaster = computed(() => {
   const unit = prototypeUnit.value
   if (!unit) return false
-  const source = [unit.name, ...unit.specialRules.map((rule) => rule.name), ...loreChoices.value].join(' ')
+  const source = [unit.sourceName || unit.name, ...unit.specialRules.map(canonicalRuleName), ...loreChoices.value].join(' ')
   return /\b(?:priest|prayer|prayers|blessing|blessings)\b/i.test(source)
 })
 const showWizardLoreGroup = computed(() => wizardLevelOptions.value.length > 0 || loreEquipmentOptions.value.length > 0 || wizardMagicEquipmentOptions.value.length > 0 || loreChoices.value.length > 0)
@@ -492,7 +497,7 @@ watch([isWizard, isPrayerCaster], ([wizard, priest]) => {
   if (!wizard && !priest && selectedLores.value.size) selectedLores.value = new Set()
 })
 
-const bigUnsSelected = computed(() => selectedEquipment.value.some((option) => /^Big [’']Uns$/i.test(option.name)))
+const bigUnsSelected = computed(() => selectedEquipment.value.some((option) => /^Big [’']Uns$/i.test(canonicalOptionName(option))))
 function magicProfileOverridesFor(profileName: string) {
   const override: Partial<Record<ProfileKey, string>> = {}
   const profileKey = normalizedModelName(profileName)
@@ -534,7 +539,7 @@ function equipmentDisplayName(option: PrototypeEquipmentOption) {
 }
 function formattedWeaponName(weapon: PrototypeWeapon) {
   const count = isPerModelWeaponSelection(weapon) ? (weaponCounts.value.get(weapon.id) || 0) : 0
-  if (/^Hand weapons?$/i.test(weapon.name.trim()) && count > 0 && count !== modelCount.value) return `${count} – (Hand Weapon)`
+  if (/^Hand weapons?$/i.test(canonicalWeaponName(weapon).trim()) && count > 0 && count !== modelCount.value) return `${count} – (Hand Weapon)`
   return formatHandWeaponCountLabel(count > 0 && count !== modelCount.value ? `${weapon.name} ×${count}` : weapon.name)
 }
 function weaponOwnerOption(weapon: PrototypeWeapon) {
@@ -543,7 +548,7 @@ function weaponOwnerOption(weapon: PrototypeWeapon) {
 }
 function baseProfileWeapons() { return selectedWeapons.value.filter((weapon) => !weaponOwnerOption(weapon)) }
 function sharedProfileLoadout() {
-  const weapons = baseProfileWeapons().filter((weapon) => !isWarMachineArmament(weapon.name)).map(formattedWeaponName)
+  const weapons = baseProfileWeapons().filter((weapon) => !isWarMachineArmament(canonicalWeaponName(weapon))).map(formattedWeaponName)
   const equipment = selectedEquipment.value.filter((option) => option.kind !== 'role' && option.kind !== 'mount' && option.kind !== 'mount-option' && !option.addsProfile && !isWizardParentOption(option) && !isWizardLevelOption(option)).map(equipmentDisplayName)
   const magic = selectedMagicEntries.value.filter(({ item }) => item.ownerId === 'unit').map(({ item, count }) => count > 1 ? `${item.name} ×${count}` : item.name)
   return [...new Set([...weapons, ...equipment, ...magic])]
@@ -554,7 +559,7 @@ function profileSpecificBaseWeapons(profileName: string, allNames: string[]) {
   const hasCrew = allNames.some(isCrewProfile)
   if (!hasCrew) return null
   const weapons = baseProfileWeapons()
-  if (isCrewProfile(profileName)) return weapons.filter((weapon) => weapon.kind === 'melee' && !isWarMachineArmament(weapon.name)).map(formattedWeaponName)
+  if (isCrewProfile(profileName)) return weapons.filter((weapon) => weapon.kind === 'melee' && !isWarMachineArmament(canonicalWeaponName(weapon))).map(formattedWeaponName)
   return []
 }
 function ownerMagicForProfile(profileName: string, allNames: string[], profileIndex: number) {
@@ -640,9 +645,9 @@ const profileRows = computed(() => {
 function displayStat(profile: Record<ProfileKey, string>, stat: ProfileKey) { return profile[stat] || '—' }
 
 const selectedWizardLevelOption = computed(() => {
-  const levels = selectedEquipment.value.filter(isWizardLevelOption).sort((a, b) => wizardLevelFromName(b.name) - wizardLevelFromName(a.name))
+  const levels = selectedEquipment.value.filter(isWizardLevelOption).sort((a, b) => wizardLevelFromName(canonicalOptionName(b)) - wizardLevelFromName(canonicalOptionName(a)))
   if (magicalMaelstromEnabled.value) return levels[0]
-  return levels.find((option) => wizardLevelFromName(option.name) === wizardLevel.value)
+  return levels.find((option) => wizardLevelFromName(canonicalOptionName(option)) === wizardLevel.value)
 })
 const includedRosterLabels = computed(() => {
   const rows = [
@@ -736,7 +741,7 @@ const unitKeywordLinks = computed(() => {
   if (!unit) return []
   const wizardLinks = isWizard.value ? [{ label: 'Wizard', path: '/characters/wizards' }, { label: `Wizard Level ${wizardLevel.value}`, path: '/characters/wizards' }] : []
   const sourceKeywords = unit.keywords.filter((row) => !/^(?:Level\s*\d+\s*Wizard|Wizard\s*Level\s*\d+)$/i.test(String(row.label || '').trim()))
-  const sourceRules = activeSpecialRules.value.filter((rule) => !/^(?:Level\s*\d+\s*Wizard|Wizard\s*Level\s*\d+)$/i.test(String(rule.name || '').trim()))
+  const sourceRules = activeSpecialRules.value.filter((rule) => !/^(?:Level\s*\d+\s*Wizard|Wizard\s*Level\s*\d+)$/i.test(String(canonicalRuleName(rule) || '').trim()))
   const hasMagicalAttacks = selectedMagicWeapons.value.length > 0 || [...meleeWeapons.value, ...rangedWeapons.value].some(({ weapon }) => weaponRuleLabels(weapon).some((rule) => /^Magical Attacks$/i.test(rule.label)))
   const magicalAttackLink = hasMagicalAttacks ? [{ label: 'Magical Attacks', path: '/special-rules/magical-attacks' }] : []
   const rows = [...sourceKeywords, ...wizardLinks, ...sourceRules.map((rule) => ({ label: ruleDisplayName(rule.name), path: rule.path || rule.keywords[0]?.path || '/' })), ...selectedMagicEntries.value.map(({ item }) => ({ label: item.name, path: `/magic-item/${item.slug}` })), ...magicalAttackLink]
@@ -955,15 +960,18 @@ async function loadMagicItemChoices() {
       const itemComposition = String(raw.compositionRule || '')
       if (itemComposition === 'battle-march' && !battleMarchMagicEnabled.value) return
       if (itemComposition && itemComposition !== 'battle-march' && itemComposition !== compositionRuleId.value) return
-      const name = String(raw.name_en || raw.name || '').trim(); if (!name) return
+      const sourceName = String(raw.name_en || raw.name || '').trim(); if (!sourceName) return
+      const name = localizedSourceText(raw) || sourceName
       const itemPoints = Number(raw.points || 0)
       if (itemPoints > magicItemPointLimit.value) return
-      const baseId = `${source}:${type}:${name}`.toLowerCase().replace(/\s+/g, '-')
+      const baseId = `${source}:${type}:${sourceName}`.toLowerCase().replace(/\s+/g, '-')
+      const languageCode = language.value === 'zh' ? 'cn' : language.value
+      const localizedFluff = raw[`fluff_${languageCode}`] ?? raw[`flavour_${languageCode}`] ?? raw[`flavor_${languageCode}`] ?? raw.fluff_en ?? raw.fluff ?? raw.flavour_en ?? raw.flavour ?? raw.flavor_en ?? raw.flavor ?? ''
       activePools.filter((pool) => pool.types.includes(type)).forEach((pool) => rows.push({
         id: `${pool.id}::${baseId}`, baseId, ownerId: pool.id, ownerLabel: pool.label, poolMaxPoints: pool.maxPoints,
-        name, points: itemPoints, type, source, stackable: Boolean(raw.stackable), maximum: Number(raw.maximum || 0) > 0 ? Number(raw.maximum) : undefined,
-        onePerArmy: raw.onePerArmy !== false, slug: magicSlug(String(raw.name || name)),
-        fluff: String(raw.fluff_en || raw.fluff || raw.flavour_en || raw.flavour || raw.flavor_en || raw.flavor || '').replace(/\s+/g, ' ').trim() || undefined,
+        name, sourceName, points: itemPoints, type, source, stackable: Boolean(raw.stackable), maximum: Number(raw.maximum || 0) > 0 ? Number(raw.maximum) : undefined,
+        onePerArmy: raw.onePerArmy !== false, slug: magicSlug(String(raw.name || sourceName)),
+        fluff: String(localizedFluff).replace(/\s+/g, ' ').trim() || undefined,
       }))
     }))
     const selectedBefore = selectedMagicEntries.value.map(({ item }) => item)
@@ -997,7 +1005,7 @@ async function loadMagicItemDetail(item: MagicItem) {
     const body = dom.body.textContent?.replace(/\s+/g, ' ').trim() || ''
     const override: Partial<Record<ProfileKey, string>> = {}
     if (item.type === 'armor') {
-      detail.shield = /\bshield\b/i.test(item.name) || /\bshield\b/i.test(body)
+      detail.shield = /\bshield\b/i.test(item.sourceName) || /\bshield\b/i.test(body)
       if (/full plate armour/i.test(body)) override.Sv = '4+'; else if (/heavy armour/i.test(body)) override.Sv = '5+'; else if (/light armour/i.test(body)) override.Sv = '6+'
     }
     const ward = body.match(/(?:Ward\s+save(?:\s+of)?\s*\(?\s*(2\+|3\+|4\+|5\+|6\+)\s*\)?|(2\+|3\+|4\+|5\+|6\+)\s+Ward\s+save)/i); if (ward) override.Ward = ward[1] || ward[2]
@@ -1052,8 +1060,8 @@ function saveCurrentRosterConfiguration() {
     cannotBeGeneral: prototypeUnit.value?.cannotBeGeneral,
     troopType: prototypeUnit.value?.details.troopType,
     leadership: Number.parseInt(profileRows.value[0]?.profile.Ld || '', 10) || undefined,
-    generalEligible: Boolean(prototypeUnit.value?.equipmentOptions.some((option) => option.kind === 'role' && /^General$/i.test(option.name))),
-    hierophantEligible: Boolean(prototypeUnit.value?.equipmentOptions.some((option) => option.kind === 'role' && /^The Hierophant$/i.test(option.name))),
+    generalEligible: Boolean(prototypeUnit.value?.equipmentOptions.some((option) => option.kind === 'role' && /^General$/i.test(canonicalOptionName(option)))),
+    hierophantEligible: Boolean(prototypeUnit.value?.equipmentOptions.some((option) => option.kind === 'role' && /^The Hierophant$/i.test(canonicalOptionName(option)))),
     options: rosterOptionLabels.value,
     includedEquipment: includedRosterLabels.value,
     optionalSelections: optionalRosterLabels.value,

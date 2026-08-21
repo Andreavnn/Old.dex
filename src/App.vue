@@ -6,6 +6,7 @@ import { initializeBuilderData } from './services/armyData'
 import { reportAppError } from './services/appErrors'
 import { useInstallApp } from './services/installApp'
 import { useLanguagePreference } from './services/language'
+import { loadOwbRuleCatalog } from './services/owbRuleResolver'
 
 useSettings()
 const route = useRoute()
@@ -24,7 +25,7 @@ function reportPlaceholder() {
 }
 
 onMounted(() => {
-  initializeBuilderData().catch((error) => {
+  Promise.all([initializeBuilderData(), loadOwbRuleCatalog()]).catch((error) => {
     reportAppError(error, 'BUILDER_STARTUP_FAILED')
   })
 })
@@ -46,7 +47,7 @@ onMounted(() => {
     </section>
 
     <footer class="app-footer">
-      <span>Old.dex Alpha Build 0.62</span>
+      <span>Old.dex Alpha Build 0.63</span>
     </footer>
   </div>
 </template>
