@@ -6,7 +6,7 @@ PACKAGE
 Old.dex-v0.62-DIRECT-SOURCE.zip
 
 VERIFICATION STATUS
-PASS — v0.57 + v0.58 + v0.59 + v0.60 + v0.61 + v0.62 + hidden-patch regression suite: 65/65 tests passed.
+PASS — v0.57 + v0.58 + v0.59 + v0.60 + v0.61 + v0.62 + hidden-patch regression suite: 73/73 tests passed.
 PASS — TypeScript syntax transpilation completed without errors for 33 TypeScript/Vue script blocks in the direct-source package.
 PASS — PWA manifest/install assets remain present and the service-worker shell cache was rotated so installed clients can receive this refresh.
 PASS — Reset Local Data is a single expandable Settings panel containing Reset All plus independent Clear controls for ongoing matches, history, friendly rosters, and enemy rosters.
@@ -19,6 +19,14 @@ PASS — Setup Step 2 exposes Wizard spell checkboxes and also preloads magic ch
 PASS — Overview displays round/round-limit state, scenario game-length guidance, scenario terrain guidance where present, Battle March random-happening references, and a terrain tip/rules link where the scenario does not prescribe terrain.
 PASS — Before Round 1 begins, match lifecycle actions are limited to Cancel Match and Start Over. After battle start, Concede, Enemy Yielded and Draw become available. Complete Match is gated until the configured round limit has been completed.
 PASS — A manual, dry-run-by-default GitHub Actions repository-cleanup workflow is included at .github/workflows/repository-cleanup.yml.
+PASS — Welcome Support actions were cleaned up, a Special Thanks panel was added, and the install prompt now offers a persistent Do not show again choice.
+PASS — Page-title copy under the primary navigation now uses one consistent text scale, and the WIP banner was enlarged and constrained to the OLD.DEX center-panel width.
+PASS — Army Roster and Enemy Army Roster section headings now have image-safe background panels; roster green/yellow/red state logic was corrected so exact valid lists are green, true invalid lists are red, and incomplete/tolerance lists remain yellow.
+PASS — Existing matches recover missing opponent roster points from saved/snapshotted rosters where possible, with battle-size fallback for older saved matches.
+PASS — Setup Step 2 Wizard choices now render as selectable rule-card boxes with visible check marks.
+PASS — Overview allows manual round correction, removes the Battle Flow strip, and uses Prepare For Battle! (Next) as its forward action.
+PASS — Deployment now includes scenario/order guidance, friendly/enemy deployment checklists, contextual Tips, and To War! - (Start Battle) on the final deployment step.
+PASS — A dedicated Start of Round phase now sits between Deployment and Strategy, including migration for matches saved under the earlier phase index layout.
 PASS — Visible application/header version references remain Alpha Build 0.62 and package.json remains 0.62.0.
 
 HIDDEN-PATCH NOTE

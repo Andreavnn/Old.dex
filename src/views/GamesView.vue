@@ -80,7 +80,7 @@ function resultLabel(game: SavedGame) {
   return `${game.playerScore > game.opponentScore ? 'Win' : 'Loss'} · ${game.playerScore}-${game.opponentScore}`
 }
 function matchupName(game: SavedGame) { return `${game.playerName} - ${game.opponentName}` }
-function matchupPoints(game: SavedGame) { return `${game.playerPoints || game.points} pts - ${game.opponentPoints ? `${game.opponentPoints} pts` : '—'}` }
+function matchupPoints(game: SavedGame) { const friendly = Number(game.playerPoints || game.points || 0); const enemy = Number(game.opponentPoints || (game.opponentListName ? game.points : 0)); return `${friendly || 0} pts - ${enemy > 0 ? `${enemy} pts` : '—'}` }
 </script>
 
 <template>

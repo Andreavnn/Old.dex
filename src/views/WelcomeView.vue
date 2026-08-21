@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { markWelcomeSeen } from '../services/welcome'
+import { dismissWelcomeInstallPromptPermanently, hasDismissedWelcomeInstallPrompt, markWelcomeSeen } from '../services/welcome'
 import { useInstallApp } from '../services/installApp'
 
 const route = useRoute()
 const router = useRouter()
-const installModalOpen = ref(true)
+const installModalOpen = ref(!hasDismissedWelcomeInstallPrompt())
 const installHelp = ref(false)
 const { canInstall, installedApp, requestInstall } = useInstallApp()
 
@@ -25,6 +25,7 @@ async function installNow() {
 }
 
 function dismissInstall() { installModalOpen.value = false }
+function dismissInstallPermanently() { dismissWelcomeInstallPromptPermanently(); installModalOpen.value = false }
 function continueToOldDex() {
   markWelcomeSeen()
   void router.replace(continuePath.value)
@@ -64,9 +65,20 @@ function continueToOldDex() {
           <h2>Keeping Old.dex online</h2>
           <p>Old.dex is free to use. Voluntary support is used only for domain and hosting costs.</p>
         </div>
-        <div class="welcome-support-actions">
-          <a class="secondary-button" href="https://buy.stripe.com/eVq7sL0Zw2DwdYwcvv3Nm01" target="_blank" rel="noopener noreferrer">One Time Support</a>
-          <a class="secondary-button" href="https://buy.stripe.com/fZu8wP4bI2Dw6w4cvv3Nm00" target="_blank" rel="noopener noreferrer">Recurring Support</a>
+        <div class="welcome-support-actions" aria-label="Support Old.dex">
+          <a class="secondary-button welcome-support-button" href="https://buy.stripe.com/eVq7sL0Zw2DwdYwcvv3Nm01" target="_blank" rel="noopener noreferrer">One Time Support</a>
+          <a class="secondary-button welcome-support-button" href="https://buy.stripe.com/fZu8wP4bI2Dw6w4cvv3Nm00" target="_blank" rel="noopener noreferrer">Recurring Support</a>
+        </div>
+      </section>
+
+      <section class="welcome-thanks-block">
+        <p class="eyebrow">SPECIAL THANKS</p>
+        <h2>Built with help from the community</h2>
+        <div class="welcome-thanks-list">
+          <a href="https://www.whfb.app/" target="_blank" rel="noopener noreferrer">Warhammer Fantasy Online Rules Index Project</a>
+          <strong>Nico Thiebes</strong>
+          <span>Sig.dex</span>
+          <span>Other Contributing Supporters</span>
         </div>
       </section>
 
@@ -90,6 +102,7 @@ function continueToOldDex() {
         <div class="welcome-install-actions">
           <button type="button" class="primary-button" @click="installNow">{{ canInstall ? 'Install Old.dex' : 'Install options' }}</button>
           <button type="button" class="secondary-button" @click="dismissInstall">Not now</button>
+          <button type="button" class="secondary-button welcome-install-never" @click="dismissInstallPermanently">Do not show again</button>
         </div>
       </section>
     </div>

@@ -193,7 +193,7 @@ const untouchedMagicPools = computed(() => roster.value.flatMap((row) => rosterM
 }).map((pool) => ({ row, pool }))))
 const hasMagicAllowanceWarning = computed(() => validationState.value === 'VALID' && untouchedMagicPools.value.length > 0)
 const hasRosterWarning = computed(() => validationState.value === 'VALID' && (overUnderWarning.value || hasMagicAllowanceWarning.value))
-const persistedRosterStatus = computed<'valid' | 'invalid' | 'warning'>(() => validationState.value === 'INVALID' || validationState.value === 'OVER LIMIT' ? 'invalid' : validationState.value === 'VALID' && rosterPoints.value === points.value && !hasRosterWarning.value ? 'valid' : 'warning')
+const persistedRosterStatus = computed<'valid' | 'invalid' | 'warning'>(() => validationState.value === 'INVALID' || validationState.value === 'OVER LIMIT' ? 'invalid' : validationState.value === 'VALID' && rosterPoints.value === points.value && !overUnderWarning.value ? 'valid' : 'warning')
 watch([savedListId, rosterPoints, persistedRosterStatus], () => { if (savedListId.value) updateSavedArmyList(savedListId.value, { actualPoints: rosterPoints.value, validationStatus: persistedRosterStatus.value }) }, { immediate: true })
 async function loadValidationData() {
   validationDataError.value = ''

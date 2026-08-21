@@ -1,5 +1,5 @@
 import { readJson, writeJson } from './storage'
-import type { SavedArmyList } from './savedLists'
+import { getSavedArmyList, type SavedArmyList } from './savedLists'
 import type { BuilderRosterSelection } from '../domain/rosterTypes'
 
 export type GameStatus = 'open' | 'complete'
@@ -49,9 +49,12 @@ export const gameWorkflow: GameWorkflowPhase[] = [
     { id: 'battle-overview', label: 'Battle Overview', description: 'Review the current battle state, score, active effects and saved round history.' },
   ] },
   { id: 'deployment', label: 'Deployment', steps: [
-    { id: 'deployment-order', label: 'Deployment Order', description: 'Record which player starts alternating deployment.' },
-    { id: 'deploy-armies', label: 'Deploy Armies', description: 'Deploy units, record reserves and note joined characters.' },
-    { id: 'first-turn', label: 'First Turn', description: 'Resolve and record the first-turn roll after deployment is complete.' },
+    { id: 'deployment-order', label: 'Deployment Order', description: 'Confirm scenario deployment instructions and record which player begins alternating deployment.' },
+    { id: 'deploy-armies', label: 'Deploy Armies', description: 'Work through both rosters, check units off as they are deployed, and record reserves or joined characters in the step notes.' },
+    { id: 'first-turn', label: 'First Turn', description: 'Resolve and record the first-turn procedure after deployment is complete.' },
+  ] },
+  { id: 'round-start', label: 'Start of Round', steps: [
+    { id: 'round-start', label: 'Start of Round', description: 'Confirm the new round, active first player, scenario effects and battlefield conditions before beginning the first turn.' },
   ] },
   { id: 'strategy', label: 'Strategy', steps: [
     { id: 'start-of-turn', label: 'Start of Turn', description: 'Resolve mandatory Start of Turn actions and active Magical Vortex movement.' },
@@ -126,37 +129,70 @@ export type SavedGame = {
   createdAt: string
   updatedAt: string
   completedAt?: string
+  workflowVersion?: number
+  deploymentFirstSide?: GameSide
+  deployedPlayerIds?: string[]
+  deployedOpponentIds?: string[]
 }
 
 const KEY = 'olddex.games.v1'
 
+function snapshotRosterPoints(rows: BuilderRosterSelection[] | undefined) {
+  return (rows || []).reduce((sum, entry) => sum + Math.max(0, Number(entry.totalPoints || 0)), 0)
+}
+
+function savedGameSidePoints(row: SavedGame, side: GameSide) {
+  const stored = side === 'player' ? Number(row.playerPoints || 0) : Number(row.opponentPoints || 0)
+  if (stored > 0) return stored
+  const roster = side === 'player' ? row.playerRoster : row.opponentRoster
+  const snapshot = snapshotRosterPoints(roster)
+  if (snapshot > 0) return snapshot
+  const listId = side === 'player' ? row.playerListId : row.opponentListId
+  const currentList = listId ? getSavedArmyList(listId) : null
+  const saved = rosterActualPoints(currentList)
+  if (saved > 0) return saved
+  // Older matches did not snapshot opponent points. If the match still records
+  // an opponent roster name, the battle-size limit is a better display fallback
+  // than a dangling em dash until the match is next saved.
+  if (side === 'opponent' && row.opponentListName) return Math.max(0, Number(row.points || 0))
+  return side === 'player' ? Math.max(0, Number(row.points || 0)) : 0
+}
+
 function parseGames(value: unknown): SavedGame[] {
   if (!Array.isArray(value)) return []
-  return value.filter((row): row is SavedGame => Boolean(row && typeof row === 'object' && typeof (row as SavedGame).id === 'string')).map((row) => ({
-    ...row,
-    status: row.status === 'complete' ? 'complete' : 'open',
-    round: Math.max(1, Number(row.round || 1)),
-    phaseIndex: Math.max(0, Math.min(gameWorkflow.length - 1, Number(row.phaseIndex || 0))),
-    stepIndex: Math.max(0, Number(row.stepIndex || 0)),
-    stepNotes: { ...(row.stepNotes || {}) },
-    playerScore: Math.max(0, Number(row.playerScore || 0)),
-    opponentScore: Math.max(0, Number(row.opponentScore || 0)),
-    firstPlayerConfirmed: typeof row.firstPlayerConfirmed === 'boolean' ? row.firstPlayerConfirmed : true,
-    playerPoints: Math.max(0, Number(row.playerPoints || row.points || 0)),
-    opponentPoints: Math.max(0, Number(row.opponentPoints || 0)),
-    roundLimit: Math.max(1, Number(row.roundLimit || row.scenarioGuidance?.roundLimit || 6)),
-    roundsCompleted: Math.max(0, Number(row.roundsCompleted || 0)),
-    battleStarted: Boolean(row.battleStarted || Number(row.roundsCompleted || 0) > 0 || Number(row.round || 1) > 1),
-    battlefieldConditions: Array.isArray(row.battlefieldConditions) ? [...row.battlefieldConditions] : [],
-    scenarioGuidance: row.scenarioGuidance ? { ...row.scenarioGuidance, scenarioRules: [...(row.scenarioGuidance.scenarioRules || [])] } : undefined,
-    outcome: ['completed', 'conceded', 'enemy-yielded', 'draw'].includes(String(row.outcome)) ? row.outcome : undefined,
-    playerName: String(row.playerName || 'Friendly General'),
-    playerOptions: Array.isArray(row.playerOptions) ? [...row.playerOptions] : [],
-    opponentOptions: Array.isArray(row.opponentOptions) ? [...row.opponentOptions] : [],
-    playerRoster: Array.isArray(row.playerRoster) ? row.playerRoster.map((entry) => ({ ...entry })) : [],
-    opponentRoster: Array.isArray(row.opponentRoster) ? row.opponentRoster.map((entry) => ({ ...entry })) : [],
-    magicSetup: Array.isArray(row.magicSetup) ? row.magicSetup.map((entry) => ({ ...entry, availableLores: [...(entry.availableLores || [])], selectedSpellIds: [...(entry.selectedSpellIds || [])], choices: entry.choices?.map((choice) => ({ ...choice })) })) : [],
-  }))
+  return value.filter((row): row is SavedGame => Boolean(row && typeof row === 'object' && typeof (row as SavedGame).id === 'string')).map((row) => {
+    const rawPhaseIndex = Math.max(0, Number(row.phaseIndex || 0))
+    const migratedPhaseIndex = Number(row.workflowVersion || 0) >= 2 || rawPhaseIndex < 3 ? rawPhaseIndex : rawPhaseIndex + 1
+    return {
+      ...row,
+      status: row.status === 'complete' ? 'complete' : 'open',
+      workflowVersion: 2,
+      round: Math.max(1, Number(row.round || 1)),
+      phaseIndex: Math.max(0, Math.min(gameWorkflow.length - 1, migratedPhaseIndex)),
+      stepIndex: Math.max(0, Number(row.stepIndex || 0)),
+      stepNotes: { ...(row.stepNotes || {}) },
+      playerScore: Math.max(0, Number(row.playerScore || 0)),
+      opponentScore: Math.max(0, Number(row.opponentScore || 0)),
+      firstPlayerConfirmed: typeof row.firstPlayerConfirmed === 'boolean' ? row.firstPlayerConfirmed : true,
+      playerPoints: savedGameSidePoints(row, 'player'),
+      opponentPoints: savedGameSidePoints(row, 'opponent'),
+      roundLimit: Math.max(1, Number(row.roundLimit || row.scenarioGuidance?.roundLimit || 6)),
+      roundsCompleted: Math.max(0, Number(row.roundsCompleted || 0)),
+      battleStarted: Boolean(row.battleStarted || Number(row.roundsCompleted || 0) > 0 || Number(row.round || 1) > 1),
+      battlefieldConditions: Array.isArray(row.battlefieldConditions) ? [...row.battlefieldConditions] : [],
+      scenarioGuidance: row.scenarioGuidance ? { ...row.scenarioGuidance, scenarioRules: [...(row.scenarioGuidance.scenarioRules || [])] } : undefined,
+      outcome: ['completed', 'conceded', 'enemy-yielded', 'draw'].includes(String(row.outcome)) ? row.outcome : undefined,
+      playerName: String(row.playerName || 'Friendly General'),
+      playerOptions: Array.isArray(row.playerOptions) ? [...row.playerOptions] : [],
+      opponentOptions: Array.isArray(row.opponentOptions) ? [...row.opponentOptions] : [],
+      playerRoster: Array.isArray(row.playerRoster) ? row.playerRoster.map((entry) => ({ ...entry })) : [],
+      opponentRoster: Array.isArray(row.opponentRoster) ? row.opponentRoster.map((entry) => ({ ...entry })) : [],
+      magicSetup: Array.isArray(row.magicSetup) ? row.magicSetup.map((entry) => ({ ...entry, availableLores: [...(entry.availableLores || [])], selectedSpellIds: [...(entry.selectedSpellIds || [])], choices: entry.choices?.map((choice) => ({ ...choice })) })) : [],
+      deploymentFirstSide: row.deploymentFirstSide === 'opponent' ? 'opponent' : row.deploymentFirstSide === 'player' ? 'player' : undefined,
+      deployedPlayerIds: Array.isArray(row.deployedPlayerIds) ? [...row.deployedPlayerIds] : [],
+      deployedOpponentIds: Array.isArray(row.deployedOpponentIds) ? [...row.deployedOpponentIds] : [],
+    }
+  })
 }
 
 function readAll() { return readJson(KEY, parseGames, []) }
@@ -197,6 +233,7 @@ export function createSavedGame(input: {
   const game: SavedGame = {
     id: `game-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     status: 'open',
+    workflowVersion: 2,
     name: `${playerName} - ${opponentName}`,
     playerListId: input.playerList.id,
     playerListName: input.playerList.name,
@@ -225,6 +262,9 @@ export function createSavedGame(input: {
     roundLimit: 6,
     roundsCompleted: 0,
     battleStarted: false,
+    deploymentFirstSide: undefined,
+    deployedPlayerIds: [],
+    deployedOpponentIds: [],
     firstPlayer: 'player',
     firstPlayerConfirmed: false,
     round: 1,
@@ -271,6 +311,9 @@ export function resetSavedGame(id: string) {
     round: 1,
     roundsCompleted: 0,
     battleStarted: false,
+    deploymentFirstSide: undefined,
+    deployedPlayerIds: [],
+    deployedOpponentIds: [],
     activeSide: 'player',
     phaseIndex: 0,
     stepIndex: 0,

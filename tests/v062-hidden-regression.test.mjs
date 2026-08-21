@@ -101,5 +101,5 @@ test('v0.62 hidden patch includes a safe manual repository cleanup workflow', ()
 })
 
 test('v0.62 hidden patch rotates the PWA shell cache so installed clients receive the patch', () => {
-  assert.match(sw, /olddex-shell-v062-hidden2/)
+  assert.match(sw, /olddex-shell-v062-hidden3/)
 })

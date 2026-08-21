@@ -58,7 +58,13 @@ async function importListFile(event: Event) {
 }
 function optionLabel(id: string) { return compositionOptions.find((option) => option.value === id)?.label || id }
 function actualPoints(list: SavedArmyList) { return list.actualPoints ?? (list.roster || []).reduce((sum, row) => sum + row.totalPoints, 0) }
-function rosterState(list: SavedArmyList) { return list.validationStatus || 'warning' }
+function rosterState(list: SavedArmyList) {
+  const actual = actualPoints(list)
+  if (list.validationStatus === 'invalid') return 'invalid'
+  if (actual > list.points) return (list.options || []).includes('over-under') && actual <= list.points + 10 ? 'warning' : 'invalid'
+  if (actual === list.points && actual > 0) return 'valid'
+  return 'warning'
+}
 function exportList(list: SavedArmyList) { exportSavedArmyList(list) }
 </script>
 
@@ -92,7 +98,7 @@ function exportList(list: SavedArmyList) { exportSavedArmyList(list) }
     </section>
 
     <section v-if="friendlyLists.length" class="roster-list-group" aria-label="Army rosters">
-      <div class="roster-list-group-heading"><div><p class="eyebrow">ARMY ROSTERS</p><h2>Army Rosters</h2></div><span class="section-count">{{ friendlyLists.length }}</span></div>
+      <div class="roster-list-group-heading card-surface roster-list-heading-panel"><div><p class="eyebrow">ARMY ROSTERS</p><h2>Army Rosters</h2></div><span class="section-count">{{ friendlyLists.length }}</span></div>
       <div class="saved-list-stack">
         <article v-for="list in friendlyLists" :key="list.id" class="saved-list-card card-surface" :class="[{ 'delete-select-mode': deleteMode, selected: selectedForDelete.has(list.id) }, `roster-status-${rosterState(list)}`]">
           <RouterLink v-if="!deleteMode" :to="savedArmyListRoute(list)" class="saved-list-open-area">
@@ -111,7 +117,7 @@ function exportList(list: SavedArmyList) { exportSavedArmyList(list) }
     </section>
 
     <section v-if="enemyLists.length" class="roster-list-group enemy-roster-group" aria-label="Enemy army rosters">
-      <div class="roster-list-group-heading"><div><p class="eyebrow">ENEMY ARMY ROSTERS</p><h2>Enemy Army Rosters</h2></div><span class="section-count">{{ enemyLists.length }}</span></div>
+      <div class="roster-list-group-heading card-surface roster-list-heading-panel"><div><p class="eyebrow">ENEMY ARMY ROSTERS</p><h2>Enemy Army Rosters</h2></div><span class="section-count">{{ enemyLists.length }}</span></div>
       <div class="saved-list-stack">
         <article v-for="list in enemyLists" :key="list.id" class="saved-list-card card-surface enemy-roster-card" :class="[{ 'delete-select-mode': deleteMode, selected: selectedForDelete.has(list.id) }, `roster-status-${rosterState(list)}`]">
           <RouterLink v-if="!deleteMode" :to="{ name: 'list-view', params: { listId: list.id } }" class="saved-list-open-area">

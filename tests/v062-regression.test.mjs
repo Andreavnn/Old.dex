@@ -97,5 +97,5 @@ test('v0.62 Overview is an at-a-glance match dashboard with contextual Tip conte
   assert.match(match, /overview-status-grid/)
   assert.match(match, /overview-matchup/)
   assert.match(match, /PREPARED MAGIC/)
-  assert.match(match, /BATTLE FLOW/)
+  assert.doesNotMatch(match, /BATTLE FLOW/)
 })
