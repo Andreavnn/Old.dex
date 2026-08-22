@@ -1,4 +1,6 @@
-# Old.dex v0.57 — Canonical Profile Foundation Rebuild
+# Old.dex v0.032 — Canonical Profile Foundation Rebuild
+
+**Version alignment:** current public alpha baseline is v0.031; this rebuild is v0.032. Older v0.5x identifiers are historical/internal patch artifacts and are not the active public changelog line.
 
 This patch starts the ground-up profile/data rebuild and includes the requested splash/footer cleanup.
 
@@ -30,7 +32,7 @@ This intentionally does not hardcode Shugengan Lord or any other unit. The fix i
 ## Applying
 
 ```bash
-python scripts/apply-v057.py /path/to/Old.dex
+python scripts/apply-v0032.py /path/to/Old.dex
 ```
 
 The script is intentionally fail-fast. If the current v0.56 source moved critical integration anchors, it stops instead of silently producing a partial or unsafe patch.
