@@ -1,0 +1,34 @@
+{
+  "PATCH_NOTES.md": {
+    "bytes": 2749,
+    "sha256": "f1e22eb8a50d4fc003f1dce602eaffa6b4ca498e6614f2d4b5d9beb80bb2d9b5"
+  },
+  "payload/src/domain/profiles/profileCache.ts": {
+    "bytes": 2389,
+    "sha256": "fbb2f686361b3e333e3b3d3e124212c9797260c94dce8a1c3a5a323f15277450"
+  },
+  "payload/src/domain/profiles/profileIdentity.ts": {
+    "bytes": 2400,
+    "sha256": "a48e602865c7f3db4f79898abf5cd69a3b59153c2240f8ed591be7774ff656c7"
+  },
+  "payload/src/domain/profiles/profileParser.ts": {
+    "bytes": 7830,
+    "sha256": "b2aca845f16004b0fb88bf8db7e38b5dd06e4d504d2f37ca49169162abb56bf7"
+  },
+  "payload/src/domain/profiles/profileResolver.ts": {
+    "bytes": 5224,
+    "sha256": "c74e84afc5be1294d3a7b5498133abc03bdbc23a08c807708a602ef3a9e6eff5"
+  },
+  "payload/src/domain/profiles/profileTypes.ts": {
+    "bytes": 2317,
+    "sha256": "93cceb8ea28483fd60a5623eb3dc5d16069cbfecf3e50b7a48794648ed3f86b2"
+  },
+  "payload/src/services/canonicalProfiles.ts": {
+    "bytes": 2933,
+    "sha256": "296dddfcf0d169283aaf6aef3e110201a533e3eb48fcba0526b29d8074d4d1d8"
+  },
+  "scripts/apply-v057.py": {
+    "bytes": 14286,
+    "sha256": "9c9ee1ce71eb86d8e7e560ed09eb04c31f279f2c5d6f85ffc2489ce7235b8a69"
+  }
+}
