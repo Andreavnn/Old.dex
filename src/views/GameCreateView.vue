@@ -43,7 +43,6 @@ const matchRosterIssues = computed(() => {
   const inspect = (list: SavedArmyList | null, label: string) => {
     if (!list) return
     if (list.validationStatus === 'invalid') issues.push({ severity: 'error', message: `${label} roster is currently invalid. Open the roster to review its validation errors before the match.` })
-    else if (list.validationStatus === 'warning') issues.push({ severity: 'warning', message: `${label} roster currently has a validation warning.` })
     const actual = rosterActualPoints(list)
     if (actual > Number(list.points || 0) && !list.options?.includes('over-under')) issues.push({ severity: 'error', message: `${label} roster is ${actual - Number(list.points || 0)} points over its ${list.points}-point allowance.` })
   }

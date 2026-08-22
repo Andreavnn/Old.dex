@@ -11,6 +11,8 @@ export type GameScenarioGuidance = {
   roundLimit: number
   gameLength: string
   setupText: string
+  deploymentText?: string
+  firstTurnText?: string
   scenarioRules: string[]
   specificTerrain: boolean
   mapImageUrl?: string
@@ -23,6 +25,9 @@ export type GameMagicChoice = {
   summary?: string
   path?: string
   signature?: boolean
+  type?: string
+  castingValue?: string
+  range?: string
 }
 
 export type GameMagicCaster = {
@@ -51,7 +56,7 @@ export const gameWorkflow: GameWorkflowPhase[] = [
   ] },
   { id: 'deployment', label: 'Deployment', steps: [
     { id: 'deployment-order', label: 'Deployment Order', description: 'Confirm scenario deployment instructions and record which player begins alternating deployment.' },
-    { id: 'deploy-armies', label: 'Deploy Armies', description: 'Work through both rosters, check units off as they are deployed, and record reserves or joined characters in the step notes.' },
+    { id: 'deploy-armies', label: 'Deploy Armies', description: 'Work through the friendly roster, record deployment and reserve status, and review any unit-specific deployment rules.' },
     { id: 'first-turn', label: 'First Turn', description: 'Resolve and record the first-turn procedure after deployment is complete.' },
   ] },
   { id: 'round-start', label: 'Start of Round', steps: [

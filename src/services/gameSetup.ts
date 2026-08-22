@@ -186,17 +186,31 @@ export async function hydrateFriendlyMagicSetup(game: SavedGame): Promise<GameMa
   })
 }
 
-function followingText(heading: Element) {
-  const parts: string[] = []
+function followingSpellDetails(heading: Element) {
+  const paragraphs: string[] = []
+  let type = ''
+  let castingValue = ''
+  let range = ''
   let cursor: Element | null = heading.nextElementSibling
   while (cursor && !/^H[1-6]$/.test(cursor.tagName)) {
-    if (cursor.tagName === 'P') {
-      const value = cursor.textContent?.replace(/\s+/g, ' ').trim() || ''
-      if (value) parts.push(value)
+    for (const row of Array.from(cursor.querySelectorAll('tr'))) {
+      const cells = Array.from(row.querySelectorAll('th,td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '').filter(Boolean)
+      if (cells.length < 2) continue
+      const label = cells[0].replace(/:$/, '').trim().toLowerCase()
+      if (label === 'type') type ||= cells[1]
+      else if (label === 'casting value') castingValue ||= cells[1]
+      else if (label === 'range') range ||= cells[1]
     }
+    const value = cursor.textContent?.replace(/\s+/g, ' ').trim() || ''
+    if (value) {
+      type ||= value.match(/\bType\s*:?\s*(Magic Missile|Magical Vortex|Enchantment|Hex|Conveyance|Assailment)\b/i)?.[1] || ''
+      castingValue ||= value.match(/\bCasting Value\s*:?\s*([^|·]{1,20})/i)?.[1]?.trim() || ''
+      range ||= value.match(/\bRange\s*:?\s*([0-9]+(?:\.[0-9]+)?["”']?|Self|Combat)/i)?.[1]?.trim() || ''
+    }
+    if (cursor.tagName === 'P' && value && !/^(?:Type|Casting Value|Range)\b/i.test(value)) paragraphs.push(value)
     cursor = cursor.nextElementSibling
   }
-  return parts.slice(-1).join(' ').slice(0, 700)
+  return { type, castingValue, range, summary: paragraphs.slice(-1).join(' ').slice(0, 900) }
 }
 
 function wizardChoices(dom: Document, lore: string): GameMagicChoice[] {
@@ -211,7 +225,8 @@ function wizardChoices(dom: Document, lore: string): GameMagicChoice[] {
     if (!name) continue
     const id = signature ? `signature-${slug(name)}` : `${numbered?.[1] || choices.length + 1}-${slug(name)}`
     if (choices.some((choice) => choice.id === id)) continue
-    choices.push({ id, name, summary: followingText(heading), path: `/the-lores-of-magic/${slug(lore)}`, signature })
+    const details = followingSpellDetails(heading)
+    choices.push({ id, name, summary: details.summary, path: `/the-lores-of-magic/${slug(lore)}`, signature, type: details.type || undefined, castingValue: details.castingValue || undefined, range: details.range || undefined })
   }
   // Some source transports flatten heading markup but preserve linked spell labels.
   if (!choices.length) {
@@ -300,14 +315,18 @@ function parseRoundLimit(value: string) {
 export async function loadScenarioGuidance(scenario: string): Promise<GameScenarioGuidance> {
   const scenarioSlug = slug(scenario)
   const sourcePath = scenarioPathOverrides[scenarioSlug] || `/warhammer-battles/${scenarioSlug}`
-  const fallback: GameScenarioGuidance = { sourcePath, roundLimit: 6, gameLength: 'Most battles last for six rounds.', setupText: '', scenarioRules: [], specificTerrain: false, mapImageUrl: undefined }
+  const fallback: GameScenarioGuidance = { sourcePath, roundLimit: 6, gameLength: 'Most battles last for six rounds.', setupText: '', deploymentText: '', firstTurnText: '', scenarioRules: [], specificTerrain: false, mapImageUrl: undefined }
   try {
     const document = await fetchRuleDocument(sourcePath)
     const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
     const setupRows = sectionBlocks(dom, ['Set-up', 'Setup'])
+    const deploymentRows = sectionBlocks(dom, ['Deployment'])
+    const firstTurnRows = sectionBlocks(dom, ['First Turn'])
     const lengthRows = sectionBlocks(dom, ['Game Length'])
     const ruleRows = sectionBlocks(dom, ['Scenario Special Rules'])
     const setupText = setupRows.join(' ').slice(0, 1800)
+    const deploymentText = deploymentRows.join(' ').slice(0, 2200)
+    const firstTurnText = firstTurnRows.join(' ').slice(0, 1200)
     const gameLength = lengthRows.join(' ').slice(0, 1300) || fallback.gameLength
     const specificTerrain = Boolean(setupText && !/^Place terrain as described\.?$/i.test(setupText) && /(?:terrain|feature|hill|wood|woods|building|road|river|stream|marsh|ruin|tower|objective|impassable|battlefield|centre|center|zone)/i.test(setupText))
     const images = Array.from(dom.querySelectorAll<HTMLImageElement>('img[src]'))
@@ -318,6 +337,8 @@ export async function loadScenarioGuidance(scenario: string): Promise<GameScenar
       roundLimit: parseRoundLimit(gameLength),
       gameLength,
       setupText,
+      deploymentText,
+      firstTurnText,
       scenarioRules: ruleRows.filter((row) => !/^This scenario has no special rules\.?$/i.test(row)).slice(0, 6),
       specificTerrain,
       mapImageUrl,
@@ -650,6 +671,36 @@ async function battleTurnRules(game: SavedGame, stepId: string, viewSide: 'playe
   return output
 }
 
+const spellStepTypes: Record<string, Set<string>> = {
+  conjuration: new Set(['enchantment', 'hex']),
+  'remaining-moves': new Set(['conveyance']),
+  'special-shooting': new Set(['magic missile', 'magical vortex']),
+  fight: new Set(['assailment']),
+}
+
+function normalizedSpellType(choice: GameMagicChoice) {
+  const explicit = String(choice.type || '').trim().toLowerCase()
+  if (explicit) return explicit
+  return String(choice.summary || '').match(/\b(Magic Missile|Magical Vortex|Enchantment|Hex|Conveyance|Assailment)\b/i)?.[1]?.toLowerCase() || ''
+}
+
+async function selectedSpellTurnRules(game: SavedGame, stepId: string, viewSide: 'player' | 'opponent'): Promise<GameTurnRule[]> {
+  if (viewSide !== 'player' || !spellStepTypes[stepId]) return []
+  const output: GameTurnRule[] = []
+  for (const savedCaster of game.magicSetup || []) {
+    if (savedCaster.kind !== 'Wizard' || !savedCaster.selectedSpellIds?.length) continue
+    const caster = { ...savedCaster, availableLores: [...(savedCaster.availableLores || [])], selectedSpellIds: [...savedCaster.selectedSpellIds], choices: savedCaster.choices?.map((choice) => ({ ...choice })) }
+    const choices = caster.choices?.some((choice) => normalizedSpellType(choice)) ? caster.choices : await loadMagicChoices(caster)
+    const selected = new Set(caster.selectedSpellIds)
+    for (const choice of choices) {
+      if (!selected.has(choice.id) || !spellStepTypes[stepId].has(normalizedSpellType(choice))) continue
+      const details = [choice.type ? `Type: ${choice.type}.` : '', choice.castingValue ? `Casting Value: ${choice.castingValue}.` : '', choice.range ? `Range: ${choice.range}.` : '', choice.summary || ''].filter(Boolean).join(' ')
+      output.push({ side: 'player', source: caster.name, label: choice.name, path: choice.path, summary: details })
+    }
+  }
+  return output
+}
+
 function enemyTurnCoreGuidance(stepId: string, viewSide: 'player' | 'opponent'): GameTurnRule[] {
   if (viewSide !== 'opponent') return []
   const rows: GameTurnRule[] = []
@@ -664,12 +715,13 @@ function enemyTurnCoreGuidance(stepId: string, viewSide: 'player' | 'opponent'):
 
 export async function loadTurnStepGuidance(game: SavedGame, stepId: string, viewSide: 'player' | 'opponent'): Promise<GameTurnRule[]> {
   const friendly = game.playerRoster?.length ? game.playerRoster : (getSavedArmyList(game.playerListId)?.roster || [])
-  const [rosterRules, battleRules] = await Promise.all([
+  const [spellRules, rosterRules, battleRules] = await Promise.all([
+    selectedSpellTurnRules(game, stepId, viewSide),
     rosterTurnRules(friendly, stepId, viewSide),
     battleTurnRules(game, stepId, viewSide),
   ])
   const coreRules = enemyTurnCoreGuidance(stepId, viewSide)
-  const rows = [...coreRules, ...rosterRules, ...battleRules]
+  const rows = [...spellRules, ...coreRules, ...rosterRules, ...battleRules]
   const seen = new Set<string>()
   return rows.filter((row) => { const key = `${row.side}|${row.source}|${row.label}|${row.summary}`.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true })
 }

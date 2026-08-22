@@ -66,8 +66,8 @@ function continueToOldDex() {
           <p>Old.dex is free to use. Voluntary support is used only for domain and hosting costs.</p>
         </div>
         <div class="welcome-support-actions" aria-label="Support Old.dex">
-          <a class="secondary-button welcome-support-button" href="https://buy.stripe.com/eVq7sL0Zw2DwdYwcvv3Nm01" target="_blank" rel="noopener noreferrer">One Time Gift</a>
-          <a class="secondary-button welcome-support-button" href="https://buy.stripe.com/fZu8wP4bI2Dw6w4cvv3Nm00" target="_blank" rel="noopener noreferrer">Recurring Gift</a>
+          <a class="secondary-button welcome-support-button" href="https://buy.stripe.com/7sY9ATaA64LEf2Adzz3Nm02" target="_blank" rel="noopener noreferrer">One Time Gift</a>
+          <a class="secondary-button welcome-support-button" href="https://buy.stripe.com/4gM5kDbEa6TM9Ig7bb3Nm03" target="_blank" rel="noopener noreferrer">Recurring Gift</a>
         </div>
       </section>
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'olddex-shell-v066'
+const CACHE_NAME = 'olddex-shell-v030-upgrade-profile-fix'
 const CORE = ['/', '/manifest.webmanifest', '/icons/favicon-64.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png']
 
 self.addEventListener('install', (event) => {

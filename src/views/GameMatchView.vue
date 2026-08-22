@@ -15,6 +15,7 @@ const magicCasters = ref<GameMagicCaster[]>([])
 const magicLoading = ref(false)
 const magicChoiceLoading = ref(new Set<string>())
 const scenarioLoading = ref(false)
+const scenarioRulesOpen = ref(false)
 const deploymentLoading = ref(false)
 const deploymentGuidance = ref<GameDeploymentGuidance[]>([])
 const startRoundLoading = ref(false)
@@ -54,6 +55,7 @@ const opponentCompositionName = computed(() => game.value?.opponentCompositionNa
 const playerCompositionRule = computed(() => compositionRuleLabel(game.value?.playerCompositionRule || playerListFallback.value?.rule || 'open-war'))
 const opponentCompositionRule = computed(() => { const rule = game.value?.opponentCompositionRule || opponentListFallback.value?.rule || ''; return rule ? compositionRuleLabel(rule) : '—' })
 const playerOptionLabels = computed(() => (game.value?.playerOptions || playerListFallback.value?.options || []).map((id) => compositionOptions.find((option) => option.value === id)?.label || id))
+const opponentOptionLabels = computed(() => (game.value?.opponentOptions || opponentListFallback.value?.options || []).map((id) => compositionOptions.find((option) => option.value === id)?.label || id))
 
 const roundLimit = computed(() => Math.max(1, Number(game.value?.roundLimit || game.value?.scenarioGuidance?.roundLimit || 6)))
 const battleStarted = computed(() => Boolean(game.value?.battleStarted))
@@ -72,6 +74,8 @@ const battleStartRoundRules = computed(() => startRoundGuidance.value.filter((ro
 const friendlyTurnGuidance = computed(() => turnGuidance.value.filter((row) => row.side === 'player'))
 const battleTurnGuidance = computed(() => turnGuidance.value.filter((row) => row.side === 'battle'))
 const turnContextLabel = computed(() => turnViewSide.value === 'opponent' ? "Enemy's Turn" : 'Your Turn')
+const standardFirstTurnText = 'If the scenario gives no different procedure, roll off after deployment. In matched play, the player who finished deploying first (including units deployed using Scouts) adds +1 to the roll; the winner chooses who takes the first turn.'
+const firstTurnProcedureText = computed(() => scenarioGuidance.value?.firstTurnText || standardFirstTurnText)
 
 watch(stepKey, () => { notes.value = game.value?.stepNotes?.[stepKey.value] || '' }, { immediate: true })
 watch(() => game.value?.activeSide, (side) => { if (side) turnViewSide.value = side }, { immediate: true })
@@ -111,7 +115,15 @@ function advance() {
   // Finishing Deployment starts Round 1 at the dedicated Start of Round phase.
   if (phase.value.id === 'deployment') {
     const firstSide = game.value.firstPlayerConfirmed ? game.value.firstPlayer : game.value.activeSide
+    turnViewSide.value = firstSide
     persist({ phaseIndex: roundStartPhaseIndex.value, stepIndex: 0, activeSide: firstSide, battleStarted: true, round: 1 })
+    return
+  }
+
+  if (phase.value.id === 'round-start') {
+    const firstSide = game.value.firstPlayerConfirmed ? game.value.firstPlayer : game.value.activeSide
+    turnViewSide.value = firstSide
+    persist({ phaseIndex: strategyPhaseIndex.value, stepIndex: 0, activeSide: firstSide, battleStarted: true })
     return
   }
 
@@ -145,6 +157,7 @@ function selectTurnContext(side: GameSide) {
 function startTurnFromEnd(side: GameSide) {
   if (!game.value || isReadOnly.value || roundsComplete.value) return
   saveNotes()
+  turnViewSide.value = side
   persist({ activeSide: side, phaseIndex: strategyPhaseIndex.value, stepIndex: 0, battleStarted: true })
 }
 function endRoundFromEnd() {
@@ -156,11 +169,13 @@ function endRoundFromEnd() {
     return
   }
   const firstSide = game.value.firstPlayerConfirmed ? game.value.firstPlayer : 'player'
+  turnViewSide.value = firstSide
   persist({ roundsCompleted: completed, round: game.value.round + 1, activeSide: firstSide, phaseIndex: roundStartPhaseIndex.value, stepIndex: 0, battleStarted: true })
 }
 
 function chooseFirstPlayer(side: GameSide) {
   if (!game.value || isReadOnly.value) return
+  turnViewSide.value = side
   persist({ firstPlayer: side, firstPlayerConfirmed: true, activeSide: side })
 }
 function chooseDeploymentFirstSide(side: GameSide) {
@@ -304,6 +319,9 @@ async function hydrateScenarioGuidance() {
     scenarioLoading.value = false
   }
 }
+function openScenarioRules() { if (scenarioGuidance.value?.sourcePath) scenarioRulesOpen.value = true }
+function closeScenarioRules() { scenarioRulesOpen.value = false }
+
 async function hydrateDeploymentGuidance() {
   if (!game.value || deploymentLoading.value) return
   deploymentLoading.value = true
@@ -336,7 +354,7 @@ const setupTip = computed(() => {
 const deploymentTip = computed(() => {
   if (isDeploymentOrderStep.value) return 'Review the scenario deployment instructions before placing models. Record which side begins deployment here; this is separate from determining which side takes the first turn.'
   if (isDeployArmiesStep.value) return 'Follow the selected scenario’s deployment instructions and alternate placing eligible units as required. For each friendly unit, choose one of its legal formations when it is deployed and resolve any deployment rules shown here. Units with rules or scenario instructions that allow them to begin off-table may be marked Reserve instead of Deployed. Resolve post-deployment rules such as Scouts or Vanguard exactly when their linked rule instructs.'
-  if (isFirstTurnStep.value) return 'After deployment is complete, resolve the scenario’s first-turn procedure and record the result. The selected side becomes the active side when Round 1 begins.'
+  if (isFirstTurnStep.value) return firstTurnProcedureText.value
   if (isRoundBattleEffectsStep.value) return 'Start of Round begins with effects that apply to the battle as a whole. Resolve scenario, battlefield and battle-composition effects before either player resolves army or model-specific Start of Round rules.'
   if (isRoundPlayerEffectsStep.value) return 'After shared battle effects, resolve the friendly and enemy army, unit and model rules that trigger at Start of Round. Keep each side separate so no model-specific effect is missed.'
   return ''
@@ -368,12 +386,8 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
       <nav class="game-phase-tabs" aria-label="Battle phases"><button v-for="(item, index) in gameWorkflow" :key="item.id" type="button" :class="{ active: game.phaseIndex === index }" :disabled="isReadOnly" @click="setPhase(index)">{{ item.label }}</button></nav>
 
       <section v-if="phase && step" class="game-step-card card-surface">
-        <div class="game-step-heading"><div><p class="eyebrow">{{ phase.label }}</p><h2>{{ step.label }}</h2><p>{{ step.description }}</p></div><span>{{ game.stepIndex + 1 }} / {{ phase.steps.length }}</span></div>
+        <div class="game-step-heading"><div><p class="eyebrow">{{ phase.label }}</p><h2>{{ step.label }}</h2><p>{{ step.description }}</p></div><div class="game-step-heading-tools"><div v-if="isBattleTurnPhase" class="turn-context-actions compact-turn-context" role="group" aria-label="Turn view"><button type="button" class="turn-context-button friendly" :class="{ active: turnViewSide === 'player' }" :disabled="isReadOnly" @click="selectTurnContext('player')">Your Turn</button><button type="button" class="turn-context-button enemy" :class="{ active: turnViewSide === 'opponent' }" :disabled="isReadOnly" @click="selectTurnContext('opponent')">Enemy's Turn</button></div><span class="game-step-counter">{{ game.stepIndex + 1 }} / {{ phase.steps.length }}</span></div></div>
         <div class="game-step-list" aria-label="Current phase steps"><button v-for="(item, index) in phase.steps" :key="item.id" type="button" :class="{ active: game.stepIndex === index }" :disabled="isReadOnly" @click="saveNotes(); persist({ stepIndex: index })"><span>{{ index + 1 }}</span>{{ item.label }}</button></div>
-        <section v-if="isBattleTurnPhase" class="turn-context-panel card-inset" aria-label="Turn view">
-          <div><p class="eyebrow">TURN VIEW</p><h3>{{ turnContextLabel }}</h3><p>Show only friendly rules and actions that apply in this phase during the selected turn context. This is a view filter only; it does not change the active turn.</p></div>
-          <div class="turn-context-actions" role="group" aria-label="Choose turn context"><button type="button" class="secondary-button" :class="{ active: turnViewSide === 'player' }" :disabled="isReadOnly" @click="selectTurnContext('player')">Your Turn</button><button type="button" class="secondary-button" :class="{ active: turnViewSide === 'opponent' }" :disabled="isReadOnly" @click="selectTurnContext('opponent')">Enemy's Turn</button></div>
-        </section>
 
         <div v-if="isSetupArmiesStep" class="game-setup-content">
           <section class="match-setup-summary-grid">
@@ -383,7 +397,7 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
 
           <section class="setup-round-limit-card card-inset"><div><p class="eyebrow">GAME LENGTH</p><h3>Number of rounds</h3><p>Set how many rounds this match will last. This value carries into Overview and controls when Complete Match becomes available.</p></div><label class="round-limit-input"><span>Rounds</span><input :value="roundLimit" type="number" min="1" max="20" :readonly="isReadOnly || battleStarted" @change="handleRoundLimit" /></label></section>
 
-          <section class="setup-scenario-card"><span class="value-chip">SCENARIO</span><div><h3>{{ game.scenario }}</h3><p v-if="scenarioLoading">Loading scenario guidance…</p><img v-if="scenarioGuidance?.mapImageUrl" class="scenario-deployment-map" :src="scenarioGuidance.mapImageUrl" :alt="`${game.scenario} deployment map`" loading="lazy" decoding="async" /><p v-if="!scenarioLoading">{{ scenarioGuidance?.setupText || 'Scenario-specific deployment and scoring checks will be surfaced as the relevant battle steps are expanded.' }}</p><RouterLink v-if="scenarioGuidance?.sourcePath" :to="`/rules/read${scenarioGuidance.sourcePath}`">Open scenario rules</RouterLink></div></section>
+          <section class="setup-scenario-card"><span class="value-chip">SCENARIO</span><div><h3>{{ game.scenario }}</h3><p v-if="scenarioLoading">Loading scenario guidance…</p><p v-if="!scenarioLoading && scenarioGuidance?.setupText">{{ scenarioGuidance.setupText }}</p><img v-if="scenarioGuidance?.mapImageUrl" class="scenario-deployment-map setup-scenario-map" :src="scenarioGuidance.mapImageUrl" :alt="`${game.scenario} deployment map`" loading="lazy" decoding="async" /><button v-if="scenarioGuidance?.sourcePath" type="button" class="secondary-button scenario-rules-popup-button" @click="openScenarioRules">Open scenario rules</button></div></section>
 
           <section v-if="battleMarchEnabled" class="setup-caster-section battlefield-condition-picker">
             <div class="setup-section-heading"><div><p class="eyebrow">BATTLEFIELD</p><h3>Random Happenings</h3></div><span>{{ battlefieldConditionRows.length }}</span></div>
@@ -403,15 +417,13 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
               <div class="spell-caster-heading"><div><span class="rule-kind-pill">{{ caster.kind }}<template v-if="caster.kind === 'Wizard'"> · Level {{ caster.level }}</template></span><h3>{{ caster.name }}</h3><p>{{ caster.selectedLore || 'No lore selected' }}</p></div><strong v-if="caster.kind === 'Wizard'">{{ caster.selectedSpellIds.length }} / {{ magicSelectionLimit(caster) }} spells</strong></div>
               <p v-if="magicChoiceLoading.has(caster.instanceId)" class="setup-inline-status">Loading {{ caster.kind === 'Wizard' ? 'spells' : 'prayers' }} from the rules source…</p>
               <div v-else-if="caster.kind === 'Wizard' && caster.choices?.length" class="spell-choice-grid spell-rule-choice-grid">
-                <label v-for="choice in caster.choices" :key="choice.id" class="spell-rule-choice" :class="{ selected: selectedMagicChoice(caster, choice.id), signature: choice.signature, unavailable: casterChoiceDisabled(caster, choice.id) }">
-                  <input class="spell-rule-checkbox" type="checkbox" :checked="selectedMagicChoice(caster, choice.id)" :disabled="isReadOnly || casterChoiceDisabled(caster, choice.id)" @change="handleMagicChoice(caster, choice.id, $event)" />
-                  <span class="spell-rule-checkmark" aria-hidden="true">{{ selectedMagicChoice(caster, choice.id) ? '✓' : '' }}</span>
-                  <article class="spell-rule-card">
-                    <header><span class="rule-kind-pill">Spell</span><strong>{{ choice.name }}</strong><small v-if="choice.signature">Signature Spell</small></header>
-                    <p v-if="choice.summary">{{ choice.summary }}</p>
-                    <footer><span>{{ caster.selectedLore }}</span><RouterLink v-if="choice.path" :to="`/rules/read${choice.path}`">Open lore rules</RouterLink></footer>
-                  </article>
-                </label>
+                <article v-for="choice in caster.choices" :key="choice.id" class="spell-rule-choice" :class="{ selected: selectedMagicChoice(caster, choice.id), signature: choice.signature, unavailable: casterChoiceDisabled(caster, choice.id) }">
+                  <label class="spell-rule-select"><input class="spell-rule-checkbox" type="checkbox" :checked="selectedMagicChoice(caster, choice.id)" :disabled="isReadOnly || casterChoiceDisabled(caster, choice.id)" @change="handleMagicChoice(caster, choice.id, $event)" /><span class="spell-rule-checkmark" aria-hidden="true">{{ selectedMagicChoice(caster, choice.id) ? '✓' : '' }}</span><span>{{ selectedMagicChoice(caster, choice.id) ? 'Selected' : 'Select' }}</span></label>
+                  <details class="spell-rule-card spell-rule-dropdown">
+                    <summary><span class="rule-kind-pill">{{ choice.type || 'Spell' }}</span><strong>{{ choice.name }}</strong><small v-if="choice.signature">Signature Spell</small><span class="spell-dropdown-cue">Details</span></summary>
+                    <div class="spell-rule-card-body"><dl v-if="choice.type || choice.castingValue || choice.range" class="spell-rule-meta"><div v-if="choice.type"><dt>Type</dt><dd>{{ choice.type }}</dd></div><div v-if="choice.castingValue"><dt>Casting Value</dt><dd>{{ choice.castingValue }}</dd></div><div v-if="choice.range"><dt>Range</dt><dd>{{ choice.range }}</dd></div></dl><p v-if="choice.summary">{{ choice.summary }}</p><footer><RouterLink v-if="choice.path" :to="`/rules/read${choice.path}`">Open lore rules</RouterLink></footer></div>
+                  </details>
+                </article>
               </div>
               <div v-else-if="caster.kind === 'Priest' && caster.choices?.length" class="prayer-choice-list">
                 <p class="prayer-availability-note">These prayers are available to this Priest during the appropriate phase; no pre-game prayer selection is required.</p>
@@ -427,25 +439,27 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
           <section class="overview-status-grid prebattle-overview-status-grid">
             <article><small>Scenario</small><strong>{{ game.scenario }}</strong></article>
             <article><small>Battle size</small><strong>{{ game.points }} pts</strong></article>
-            <article><small>Game length</small><strong>{{ roundLimit }} rounds</strong></article>
             <article><small>First turn</small><strong>{{ game.firstPlayerConfirmed ? (game.firstPlayer === 'player' ? game.playerName : game.opponentName) : 'Resolve after deployment' }}</strong></article>
+            <article v-if="scenarioGuidance?.mapImageUrl" class="overview-scenario-map-card"><small>Scenario map</small><img class="overview-scenario-map" :src="scenarioGuidance.mapImageUrl" :alt="`${game.scenario} scenario map`" loading="lazy" decoding="async" /></article>
           </section>
           <section class="overview-matchup card-inset"><div><p class="eyebrow">FRIENDLY</p><h3>{{ game.playerName }}</h3><strong>{{ game.playerListName }}</strong><p>{{ game.playerArmyName }} · {{ game.playerPoints || playerActualPoints || game.points }} pts</p></div><span>—</span><div><p class="eyebrow">ENEMY</p><h3>{{ game.opponentName }}</h3><strong>{{ game.opponentListName || 'No enemy roster' }}</strong><p>{{ game.opponentArmyName || 'Opponent' }} · {{ game.opponentPoints || opponentActualPoints || 0 }} pts</p></div></section>
 
           <section class="overview-battlefield-panel card-inset">
-            <div class="setup-section-heading"><div><p class="eyebrow">BATTLEFIELD &amp; SCENARIO</p><h3>Battle Conditions</h3></div></div>
-            <div v-if="scenarioGuidance?.specificTerrain" class="scenario-terrain-guidance"><strong>Scenario terrain guidance</strong><p>{{ scenarioGuidance.setupText }}</p><RouterLink :to="`/rules/read${scenarioGuidance.sourcePath}`">Open scenario rules</RouterLink></div>
+            <div class="setup-section-heading"><div><p class="eyebrow">BATTLEFIELD &amp; SCENARIO</p><h3>{{ game.scenario }}</h3></div><button v-if="scenarioGuidance?.sourcePath" type="button" class="secondary-button scenario-rules-popup-button" @click="openScenarioRules">Scenario rules</button></div>
+            <div v-if="scenarioGuidance?.specificTerrain" class="scenario-terrain-guidance"><strong>Scenario set-up</strong><p>{{ scenarioGuidance.setupText }}</p></div>
             <aside v-else class="game-tip-card terrain-tip"><span class="game-tip-icon">i</span><div><strong>Tip — Battlefield Terrain</strong><p>This scenario does not call for a specific terrain layout. A varied battlefield creates more movement choices, cover, obstacles and tactical decisions for both players.</p><RouterLink to="/rules/read/battlefield-terrain">Open Battlefield Terrain rules</RouterLink></div></aside>
+            <div v-if="scenarioGuidance?.deploymentText" class="scenario-terrain-guidance"><strong>Deployment</strong><p>{{ scenarioGuidance.deploymentText }}</p></div>
+            <div v-if="scenarioGuidance?.firstTurnText" class="scenario-terrain-guidance"><strong>First turn</strong><p>{{ scenarioGuidance.firstTurnText }}</p></div>
             <div v-if="battlefieldConditionRows.length" class="overview-condition-list"><article v-for="condition in battlefieldConditionRows" :key="condition.id"><strong>{{ condition.label }}</strong><RouterLink :to="`/rules/read${condition.path}`">Open rules</RouterLink></article></div>
             <div v-if="scenarioGuidance?.scenarioRules.length" class="scenario-special-rule-list"><strong>Scenario special rules</strong><p v-for="rule in scenarioGuidance.scenarioRules" :key="rule">{{ rule }}</p></div>
-            <p v-if="scenarioGuidance?.gameLength" class="scenario-game-length"><strong>Game length:</strong> {{ scenarioGuidance.gameLength }}</p>
           </section>
+          <section class="overview-composition-options card-inset"><div class="setup-section-heading"><div><p class="eyebrow">COMPOSITION OPTIONS</p><h3>Roster Battle Options</h3></div></div><div class="overview-composition-columns"><article><strong>Friendly</strong><div v-if="playerOptionLabels.length" class="match-option-chips"><span v-for="label in playerOptionLabels" :key="`overview-player-${label}`">{{ label }}</span></div><p v-else>No additional options.</p></article><article><strong>Enemy</strong><div v-if="opponentOptionLabels.length" class="match-option-chips"><span v-for="label in opponentOptionLabels" :key="`overview-opponent-${label}`">{{ label }}</span></div><p v-else>No additional options.</p></article></div></section>
           <section class="overview-magic-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">PREPARED MAGIC</p><h3>Friendly Wizards & Priests</h3></div><span>{{ magicCasters.length }}</span></div><div v-if="magicCasters.length" class="overview-caster-list"><article v-for="caster in magicCasters" :key="caster.instanceId"><strong>{{ caster.name }}</strong><span>{{ caster.selectedLore || 'No lore' }}</span><small v-if="caster.kind === 'Wizard'">{{ selectedChoiceNames(caster).length ? selectedChoiceNames(caster).join(' · ') : 'Spells not recorded yet' }}</small><small v-else>Prayers available during play</small></article></div><p v-else class="setup-inline-status">No friendly Wizards or Priests detected.</p></section>
         </div>
 
         <div v-else-if="isDeploymentOrderStep" class="deployment-step-content">
-          <aside class="game-tip-card"><span class="game-tip-icon">i</span><div><strong>Tip — Deployment Order</strong><p>{{ deploymentTip }}</p><RouterLink v-if="scenarioGuidance?.sourcePath" :to="`/rules/read${scenarioGuidance.sourcePath}`">Open scenario rules</RouterLink></div></aside>
-          <section class="deployment-guidance-panel card-inset"><p class="eyebrow">SCENARIO DEPLOYMENT</p><h3>{{ game.scenario }}</h3><img v-if="scenarioGuidance?.mapImageUrl" class="scenario-deployment-map" :src="scenarioGuidance.mapImageUrl" :alt="`${game.scenario} deployment map`" loading="lazy" decoding="async" /><p>{{ scenarioGuidance?.setupText || 'Use the deployment instructions for the selected scenario, alternating units as required.' }}</p></section>
+          <aside class="game-tip-card"><span class="game-tip-icon">i</span><div><strong>Tip — Deployment Order</strong><p>{{ deploymentTip }}</p><button v-if="scenarioGuidance?.sourcePath" type="button" class="inline-rule-button" @click="openScenarioRules">Open scenario rules</button></div></aside>
+          <section class="deployment-guidance-panel card-inset"><p class="eyebrow">SCENARIO DEPLOYMENT</p><h3>{{ game.scenario }}</h3><img v-if="scenarioGuidance?.mapImageUrl" class="scenario-deployment-map" :src="scenarioGuidance.mapImageUrl" :alt="`${game.scenario} deployment map`" loading="lazy" decoding="async" /><p v-if="scenarioGuidance?.deploymentText">{{ scenarioGuidance.deploymentText }}</p><p v-else>No additional scenario-specific deployment rules are listed. Use the standard deployment procedure.</p></section>
           <section class="deployment-order-panel card-inset"><p class="eyebrow">FIRST TO DEPLOY</p><h3>Who begins deployment?</h3><div class="deployment-side-actions"><button type="button" class="secondary-button" :class="{ active: game.deploymentFirstSide === 'player' }" :disabled="isReadOnly" @click="chooseDeploymentFirstSide('player')">{{ game.playerName }}</button><button type="button" class="secondary-button" :class="{ active: game.deploymentFirstSide === 'opponent' }" :disabled="isReadOnly" @click="chooseDeploymentFirstSide('opponent')">{{ game.opponentName }}</button></div></section>
         </div>
 
@@ -457,7 +471,7 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
               <article v-for="row in playerRoster" :key="row.instanceId" class="deployment-unit-row deployment-unit-guidance" :class="{ deployed: deployedPlayerIds.has(row.instanceId), reserved: reservePlayerIds.has(row.instanceId) }">
                 <div class="deployment-unit-status-controls"><label><input type="checkbox" :checked="deployedPlayerIds.has(row.instanceId)" :disabled="isReadOnly" @change="handleDeployedUnit('player', row.instanceId, $event)" /><span>Deployed</span></label><label v-if="deploymentFor(row.instanceId)?.canReserve"><input type="checkbox" :checked="reservePlayerIds.has(row.instanceId)" :disabled="isReadOnly" @change="handleReserveUnit(row.instanceId, $event)" /><span>Reserve</span></label></div>
                 <div class="deployment-unit-copy"><div class="deployment-unit-title"><strong>{{ row.name }}</strong><small>{{ row.modelCount }} model{{ row.modelCount === 1 ? '' : 's' }} · {{ row.totalPoints }} pts</small></div>
-                  <div class="deployment-formations"><span class="deployment-detail-label">Formation</span><template v-if="deploymentFor(row.instanceId)?.formations.length"><RouterLink v-for="formation in deploymentFor(row.instanceId)?.formations" :key="`${row.instanceId}-${formation.label}`" :to="`/rules/read${formation.path}`">{{ formation.label }}</RouterLink></template><span v-else>Use the formation permitted by the unit’s troop type/rules.</span></div>
+                  <div v-if="deploymentFor(row.instanceId)?.formations.length" class="deployment-formations"><span class="deployment-detail-label">Formation</span><RouterLink v-for="formation in deploymentFor(row.instanceId)?.formations" :key="`${row.instanceId}-${formation.label}`" :to="`/rules/read${formation.path}`">{{ formation.label }}</RouterLink></div>
                   <div v-if="deploymentFor(row.instanceId)?.deploymentRules.length" class="deployment-rule-list"><span class="deployment-detail-label">Deployment rules</span><article v-for="rule in deploymentFor(row.instanceId)?.deploymentRules" :key="`${row.instanceId}-${rule.label}`"><RouterLink :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><p v-if="rule.summary">{{ rule.summary }}</p></article></div>
                   <p v-if="deploymentFor(row.instanceId)?.canReserve" class="deployment-reserve-reason">May begin off-table / in Reserve: {{ deploymentFor(row.instanceId)?.reserveReason }}.</p>
                 </div>
@@ -467,7 +481,7 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
         </div>
 
         <section v-else-if="isFirstTurnStep" class="game-first-turn-window deployment-first-turn-window" aria-label="First turn result">
-          <aside class="game-tip-card"><span class="game-tip-icon">i</span><div><strong>Tip — First Turn</strong><p>{{ deploymentTip }}</p><RouterLink to="/rules/read/the-turn-sequence">Open First Turn rules</RouterLink></div></aside>
+          <aside class="game-tip-card"><span class="game-tip-icon">i</span><div><strong>Tip — First Turn</strong><p>{{ deploymentTip }}</p><RouterLink to="/rules/read/matched-play/choosing-scenarios">Open First Turn rules</RouterLink></div></aside>
           <strong>Who takes the first turn?</strong>
           <p>Resolve the scenario’s first-turn procedure after deployment, then record the result here.</p>
           <div class="game-first-turn-actions">
@@ -509,6 +523,7 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
         <button v-if="roundsComplete" type="button" class="primary-button" @click="finishMatch('completed')">Complete Match</button>
       </div>
       <div v-else class="game-finish-row"><button type="button" class="secondary-button" @click="returnToGames">Return to Match History</button></div>
+      <div v-if="scenarioRulesOpen" class="scenario-rules-backdrop" @click.self="closeScenarioRules"><section class="scenario-rules-dialog card-surface" role="dialog" aria-modal="true" :aria-label="`${game.scenario} scenario rules`"><header><div><p class="eyebrow">SCENARIO RULES</p><h2>{{ game.scenario }}</h2></div><button type="button" class="scenario-dialog-close" aria-label="Close scenario rules" @click="closeScenarioRules">×</button></header><img v-if="scenarioGuidance?.mapImageUrl" class="scenario-deployment-map" :src="scenarioGuidance.mapImageUrl" :alt="`${game.scenario} scenario map`" loading="lazy" decoding="async" /><div class="scenario-rules-dialog-body"><section v-if="scenarioGuidance?.setupText"><strong>Set-up</strong><p>{{ scenarioGuidance.setupText }}</p></section><section v-if="scenarioGuidance?.deploymentText"><strong>Deployment</strong><p>{{ scenarioGuidance.deploymentText }}</p></section><section><strong>First Turn</strong><p>{{ firstTurnProcedureText }}</p></section><section v-if="scenarioGuidance?.scenarioRules.length"><strong>Scenario Special Rules</strong><p v-for="rule in scenarioGuidance.scenarioRules" :key="`popup-${rule}`">{{ rule }}</p></section><section v-if="scenarioGuidance?.gameLength"><strong>Game Length</strong><p>{{ scenarioGuidance.gameLength }}</p></section></div></section></div>
     </section>
     <section v-else class="empty-state card-surface"><div class="empty-icon">!</div><h2>Match not found</h2><p>This saved match is no longer available on this device.</p><RouterLink to="/games" class="primary-button">Back to Games</RouterLink></section>
   </main>

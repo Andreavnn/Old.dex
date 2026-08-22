@@ -532,23 +532,57 @@ watch([isWizard, isPrayerCaster], ([wizard, priest]) => {
 const upgradeProfileModifiers = ref(new Map<string, Partial<Record<ProfileKey, number>>>())
 function characteristicModifiersFromRuleText(value: string) {
   const out: Partial<Record<ProfileKey, number>> = {}
-  const labels: Array<[ProfileKey, RegExp]> = [
-    ['M', /\b(?:Movement|M)\b/i], ['WS', /\b(?:Weapon Skill|WS)\b/i], ['BS', /\b(?:Ballistic Skill|BS)\b/i],
-    ['S', /\b(?:Strength|S)\b/i], ['T', /\b(?:Toughness|T)\b/i], ['W', /\b(?:Wounds?|W)\b/i],
-    ['I', /\b(?:Initiative|I)\b/i], ['A', /\b(?:Attacks?|A)\b/i], ['Ld', /\b(?:Leadership|Ld)\b/i],
+  const labels: Array<[ProfileKey, string]> = [
+    ['M', 'Movement|M'], ['WS', 'Weapon\\s+Skill|WS'], ['BS', 'Ballistic\\s+Skill|BS'],
+    ['S', 'Strength|S'], ['T', 'Toughness|T'], ['W', 'Wounds?|W'],
+    ['I', 'Initiative|I'], ['A', 'Attacks?|A'], ['Ld', 'Leadership|Ld'],
   ]
-  const clean = String(value || '').replace(/\s+/g, ' ')
-  for (const match of clean.matchAll(/\+(\d+)\s+modifier\s+to\s+(?:their|its|the model[’']s|the unit[’']s)?\s*([^.;]+?)\s+characteristics?/gi)) {
-    const amount = Math.max(0, Number(match[1]) || 0)
-    for (const [key, pattern] of labels) if (pattern.test(match[2])) out[key] = Math.max(out[key] || 0, amount)
-  }
-  for (const [key, pattern] of labels) {
-    const named = clean.match(new RegExp(`(?:${pattern.source.replace(/^\\b|\\b$/g, '')})(?:\\s+characteristic)?[^.;]{0,50}?(?:increased|improved|raised|gains?)[^0-9+]{0,18}(?:by\\s+)?\\+?(\\d+)`, 'i'))
-    const plus = clean.match(new RegExp(`\\+(\\d+)[^.;]{0,45}(?:to\\s+)?(?:the\\s+)?(?:${pattern.source.replace(/^\\b|\\b$/g, '')})(?:\\s+characteristic)?`, 'i'))
-    const amount = Math.max(0, Number(named?.[1] || plus?.[1] || 0))
+  const clean = String(value || '').replace(/[’]/g, "'").replace(/\s+/g, ' ').trim()
+  const apply = (key: ProfileKey, amountValue: string | number) => {
+    const amount = Math.max(0, Number(amountValue) || 0)
     if (amount) out[key] = Math.max(out[key] || 0, amount)
   }
+
+  // Multi-characteristic wording used by rules such as Celestial Dragon Guard:
+  // "+1 modifier to their Weapon Skill and Leadership characteristics".
+  // Parse only the explicitly named characteristic list; never infer bonuses from
+  // other numbers or profile-table columns elsewhere on the reference page.
+  for (const match of clean.matchAll(/\+(\d+)\s+(?:modifier|bonus)\s+to\s+(?:(?:their|its|the model's|the unit's)\s+)?([^.;!?]{1,120}?)\s+characteristics?\b/gi)) {
+    for (const [key, label] of labels) if (new RegExp(`\\b(?:${label})\\b`, 'i').test(match[2])) apply(key, match[1])
+  }
+
+  // Singular/direct forms. Keep the amount adjacent to the characteristic name
+  // so movement values, Strength values, Wounds, Initiative, etc. in unrelated
+  // rule text cannot be mistaken for upgrade modifiers.
+  for (const [key, label] of labels) {
+    const patterns = [
+      new RegExp(`\\+(\\d+)\\s*(?:modifier|bonus)?\\s*(?:to\\s+)?(?:(?:their|its|the model's|the unit's)\\s+)?(?:${label})(?:\\s+characteristic)?\\b`, 'i'),
+      new RegExp(`(?:${label})(?:\\s+characteristic)?\\s+(?:is|are)\\s+(?:increased|improved|raised)\\s+(?:by\\s+)?\\+?(\\d+)\\b`, 'i'),
+      new RegExp(`(?:increase|improve|raise)s?\\s+(?:(?:their|its|the model's|the unit's)\\s+)?(?:${label})(?:\\s+characteristic)?\\s+(?:by\\s+)?\\+?(\\d+)\\b`, 'i'),
+      new RegExp(`(?:gains?|receives?|has|have)\\s+(?:a\\s+)?\\+(\\d+)\\s*(?:modifier|bonus)?\\s*(?:to\\s+)?(?:(?:their|its|the model's|the unit's)\\s+)?(?:${label})(?:\\s+characteristic)?\\b`, 'i'),
+    ]
+    for (const pattern of patterns) {
+      const match = clean.match(pattern)
+      if (match) apply(key, match[1])
+    }
+  }
   return out
+}
+
+function upgradeRuleExcerpt(value: string, optionName: string) {
+  const clean = String(value || '').replace(/[’]/g, "'").replace(/\s+/g, ' ').trim()
+  const needle = String(optionName || '').replace(/[’]/g, "'").toLowerCase().trim()
+  if (!clean || !needle) return ''
+  const sentences = clean.match(/[^.!?;]+[.!?;]?/g)?.map((row) => row.trim()).filter(Boolean) || [clean]
+  const indexes = sentences.flatMap((row, index) => row.toLowerCase().includes(needle) ? [index] : [])
+  if (!indexes.length) return ''
+  const keep = new Set<number>()
+  for (const index of indexes) {
+    keep.add(index)
+    if (index > 0) keep.add(index - 1)
+    if (index + 1 < sentences.length) keep.add(index + 1)
+  }
+  return sentences.filter((_row, index) => keep.has(index)).join(' ')
 }
 function mergeCharacteristicModifiers(target: Partial<Record<ProfileKey, number>>, source: Partial<Record<ProfileKey, number>>) {
   for (const [key, amount] of Object.entries(source) as Array<[ProfileKey, number]>) if (amount > 0) target[key] = Math.max(target[key] || 0, amount)
@@ -562,24 +596,26 @@ async function hydrateUpgradeProfileModifiers() {
   await Promise.allSettled(selected.map(async (option) => {
     const combined: Partial<Record<ProfileKey, number>> = { ...(option.profileModifiers || {}) }
     mergeCharacteristicModifiers(combined, characteristicModifiersFromRuleText(option.note || ''))
-    const documents: string[] = []
-    if (option.referencePath) documents.push(option.referencePath)
+    const documents: Array<{ path: string; requiresOptionMention: boolean }> = []
+    if (option.referencePath) documents.push({ path: option.referencePath, requiresOptionMention: false })
     const requirementNames = [...(option.requiresRosterGeneral || []), ...(option.requiresRosterUnit || [])]
     for (const row of rosterRows.filter((candidate) => requirementNames.some((name) => rosterRowMatchesName(candidate, name)))) {
-      for (const rule of row.specialRules || []) if (rule.path) documents.push(rule.path)
+      for (const rule of row.specialRules || []) if (rule.path) documents.push({ path: rule.path, requiresOptionMention: true })
     }
     const seen = new Set<string>()
-    for (const path of documents) {
-      if (!path || seen.has(path)) continue
-      seen.add(path)
+    for (const source of documents) {
+      const path = source.path
+      const seenKey = `${path}:${source.requiresOptionMention ? 'scoped' : 'direct'}`
+      if (!path || seen.has(seenKey)) continue
+      seen.add(seenKey)
       try {
         const document = await fetchRuleDocument(path)
         const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
         const body = dom.body.textContent?.replace(/\s+/g, ' ').trim() || ''
-        const optionName = canonicalOptionName(option).replace(/[’']/g, "'").toLowerCase()
-        const normalizedBody = body.replace(/[’']/g, "'").toLowerCase()
-        if (optionName && !normalizedBody.includes(optionName) && requirementNames.length) continue
-        mergeCharacteristicModifiers(combined, characteristicModifiersFromRuleText(body))
+        const optionName = canonicalOptionName(option)
+        const modifierSource = source.requiresOptionMention ? upgradeRuleExcerpt(body, optionName) : body
+        if (!modifierSource) continue
+        mergeCharacteristicModifiers(combined, characteristicModifiersFromRuleText(modifierSource))
       } catch (error) { reportAppError(error, 'UNIT_UPGRADE_PROFILE_REFERENCE', { unitId: unit.id, optionId: option.id, path }) }
     }
     if (Object.keys(combined).length) next.set(option.id, combined)

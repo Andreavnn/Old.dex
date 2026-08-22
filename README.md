@@ -1,4 +1,4 @@
-# Old.dex GUI v0.66
+# Old.dex GUI v0.30
 
 Old.dex is an alpha Warhammer: The Old World army-roster, rules-reference, and match-companion application. The Vue/TypeScript application in `src/` is the implementation source used by the hosted build.
 
@@ -6,11 +6,11 @@ Old.dex is an alpha Warhammer: The Old World army-roster, rules-reference, and m
 
 ## Current build
 
-Alpha Build 0.66 standardizes interactive control behavior across Old.dex, removes stray non-editable text carets from selection surfaces, and introduces view-only turn-context battle guidance so each phase/subphase can focus on what the friendly roster can do during Your Turn or Enemy's Turn. End of Round now uses explicit turn-routing and round-completion controls so round tracking advances only when the player records the round as complete.
+Alpha Build 0.30 tightens match setup and battle guidance around scenario-specific information. Scenario rules now open inside the match, spell selection uses compact expandable spell-detail panels, and selected spells are surfaced again in the exact turn subphase in which their spell type can be cast.
 
-Unit and mount profiles prefer Old World Builder's indexed statistics. Army-composition overrides remain authoritative, punctuation-aware source parsing avoids corrupting canonical names, and the data layer includes a whole-army reference audit for unresolved entities.
+Overview now keeps scenario maps and scenario-specific conditions visible alongside both rosters' composition options. Deployment avoids placeholder formation text, carries the recorded first-player choice into the turn-view filter, and supplies the standard matched-play first-turn roll-off procedure when no scenario-specific procedure is available.
 
-The footer language selector is now connected to Old World Builder's localized source fields. Where OWB provides localized names/text, Army Roster building, model profiles, and roster views reload using the chosen language while preserving stable English source identities internally for rules and selection logic.
+The compact Your Turn / Enemy's Turn controls remain view filters rather than turn-state mutations. Friendly actions are shaded green, enemy-turn reactions are shaded red, and the battle assistant continues to surface dispels and other friendly responses during the opponent's turn.
 
 ## Install as an app
 
@@ -18,11 +18,11 @@ Old.dex ships as a Progressive Web App. On supported desktop and Android browser
 
 ## Canonical changelog
 
-The full duplicate-free project history is maintained in [`CHANGELOG.md`](CHANGELOG.md). The in-app Changelog uses the matching entries in `src/data/changelog.ts`; these histories should be updated together.
+The full project history is maintained in [`CHANGELOG.md`](CHANGELOG.md). The in-app Changelog uses the matching entries in `src/data/changelog.ts`; these histories should be updated together.
 
 ## Data model
 
-Old.dex uses Old World Builder's structured The Old World data and rule-index resolver as the primary identity layer. TOW rules pages are read only after the canonical entity/path has been resolved, chiefly to obtain rule prose, weapon-table details, and other presentation metadata that OWB normally opens in its rules viewer.
+Old.dex uses Old World Builder's structured The Old World data and rule-index resolver as the primary identity layer. TOW rules pages are read only after the canonical entity/path has been resolved, chiefly to obtain rule prose, weapon-table details, scenario guidance, and other presentation metadata.
 
 ## Development
 
