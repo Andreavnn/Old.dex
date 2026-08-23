@@ -16,6 +16,11 @@ export const changelogEntries: ChangelogEntry[] = [
     'Integrated custom units into their real roster categories while keeping a visible CUSTOM marker; custom units remain gated by the Allow Custom Units battle-composition option.',
     'Updated bundled Grimgor Ironhide to Characters and replaced Da Boyz with the custom Da Bigst Boys rule, allowing Grimgor to satisfy the Black Orc character requirement for all Black Orc Mobs.',
     'Added rule-text redundancy filtering for vice-versa quota wording and deduplicated repeated special-rule cards so equivalent source sentences are not displayed multiple times.',
+    "Added optional, persisted completion checkboxes to match turn guidance for both Your Turn and Enemy's Turn; checking an item never blocks phase progression.",
+    'Consolidated Required Charge Test guidance so shared rules such as Impetuous/Warband appear once with all affected units beneath them, and added optional Pass/Fail tracking that carries failed required-charge tests into Declare Charges as must-charge-if-possible flags.',
+    'Reworked Your Turn Declare Charges to show roster charge candidates instead of repeating Required Charge Test rules.',
+    'Assigned bundled Grimgor Ironhide a 355-point custom estimate, kept him in Characters by default with an optional General role, and kept Da Bigst Boys as a direct exemption to the reciprocal Da Boyz Black Orc Mob character requirement.',
+    'Corrected roster status colouring so a legal roster is green even when below its points limit (or legally using Over / Under); yellow is now reserved for otherwise-valid rosters with unspent Magic Item allowance points.',
   ] },
   { version: '0.31', title: 'Canonical profile integrity rebuild, custom data imports, and splash cleanup', notes: [
     'Rebuilt model-profile ingestion around exact faction, army-composition, roster-unit, rules-page and model-profile identity instead of treating the first returned profile row as authoritative.',

@@ -377,6 +377,9 @@ export type GameTurnRule = {
   label: string
   path?: string
   summary: string
+  unitRefs?: Array<{ instanceId: string; name: string }>
+  action?: 'rule' | 'declare-charge'
+  requiredCharge?: boolean
 }
 
 const formationNames = new Set(['close order', 'open order', 'skirmishers'])
@@ -641,14 +644,50 @@ async function rosterTurnRules(roster: BuilderRosterSelection[], stepId: string,
     if (!rule.path) continue
     const rows = stepRelevantSentences(sentences.get(`${rule.label.toLowerCase()}|${rule.path}`) || [], stepId, viewSide)
     if (!rows.length) continue
-    output.push({ side: 'player', source: unit.name, label: rule.label, path: rule.path, summary: rows.slice(0, 3).join(' ') })
+    output.push({ side: 'player', source: unit.name, label: rule.label, path: rule.path, summary: rows.slice(0, 3).join(' '), unitRefs: [{ instanceId: unit.instanceId, name: unit.name }], action: 'rule' })
   }
   const seen = new Set<string>()
-  return output.filter((row) => {
+  const uniqueRows = output.filter((row) => {
     const key = `${row.source}|${row.label}|${row.summary}`.toLowerCase()
     if (seen.has(key)) return false
     seen.add(key)
     return true
+  })
+  if (stepId !== 'required-charges') return uniqueRows
+
+  // Required-charge rules such as Impetuous and Warband are usually shared by
+  // many units. Present each rule once and attach every affected unit beneath it.
+  const grouped = new Map<string, GameTurnRule>()
+  for (const row of uniqueRows) {
+    const key = `${row.label}|${row.path || ''}|${row.summary}`.toLowerCase()
+    const existing = grouped.get(key)
+    if (!existing) { grouped.set(key, { ...row, source: 'Multiple units', unitRefs: [...(row.unitRefs || [])] }); continue }
+    const refs = new Map((existing.unitRefs || []).map((ref) => [ref.instanceId, ref]))
+    for (const ref of row.unitRefs || []) refs.set(ref.instanceId, ref)
+    existing.unitRefs = [...refs.values()]
+  }
+  return [...grouped.values()]
+}
+
+function chargeTestKey(game: SavedGame, side: 'player' | 'opponent', instanceId: string) {
+  return `${game.round}:${side}:required-charges:${instanceId}`
+}
+
+function declareChargeCandidates(game: SavedGame, roster: BuilderRosterSelection[]): GameTurnRule[] {
+  return roster.map((unit) => {
+    const result = game.chargeTests?.[chargeTestKey(game, 'player', unit.instanceId)]
+    const required = result === 'fail'
+    return {
+      side: 'player',
+      source: unit.name,
+      label: required ? 'Required Charge' : 'Declare Charge',
+      summary: required
+        ? 'This unit failed its required charge test. It must declare a charge if a legal charge is possible.'
+        : 'Declare a charge with this unit if it is currently eligible and you wish it to charge.',
+      unitRefs: [{ instanceId: unit.instanceId, name: unit.name }],
+      action: 'declare-charge',
+      requiredCharge: required,
+    }
   })
 }
 
@@ -717,7 +756,7 @@ export async function loadTurnStepGuidance(game: SavedGame, stepId: string, view
   const friendly = game.playerRoster?.length ? game.playerRoster : (getSavedArmyList(game.playerListId)?.roster || [])
   const [spellRules, rosterRules, battleRules] = await Promise.all([
     selectedSpellTurnRules(game, stepId, viewSide),
-    rosterTurnRules(friendly, stepId, viewSide),
+    stepId === 'declare-charges' && viewSide === 'player' ? Promise.resolve(declareChargeCandidates(game, friendly)) : rosterTurnRules(friendly, stepId, viewSide),
     battleTurnRules(game, stepId, viewSide),
   ])
   const coreRules = enemyTurnCoreGuidance(stepId, viewSide)

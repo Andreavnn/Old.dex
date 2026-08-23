@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import { compositionOptions, compositionRuleLabel } from '../data/listBuilder'
-import { completeSavedGame, deleteSavedGame, gameWorkflow, getSavedGame, resetSavedGame, updateSavedGame, type GameMagicCaster, type GameOutcome, type GameSide, type SavedGame } from '../services/games'
+import { completeSavedGame, deleteSavedGame, gameWorkflow, getSavedGame, resetSavedGame, updateSavedGame, type GameChargeTestResult, type GameMagicCaster, type GameOutcome, type GameSide, type SavedGame } from '../services/games'
 import { getSavedArmyList } from '../services/savedLists'
 import { hydrateFriendlyMagicSetup, loadFriendlyDeploymentGuidance, loadMagicChoices, loadScenarioGuidance, loadStartOfRoundGuidance, loadTurnStepGuidance, magicSelectionLimit, randomHappeningOptions, type GameDeploymentGuidance, type GameStartRoundRule, type GameTurnRule } from '../services/gameSetup'
 
@@ -43,6 +43,9 @@ const isEndScoreStep = computed(() => phase.value?.id === 'end' && step.value?.i
 const roundStartPhaseIndex = computed(() => Math.max(0, gameWorkflow.findIndex((item) => item.id === 'round-start')))
 const strategyPhaseIndex = computed(() => Math.max(0, gameWorkflow.findIndex((item) => item.id === 'strategy')))
 const stepKey = computed(() => game.value && phase.value && step.value ? `${game.value.round}:${game.value.activeSide}:${phase.value.id}:${step.value.id}` : '')
+const checklistKey = computed(() => game.value && phase.value && step.value ? `${game.value.round}:${turnViewSide.value}:${phase.value.id}:${step.value.id}` : '')
+const isRequiredChargeStep = computed(() => phase.value?.id === 'movement' && step.value?.id === 'required-charges' && turnViewSide.value === 'player')
+const isDeclareChargeStep = computed(() => phase.value?.id === 'movement' && step.value?.id === 'declare-charges' && turnViewSide.value === 'player')
 
 const playerListFallback = computed(() => game.value ? getSavedArmyList(game.value.playerListId) : null)
 const opponentListFallback = computed(() => game.value?.opponentListId ? getSavedArmyList(game.value.opponentListId) : null)
@@ -153,6 +156,42 @@ async function hydrateTurnGuidance() {
 function selectTurnContext(side: GameSide) {
   if (!game.value || isReadOnly.value || turnViewSide.value === side) return
   turnViewSide.value = side
+}
+
+function guidanceCheckId(rule: GameTurnRule, index: number) {
+  const refs = (rule.unitRefs || []).map((ref) => ref.instanceId).sort().join(',')
+  return `${rule.action || 'rule'}|${rule.label}|${rule.path || ''}|${refs}|${index}`.toLowerCase()
+}
+function guidanceChecked(rule: GameTurnRule, index: number) {
+  if (!game.value || !checklistKey.value) return false
+  return Boolean(game.value.stepChecks?.[checklistKey.value]?.[guidanceCheckId(rule, index)])
+}
+function toggleGuidanceCheck(rule: GameTurnRule, index: number, checked: boolean) {
+  if (!game.value || isReadOnly.value || !checklistKey.value) return
+  const group = { ...(game.value.stepChecks?.[checklistKey.value] || {}) }
+  const id = guidanceCheckId(rule, index)
+  if (checked) group[id] = true; else delete group[id]
+  persist({ stepChecks: { ...(game.value.stepChecks || {}), [checklistKey.value]: group } })
+}
+function chargeTestKey(instanceId: string) {
+  return game.value ? `${game.value.round}:${turnViewSide.value}:required-charges:${instanceId}` : ''
+}
+function chargeTestResult(instanceId: string): GameChargeTestResult | '' {
+  if (!game.value) return ''
+  return game.value.chargeTests?.[chargeTestKey(instanceId)] || ''
+}
+function isChargeTestRule(rule: GameTurnRule) {
+  return /\b(?:impetuous|required charge test|required charge)\b/i.test(rule.label)
+}
+function setChargeTestResult(instanceId: string, result: GameChargeTestResult, checked: boolean) {
+  if (!game.value || isReadOnly.value) return
+  const next = { ...(game.value.chargeTests || {}) }
+  const key = chargeTestKey(instanceId)
+  if (!checked || next[key] === result) delete next[key]
+  else next[key] = result
+  persist({ chargeTests: next })
+  // Declare Charges reads this state to flag failed Impetuous/required-charge tests.
+  if (step.value?.id === 'declare-charges') void hydrateTurnGuidance()
 }
 function startTurnFromEnd(side: GameSide) {
   if (!game.value || isReadOnly.value || roundsComplete.value) return
@@ -504,8 +543,8 @@ onMounted(() => { void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioG
         <section v-if="isBattleTurnPhase" class="turn-guidance-shell">
           <p v-if="turnGuidanceLoading" class="setup-inline-status">Checking the friendly roster and battle rules for this {{ turnContextLabel.toLowerCase() }} step…</p>
           <template v-else>
-            <article class="turn-guidance-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">FRIENDLY ROSTER</p><h3>{{ turnContextLabel }} — {{ step.label }}</h3></div><span>{{ friendlyTurnGuidance.length }}</span></div><template v-if="friendlyTurnGuidance.length"><article v-for="rule in friendlyTurnGuidance" :key="`${rule.source}-${rule.label}-${rule.summary}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></template><p v-else class="setup-inline-status">No friendly rules or reactions were detected for this step in {{ turnContextLabel.toLowerCase() }}.</p></article>
-            <article v-if="battleTurnGuidance.length" class="turn-guidance-panel battle card-inset"><div class="setup-section-heading"><div><p class="eyebrow">BATTLE</p><h3>Scenario &amp; Battle Rules</h3></div><span>{{ battleTurnGuidance.length }}</span></div><article v-for="rule in battleTurnGuidance" :key="`${rule.source}-${rule.label}-${rule.summary}`" class="start-round-rule-row"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></article></article>
+            <article class="turn-guidance-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">FRIENDLY ROSTER</p><h3>{{ turnContextLabel }} — {{ step.label }}</h3><small class="optional-check-hint">Checks are optional and only track what you have resolved.</small></div><span>{{ friendlyTurnGuidance.length }}</span></div><template v-if="friendlyTurnGuidance.length"><article v-for="(rule, ruleIndex) in friendlyTurnGuidance" :key="`${rule.source}-${rule.label}-${rule.summary}`" class="start-round-rule-row turn-action-row" :class="{ complete: guidanceChecked(rule, ruleIndex), 'required-charge-row': rule.requiredCharge }"><label class="turn-action-check"><input type="checkbox" :checked="guidanceChecked(rule, ruleIndex)" :disabled="isReadOnly" @change="toggleGuidanceCheck(rule, ruleIndex, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><div class="turn-action-copy"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span><em v-if="rule.requiredCharge" class="required-charge-flag">MUST CHARGE IF POSSIBLE</em></div><p>{{ rule.summary }}</p><div v-if="rule.unitRefs?.length" class="turn-rule-unit-list"><div v-for="unit in rule.unitRefs" :key="`${rule.label}-${unit.instanceId}`" class="turn-rule-unit"><strong>{{ unit.name }}</strong><div v-if="isRequiredChargeStep && isChargeTestRule(rule)" class="charge-test-controls" role="group" :aria-label="`${unit.name} required charge test`"><label><input type="checkbox" :checked="chargeTestResult(unit.instanceId) === 'pass'" :disabled="isReadOnly" @change="setChargeTestResult(unit.instanceId, 'pass', ($event.target as HTMLInputElement).checked)" /><span>Pass</span></label><label><input type="checkbox" :checked="chargeTestResult(unit.instanceId) === 'fail'" :disabled="isReadOnly" @change="setChargeTestResult(unit.instanceId, 'fail', ($event.target as HTMLInputElement).checked)" /><span>Fail</span></label></div><span v-else-if="isDeclareChargeStep && chargeTestResult(unit.instanceId) === 'fail'" class="required-charge-unit-note">Failed required charge test</span></div></div></div></article></template><p v-else class="setup-inline-status">No friendly rules or reactions were detected for this step in {{ turnContextLabel.toLowerCase() }}.</p></article>
+            <article v-if="battleTurnGuidance.length" class="turn-guidance-panel battle card-inset"><div class="setup-section-heading"><div><p class="eyebrow">BATTLE</p><h3>Scenario &amp; Battle Rules</h3></div><span>{{ battleTurnGuidance.length }}</span></div><article v-for="(rule, battleIndex) in battleTurnGuidance" :key="`${rule.source}-${rule.label}-${rule.summary}`" class="start-round-rule-row turn-action-row" :class="{ complete: guidanceChecked(rule, friendlyTurnGuidance.length + battleIndex) }"><label class="turn-action-check"><input type="checkbox" :checked="guidanceChecked(rule, friendlyTurnGuidance.length + battleIndex)" :disabled="isReadOnly" @change="toggleGuidanceCheck(rule, friendlyTurnGuidance.length + battleIndex, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><div class="turn-action-copy"><div><strong>{{ rule.source }}</strong><RouterLink v-if="rule.path" :to="`/rules/read${rule.path}`">{{ rule.label }}</RouterLink><span v-else>{{ rule.label }}</span></div><p>{{ rule.summary }}</p></div></article></article>
           </template>
         </section>
 

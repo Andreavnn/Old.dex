@@ -192,13 +192,15 @@ function rosterMagicPools(row: BuilderRosterSelection) {
   })
   return pools
 }
-const untouchedMagicPools = computed(() => roster.value.flatMap((row) => rosterMagicPools(row).filter((pool) => {
+const openMagicPools = computed(() => roster.value.flatMap((row) => rosterMagicPools(row).flatMap((pool) => {
   const spent = (row.magicItems || []).filter((item) => (item.ownerId || 'unit') === pool.ownerId).reduce((sum, item) => sum + Number(item.points || 0) * Math.max(1, Number(item.count || 1)), 0)
-  return pool.maxPoints > 0 && spent === 0
-}).map((pool) => ({ row, pool }))))
-const hasMagicAllowanceWarning = computed(() => validationState.value === 'VALID' && untouchedMagicPools.value.length > 0)
-const hasRosterWarning = computed(() => validationState.value === 'VALID' && (overUnderWarning.value || hasMagicAllowanceWarning.value))
-const persistedRosterStatus = computed<'valid' | 'invalid' | 'warning'>(() => validationState.value === 'INVALID' || validationState.value === 'OVER LIMIT' ? 'invalid' : validationState.value === 'VALID' && rosterPoints.value === points.value && !overUnderWarning.value ? 'valid' : 'warning')
+  const remaining = Math.max(0, Number(pool.maxPoints || 0) - spent)
+  return remaining > 0 ? [{ row, pool, spent, remaining }] : []
+})))
+const openMagicAllowancePoints = computed(() => openMagicPools.value.reduce((sum, entry) => sum + entry.remaining, 0))
+const hasMagicAllowanceWarning = computed(() => validationState.value === 'VALID' && openMagicPools.value.length > 0)
+const hasRosterWarning = computed(() => validationState.value === 'VALID' && hasMagicAllowanceWarning.value)
+const persistedRosterStatus = computed<'valid' | 'invalid' | 'warning'>(() => validationState.value === 'INVALID' || validationState.value === 'OVER LIMIT' ? 'invalid' : validationState.value === 'VALID' ? (hasMagicAllowanceWarning.value ? 'warning' : 'valid') : 'warning')
 watch([savedListId, rosterPoints, persistedRosterStatus], () => { if (savedListId.value) updateSavedArmyList(savedListId.value, { actualPoints: rosterPoints.value, validationStatus: persistedRosterStatus.value }) }, { immediate: true })
 async function loadValidationData() {
   validationDataError.value = ''
@@ -482,7 +484,7 @@ async function applySettings() {
 
     <section class="builder-command-strip card-surface">
       <div class="builder-toolbar" aria-label="Roster tools"><button type="button" class="builder-tool" @click="listImportInput?.click()"><span>Import</span><small>JSON roster</small></button><input ref="listImportInput" class="file-import-input" type="file" accept=".json,.owb.json,.owb.lists.json,application/json" @change="importArmyListFile" /><button type="button" class="builder-tool" @click="exportCurrentList"><span>Export</span><small>JSON roster</small></button><button type="button" class="builder-tool" @click="duplicateCurrentList"><span>Duplicate</span><small>Copy roster</small></button><button type="button" class="builder-tool" :disabled="listLocked" @click="openSettings"><span>Settings</span><small>Roster setup</small></button><button type="button" class="builder-tool" @click="viewCurrentList"><span>View</span><small>Roster overview</small></button><button type="button" class="builder-tool builder-lock-tool" :class="{ active: listLocked }" @click="toggleListLock"><span>{{ listLocked ? 'Unlock Editing' : 'Lock Roster' }}</span><small>{{ listLocked ? 'Editing off' : 'Editing on' }}</small></button></div>
-      <div class="builder-validation-row"><span><strong>Army validation</strong><small>{{ validationIssues.length ? `${validationIssues.filter((issue) => issue.severity === 'error').length} rule issue${validationIssues.filter((issue) => issue.severity === 'error').length === 1 ? '' : 's'} to resolve.` : overUnderWarning ? `Roster is valid under Over / Under at ${Math.abs(remainingPoints)} points over the selected limit.` : hasMagicAllowanceWarning ? `Roster is valid; ${untouchedMagicPools.length} magic-item allowance${untouchedMagicPools.length === 1 ? '' : 's'} remain completely unspent.` : 'General, category percentages and composition requirements are satisfied.' }}</small></span><span class="validation-state-text" :class="{ danger: validationState === 'OVER LIMIT' || validationState === 'INVALID', valid: validationState === 'VALID' && !hasRosterWarning, warning: hasRosterWarning }">{{ validationState }}</span></div>
+      <div class="builder-validation-row"><span><strong>Army validation</strong><small>{{ validationIssues.length ? `${validationIssues.filter((issue) => issue.severity === 'error').length} rule issue${validationIssues.filter((issue) => issue.severity === 'error').length === 1 ? '' : 's'} to resolve.` : overUnderWarning ? `Roster is valid under Over / Under at ${Math.abs(remainingPoints)} points over the selected limit.` : hasMagicAllowanceWarning ? `Roster is valid; ${openMagicPools.length} magic-item allowance${openMagicPools.length === 1 ? '' : 's'} have ${openMagicAllowancePoints} pts left to spend.` : 'General, category percentages and composition requirements are satisfied.' }}</small></span><span class="validation-state-text" :class="{ danger: validationState === 'OVER LIMIT' || validationState === 'INVALID', valid: validationState === 'VALID' && !hasRosterWarning, warning: hasRosterWarning }">{{ validationState }}</span></div>
       <div v-if="validationDataError" class="builder-validation-warning">{{ validationDataError }}</div>
       <ul v-if="validationIssues.length" class="builder-validation-list"><li v-for="(issue, index) in validationIssues" :key="`${issue.section}-${index}-${issue.message}`" :class="issue.severity"><span class="validation-section-label">{{ issue.section }}</span><span class="validation-issue-message">{{ issue.message }}</span></li></ul>
     </section>

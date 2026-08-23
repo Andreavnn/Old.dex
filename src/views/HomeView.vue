@@ -80,12 +80,18 @@ async function importCustomDataFile(event: Event) {
 }
 function optionLabel(id: string) { return compositionOptions.find((option) => option.value === id)?.label || id }
 function actualPoints(list: SavedArmyList) { return list.actualPoints ?? (list.roster || []).reduce((sum, row) => sum + row.totalPoints, 0) }
+function openMagicAllowancePoints(list: SavedArmyList) {
+  return (list.roster || []).reduce((total, row) => total + (row.magicPools || []).reduce((poolTotal, pool) => {
+    const spent = (row.magicItems || []).filter((item) => (item.ownerId || 'unit') === pool.ownerId).reduce((sum, item) => sum + Number(item.points || 0) * Math.max(1, Number(item.count || 1)), 0)
+    return poolTotal + Math.max(0, Number(pool.maxPoints || 0) - spent)
+  }, 0), 0)
+}
 function rosterState(list: SavedArmyList) {
   const actual = actualPoints(list)
   if (list.validationStatus === 'invalid') return 'invalid'
-  if (actual > list.points) return (list.options || []).includes('over-under') && actual <= list.points + 10 ? 'warning' : 'invalid'
-  if (actual === list.points && actual > 0) return 'valid'
-  return 'warning'
+  if (actual > list.points && !((list.options || []).includes('over-under') && actual <= list.points + 10)) return 'invalid'
+  if (openMagicAllowancePoints(list) > 0) return 'warning'
+  return actual > 0 ? 'valid' : 'warning'
 }
 function exportList(list: SavedArmyList) { exportSavedArmyList(list) }
 </script>

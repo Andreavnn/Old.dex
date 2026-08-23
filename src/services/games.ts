@@ -5,6 +5,7 @@ import type { BuilderRosterSelection } from '../domain/rosterTypes'
 export type GameStatus = 'open' | 'complete'
 export type GameSide = 'player' | 'opponent'
 export type GameOutcome = 'completed' | 'conceded' | 'enemy-yielded' | 'draw'
+export type GameChargeTestResult = 'pass' | 'fail'
 
 export type GameScenarioGuidance = {
   sourcePath: string
@@ -133,6 +134,8 @@ export type SavedGame = {
   phaseIndex: number
   stepIndex: number
   stepNotes: Record<string, string>
+  stepChecks?: Record<string, Record<string, boolean>>
+  chargeTests?: Record<string, GameChargeTestResult>
   playerScore: number
   opponentScore: number
   createdAt: string
@@ -176,11 +179,13 @@ function parseGames(value: unknown): SavedGame[] {
     return {
       ...row,
       status: row.status === 'complete' ? 'complete' : 'open',
-      workflowVersion: 3,
+      workflowVersion: 4,
       round: Math.max(1, Number(row.round || 1)),
       phaseIndex: Math.max(0, Math.min(gameWorkflow.length - 1, migratedPhaseIndex)),
       stepIndex: Math.max(0, Number(row.stepIndex || 0)),
       stepNotes: { ...(row.stepNotes || {}) },
+      stepChecks: Object.fromEntries(Object.entries(row.stepChecks || {}).map(([key, value]) => [key, { ...(value || {}) }])),
+      chargeTests: { ...(row.chargeTests || {}) },
       playerScore: Math.max(0, Number(row.playerScore || 0)),
       opponentScore: Math.max(0, Number(row.opponentScore || 0)),
       firstPlayerConfirmed: typeof row.firstPlayerConfirmed === 'boolean' ? row.firstPlayerConfirmed : true,
@@ -245,7 +250,7 @@ export function createSavedGame(input: {
   const game: SavedGame = {
     id: `game-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     status: 'open',
-    workflowVersion: 3,
+    workflowVersion: 4,
     name: `${playerName} - ${opponentName}`,
     playerListId: input.playerList.id,
     playerListName: input.playerList.name,
@@ -286,6 +291,8 @@ export function createSavedGame(input: {
     phaseIndex: 0,
     stepIndex: 0,
     stepNotes: {},
+    stepChecks: {},
+    chargeTests: {},
     playerScore: 0,
     opponentScore: 0,
     createdAt: now,
@@ -333,6 +340,8 @@ export function resetSavedGame(id: string) {
     phaseIndex: 0,
     stepIndex: 0,
     stepNotes: {},
+    stepChecks: {},
+    chargeTests: {},
     playerScore: 0,
     opponentScore: 0,
     magicSetup: [],

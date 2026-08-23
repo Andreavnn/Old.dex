@@ -1,12 +1,12 @@
 {
-  "id": "custom-grimgor-ironhide-test",
-  "name": "Grimgor Ironhide — Custom Old.dex Test",
+  "id": "custom-grimgor-ironhide",
+  "name": "Grimgor Ironhide — Old.dex Custom Unit",
   "faction": "Orc & Goblin Tribes",
   "factionName": "Orc & Goblin Tribes",
   "compositionRule": "Orc & Goblin Tribes — Grand Army",
   "armyComposition": "Orc & Goblin Tribes — Grand Army",
-  "points": 0,
-  "totalPoints": 0,
+  "points": 355,
+  "totalPoints": 355,
   "units": [
     {
       "id": "grimgor-ironhide",
@@ -21,17 +21,17 @@
       "maximum": 1,
       "startModels": 1,
       "unitSize": "1 model",
-      "points": 0,
-      "totalPoints": 0,
+      "points": 355,
+      "totalPoints": 355,
       "named": true,
-      "isGeneral": true,
+      "isGeneral": false,
       "leadershipAura": true,
       "command": [
         {
           "id": "general",
           "name": "General",
-          "active": true,
-          "alwaysActive": true
+          "active": false,
+          "alwaysActive": false
         }
       ],
       "profile": {
@@ -273,8 +273,8 @@
       ],
       "_olddexCustom": {
         "version": 1,
-        "status": "TEST",
-        "pointsStatus": "UNPRICED",
+        "status": "CUSTOM",
+        "pointsStatus": "CUSTOM_ESTIMATE",
         "profileLocked": {
           "M": 4,
           "WS": 7,
@@ -315,12 +315,13 @@
           "Best of da Best": "Whilst fighting in a challenge, Grimgor may re-roll any failed rolls To Hit and To Wound.",
           "Da Bigst Boys": "Grimgor Ironhide is enough to satisfy the Black Orc character requirement for any number of Black Orc Mob units in the army. Black Orc Mobs do not require a separate Black Orc War Boss or Black Orc Big Boss while Grimgor is included."
         }
-      }
+      },
+      "generalEligible": true
     }
   ],
   "_olddexCustom": {
     "format": "direct-units-array-test",
-    "purpose": "Custom Grimgor Ironhide import/normalization test",
-    "pointsStatus": "UNPRICED"
+    "purpose": "Custom Grimgor Ironhide roster unit",
+    "pointsStatus": "CUSTOM_ESTIMATE"
   }
 }

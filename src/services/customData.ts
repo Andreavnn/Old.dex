@@ -366,15 +366,18 @@ function normalizeCustomUnit(pack: CustomDataRecord, unit: CustomDataRecord, arm
   const profiles = profileRows(pack, unit, army, compositionId, id, base)
   const primary = profiles.find((row) => slug(row.name) === slug(name)) || profiles[0]
   const command = records(unit.command)
-  const forcedGeneral = Boolean(unit.isGeneral) || command.some((row) => /^General$/i.test(clean(row.name)) && row.active !== false && row.alwaysActive !== false)
+  const generalCommand = command.find((row) => /^General$/i.test(clean(row.name)))
+  const forcedGeneral = Boolean(unit.mustBeGeneral || custom.mustBeGeneral)
+  const generalEligible = category === 'Characters' && unit.cannotBeGeneral !== true && (unit.generalEligible !== false || Boolean(generalCommand) || Boolean(unit.isGeneral))
+  const defaultGeneral = forcedGeneral || Boolean(unit.isGeneral) || Boolean(generalCommand && generalCommand.active !== false && generalCommand.alwaysActive !== false)
   const equipmentOptions = customEquipment(unit)
-  if (forcedGeneral) equipmentOptions.push({
+  if (generalEligible) equipmentOptions.push({
     id: 'general',
     name: 'General',
     points: 0,
-    default: true,
-    locked: true,
-    alwaysIncluded: true,
+    default: defaultGeneral,
+    locked: forcedGeneral,
+    alwaysIncluded: forcedGeneral,
     kind: 'role',
     costMode: 'flat',
     selectionMode: 'unit-toggle',
@@ -413,6 +416,7 @@ function normalizeCustomUnit(pack: CustomDataRecord, unit: CustomDataRecord, arm
     maximumModels: Math.max(1, Number(unit.maximum || unit.minimum || unit.startModels) || 1),
     named: Boolean(unit.named),
     mustBeGeneral: forcedGeneral,
+    cannotBeGeneral: Boolean(unit.cannotBeGeneral),
     additionalDetails: [
       { label: 'Custom data', value: clean(pack.name || pack.id) || 'Imported custom data' },
       { label: 'Status', value: status || 'CUSTOM' },
