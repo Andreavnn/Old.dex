@@ -59,24 +59,12 @@ function continueToOldDex() {
         </article>
       </section>
 
-      <section class="welcome-support-block">
-        <div>
-          <p class="eyebrow">SUPPORT</p>
-          <h2>Keeping Old.dex online</h2>
-          <p>Old.dex is free to use. Voluntary support is used only for domain and hosting costs.</p>
-        </div>
-        <div class="welcome-support-actions" aria-label="Support Old.dex">
-          <a class="secondary-button welcome-support-button" href="https://buy.stripe.com/7sY9ATaA64LEf2Adzz3Nm02" target="_blank" rel="noopener noreferrer">One Time Gift</a>
-          <a class="secondary-button welcome-support-button" href="https://buy.stripe.com/4gM5kDbEa6TM9Ig7bb3Nm03" target="_blank" rel="noopener noreferrer">Recurring Gift</a>
-        </div>
-      </section>
-
       <section class="welcome-thanks-block">
         <p class="eyebrow">SPECIAL THANKS</p>
         <h2>Built with help from the community</h2>
         <div class="welcome-thanks-list">
-          <a href="https://www.whfb.app/" target="_blank" rel="noopener noreferrer">Warhammer Fantasy Online Rules Index Project</a>
-          <strong>Nico Thiebes</strong>
+          <a class="welcome-thanks-plain" href="https://www.whfb.app/" target="_blank" rel="noopener noreferrer">Warhammer Fantasy Online Rules Index Project</a>
+          <span class="welcome-thanks-plain">Nico Thiebes</span>
           <span>Sig.dex</span>
           <span>Other Contributing Supporters</span>
         </div>

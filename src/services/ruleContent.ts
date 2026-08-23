@@ -14,9 +14,9 @@ import {
 
 export type { RuleDocument, RuleIndexEntry, RuleIndexGroup } from '../domain/ruleTypes'
 
-const CACHE_PREFIX = 'olddex.rule-content.v15:'
+const CACHE_PREFIX = 'olddex.rule-content.v16:'
 const LEGACY_CACHE_PREFIXES = [
-  'olddex.rule-content.v14:', 'olddex.rule-content.v13:', 'olddex.rule-content.v12:', 'olddex.rule-content.v11:',
+  'olddex.rule-content.v15:', 'olddex.rule-content.v14:', 'olddex.rule-content.v13:', 'olddex.rule-content.v12:', 'olddex.rule-content.v11:',
   'olddex.rule-content.v10:', 'olddex.rule-content.v9:', 'olddex.rule-content.v8:', 'olddex.rule-content.v7:',
   'olddex.rule-content.v6:', 'olddex.rule-content.v5:', 'olddex.rule-content.v4:', 'olddex.rule-content.v3:',
   'olddex.rule-content.v2:', 'olddex.rule-content.v1:',

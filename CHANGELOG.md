@@ -1,5 +1,17 @@
 # Old.dex Changelog
 
+## Alpha Build 0.31 — Canonical profile integrity rebuild, custom data imports, and splash cleanup
+
+- Rebuilt model-profile ingestion around exact faction, army-composition, roster-unit, rules-page and model-profile identity instead of treating the first returned profile row as authoritative.
+- Made Old World Builder’s complete indexed characteristic rows the primary base-profile source, tightened rules-page and Builder-data fallbacks to complete M/WS/BS/S/T/W/I/A/Ld records, and made ambiguous multi-profile resolution fail closed rather than guess.
+- Separated persistent model-characteristic changes from contextual weapon/rule effects: armour and match-long model bonuses may change displayed model stats, while weapon Strength/AP and turn/phase/attack-only effects remain on their weapon or rule context.
+- Removed generic option-reference-page characteristic enrichment so selected weapons and other option rules cannot leak their modifiers into a model’s base WS/S/etc.; roster-dependent permanent upgrades remain scoped to explicit named characteristic text.
+- Invalidated the previous rules/profile data caches so stale profile parsing cannot survive the rebuild.
+- Removed the splash-page Gift/Support block, changed the Rules Index Project and Nico Thiebes acknowledgements to regular weight, removed the footer language selector, and reduced/padded the install artwork so it is not clipped.
+- Removed obsolete patch-delivery scaffolding from the repository root; Old.dex now ships the updated source directly rather than payload/apply/manifest patch artifacts.
+- Added a canonical Custom Units data path with browser JSON import, local persistence, composition-aware unit selection, and fail-closed validation for complete M/WS/BS/S/T/W/I/A/Ld profiles.
+- Bundled the supplied Grimgor Ironhide custom test data for Orc & Goblin Tribes Grand Army; his locked base profile remains separate from Gitsnik weapon modifiers, while Blood-Forged Armour supplies the persistent armour and Ward values.
+
 ## Alpha Build 0.30 — Scenario workflow, compact turn views, and spell timing guidance
 
 - Updated every Old.dex Gift action to the current one-time and recurring Stripe destinations.
@@ -8,7 +20,6 @@
 - Reworked Setup Step 2 spell cards as collapsible panels containing spell-only details such as type, casting value, range and effect while retaining the lore reference link.
 - Expanded Overview with scenario-specific battlefield/deployment/first-turn details, an available scenario map, and the enabled composition options for both friendly and enemy rosters.
 - Cleaned Deployment guidance so units with no formation rules show no placeholder formation text, scenario deployment no longer repeats terrain setup, and the First Turn tip supplies the standard matched-play roll-off procedure when a scenario gives no different procedure.
-- Moved Your Turn / Enemy's Turn into compact centered controls beside the step counter, with friendly and enemy visual shading, and synchronized the initial turn view to the side selected during Deployment Step 3.
 - Added selected Wizard spells to the exact Your Turn subphases in which their spell type can be cast: Enchantment/Hex in Conjuration, Conveyance in Remaining Moves, Magic Missile/Magical Vortex in Special Shooting Actions, and Assailment in Combat.
 - Corrected upgrade-characteristic enrichment so roster-dependent upgrades only apply explicitly stated characteristic modifiers; Celestial Dragon Guard now applies only +1 WS and +1 Ld, and prerequisite-model rule pages can no longer leak unrelated profile values into upgrades.
 
@@ -21,17 +32,15 @@
 - Moved Start New Match Roster Check below Battle Composition, moved Game Length above Scenario in Setup Step 1, removed the Friendly Magic panel from that page, and surfaced scenario/deployment map artwork from the canonical scenario source when available.
 - Split Start of Round into Battle Effects followed by Player Effects so shared scenario/battlefield/composition effects resolve before friendly and enemy army/model effects.
 - Changed match lifecycle controls so pre-battle Setup/Overview/Deployment use Cancel Match, Start Over and Save to Ongoing, while post-deployment battles use Concede, Enemy Yielded, Draw and Save to Ongoing.
-- Expanded Enemy's Turn guidance with core friendly responses including Wizardly/Fated Dispel, charge reactions and defensive shooting actions.
 - Moved the running score controls out of the match header and into End of Round Step 2, where round scoring and next-turn/end-round routing are resolved together.
-- Tightened the manual repository-cleanup workflow around root generated artifacts only and explicitly documented protected source/configuration paths.
 
 ## Alpha Build 0.28 — Interaction standards and turn-context battle guidance
 
-- Standardized non-editable interaction surfaces across Old.dex so buttons, labels, selection cards, and other controls no longer present a stray text-entry caret; real text/number fields retain normal editing behavior and consistent focus treatment.
-- Rebuilt the Magical Item picker interaction row around explicit checkbox/label and details-button controls instead of using the entire text row as an ad-hoc click target, keeping the same behavior for every army/model that uses the shared picker.
-- Added a view-only Your Turn / Enemy's Turn context selector to Strategy, Movement, Shooting, Combat, and End-of-Round phases and all of their subphases.
-- Added phase/subphase rule guidance that reads the friendly roster's canonical rule documents once, caches them, and filters them to the current step and turn context; Enemy's Turn focuses on friendly reactions, opponent-turn triggers, and shared combat/break interactions.
-- Replaced automatic end-of-turn side switching with explicit Back, Your Turn, Enemy's Turn, and End of Round controls. Starting either turn returns to Strategy → Start of Turn without incrementing the round; End of Round records one completed round and returns to Start of Round until the configured round limit is reached.
+- Standardized non-editable interaction surfaces across Old.dex so buttons, labels, selection cards, and other controls no longer present a stray text-entry caret while genuine form fields retain normal editing and focus behavior.
+- Rebuilt the shared Magical Item picker row around explicit checkbox/label and details-button controls so every army and model uses the same interaction path.
+- Added a persistent Your Turn / Enemy's Turn context selector to Strategy, Movement, Shooting, Combat, and End-of-Round phases and all of their subphases.
+- Added cached phase/subphase rule guidance that filters the friendly roster and applicable battle sources to the current step; Enemy's Turn focuses on friendly reactions, opponent-turn triggers, and shared combat/break interactions.
+- Replaced automatic turn switching at the end of the workflow with explicit Back, Your Turn, Enemy's Turn, and End of Round controls so only End of Round increments the completed-round tracker and advances to the next Start of Round.
 
 ## Alpha Build 0.27 — Match validation, deployment guidance, and Start of Round rules
 
@@ -98,15 +107,11 @@
 
 - Restored the original site-wide interface text scale while keeping the larger OLD.DEX, ALPHA BUILD, and Changelog header treatment isolated to the header.
 - Added theme-colored back panels for exposed text when a custom background image is active and corrected Settings text contrast in dark faction themes.
-- Repaired the Select Units modal so rows retain readable height/columns instead of being compressed, and centered/colored the Create List Cancel action red.
+- Repaired the Select Units modal so rows retain readable height and columns, and centered/colored the Create List Cancel action red.
 - Kept selected Battle Composition option details permanently expanded with larger default text.
-- Properly capitalized Magical Lore names, changed spell-lore phase labeling to Winds of Magic, and added Spell Lore: <Lore> keywords to selected lore rule cards.
-- Enabled JSON army-list import from Army Lists, active list-building, and Start New Match, including native Old.dex data plus Old World Builder .owb.json/.owb.lists.json files.
-- Fixed nested source-option selection IDs so dependent choices such as nested weapon upgrades are exposed consistently across armies, and expanded ranged-weapon recognition to bombs/grenades.
-- Merged source-specific weapon special rules with shared weapon-reference rules instead of overwriting one source with the other.
-
-
-This is the canonical duplicate-free project history. The in-app Changelog mirrors these same entries. Repeated correction passes are consolidated into the build or build range where the behavior became part of the application source.
+- Properly capitalized Magical Lore names, changed spell-lore phase labeling to Winds of Magic, and added lore-specific keywords to selected lore rule cards.
+- Enabled JSON army-list import from Army Lists, active list-building, and Start New Match, including native Old.dex and Old World Builder JSON formats.
+- Fixed nested source-option selection IDs, expanded bomb/grenade weapon recognition, and merged source-specific weapon rules with shared weapon-reference rules site-wide.
 
 ## Alpha Build 0.20 — Magic selection, composition options, display polish, and Games groundwork
 

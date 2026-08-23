@@ -70,7 +70,7 @@ export const compositionOptionDescriptions: Partial<Record<CompositionOptionId, 
   'monster-mash': 'Allows one non-character Monstrous Creature, War Machine or Chariot to be selected as a Core unit.',
   'allow-allies': 'Allows eligible allied units permitted by the selected army composition.',
   'allow-mercenaries': 'Allows eligible mercenary units permitted by the selected army composition.',
-  'allow-custom-units': 'Enables the Custom Units roster category for future custom unit data.',
+  'allow-custom-units': 'Enables the Custom Units roster category and allows bundled or imported custom unit data to be selected.',
 }
 
 export function compositionOptionDescription(option: CompositionOptionId) {

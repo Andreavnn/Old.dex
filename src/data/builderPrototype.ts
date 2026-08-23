@@ -94,6 +94,21 @@ export type PrototypeMagicAllowance = {
   types: Array<'weapon' | 'armor' | 'talisman' | 'enchanted-item' | 'arcane-item' | 'banner'>
 }
 
+export type PrototypeProfileIdentity = {
+  factionId: string
+  compositionId: string
+  rosterUnitId: string
+  rulesPath: string
+  profileId: string
+  source: 'owb-index' | 'rules-page' | 'builder-raw' | 'custom-data'
+}
+
+export type PrototypeProfileRow = {
+  name: string
+  profile: Record<ProfileKey, string>
+  identity?: PrototypeProfileIdentity
+}
+
 export type PrototypeUnit = {
   id: string
   name: string
@@ -102,6 +117,7 @@ export type PrototypeUnit = {
   points: number
   unitSize: string
   profile: Record<ProfileKey, string>
+  profileIdentity?: PrototypeProfileIdentity
   weapons: PrototypeWeapon[]
   equipmentOptions: PrototypeEquipmentOption[]
   magicAllowance?: PrototypeMagicAllowance
@@ -127,8 +143,8 @@ export type PrototypeUnit = {
     requiresAnySelection?: string[]
   }>
   keywords: Array<{ label: string; path: string }>
-  profiles?: Array<{ name: string; profile: Record<ProfileKey, string> }>
-  optionalProfiles?: Array<{ selectionId: string; name: string; sourceName?: string; profile: Record<ProfileKey, string>; equipment?: string[] }>
+  profiles?: PrototypeProfileRow[]
+  optionalProfiles?: Array<{ selectionId: string; name: string; sourceName?: string; profile: Record<ProfileKey, string>; identity?: PrototypeProfileIdentity; equipment?: string[] }>
   minimumModels?: number
   maximumModels?: number
   basePointsPerModel?: number
@@ -141,7 +157,7 @@ export type PrototypeUnit = {
   additionalDetails?: Array<{ label: string; value: string }>
   mixedWeaponAllocation?: boolean
   assumesHandWeapon?: boolean
-  sourceKind?: 'prototype' | 'live'
+  sourceKind?: 'prototype' | 'live' | 'custom'
 }
 
 const dwarfProfile: Record<ProfileKey, string> = { M: '3', WS: '6', BS: '4', S: '4', T: '5', W: '3', I: '3', A: '4', Ld: '10', Sv: '4+', Ward: '—', Rn: '—' }

@@ -6,6 +6,17 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.31', title: 'Canonical profile integrity rebuild, custom data imports, and splash cleanup', notes: [
+    'Rebuilt model-profile ingestion around exact faction, army-composition, roster-unit, rules-page and model-profile identity instead of treating the first returned profile row as authoritative.',
+    'Made Old World Builder’s complete indexed characteristic rows the primary base-profile source, tightened rules-page and Builder-data fallbacks to complete M/WS/BS/S/T/W/I/A/Ld records, and made ambiguous multi-profile resolution fail closed rather than guess.',
+    'Separated persistent model-characteristic changes from contextual weapon/rule effects: armour and match-long model bonuses may change displayed model stats, while weapon Strength/AP and turn/phase/attack-only effects remain on their weapon or rule context.',
+    'Removed generic option-reference-page characteristic enrichment so selected weapons and other option rules cannot leak their modifiers into a model’s base WS/S/etc.; roster-dependent permanent upgrades remain scoped to explicit named characteristic text.',
+    'Invalidated the previous rules/profile data caches so stale profile parsing cannot survive the rebuild.',
+    'Removed the splash-page Gift/Support block, changed the Rules Index Project and Nico Thiebes acknowledgements to regular weight, removed the footer language selector, and reduced/padded the install artwork so it is not clipped.',
+    'Removed obsolete patch-delivery scaffolding from the repository root; Old.dex now ships the updated source directly rather than payload/apply/manifest patch artifacts.',
+    'Added a canonical Custom Units data path with browser JSON import, local persistence, composition-aware unit selection, and fail-closed validation for complete M/WS/BS/S/T/W/I/A/Ld profiles.',
+    'Bundled the supplied Grimgor Ironhide custom test data for Orc & Goblin Tribes Grand Army; his locked base profile remains separate from Gitsnik weapon modifiers, while Blood-Forged Armour supplies the persistent armour and Ward values.',
+  ] },
   { version: '0.30', title: 'Scenario workflow, compact turn views, and spell timing guidance', notes: [
     'Updated every Old.dex Gift action to the current one-time and recurring Stripe destinations.',
     'Tightened Start New Match roster checks so roster-status warnings appear only for red/invalid rosters, while match-level point-limit and unequal-allowance errors remain visible.',

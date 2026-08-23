@@ -28,6 +28,7 @@ import { magicItemPointLimit as resolveMagicItemPointLimit } from '../domain/mag
 import { equipmentRequirementsMet, normalizeUnitSelections, selectExclusiveEquipment, selectExclusiveWeapon } from '../domain/selection'
 import { applyProfileEffects, incrementCharacteristic, isMountProfileName, normalizedModelName } from '../domain/profileEffects'
 import { ruleDisplayName } from '../domain/rulePresentation'
+import { persistentModelCharacteristicModifiers } from '../domain/canonicalProfiles'
 import { reportAppError } from '../services/appErrors'
 import { localizedSourceText, useLanguagePreference } from '../services/language'
 
@@ -531,42 +532,7 @@ watch([isWizard, isPrayerCaster], ([wizard, priest]) => {
 
 const upgradeProfileModifiers = ref(new Map<string, Partial<Record<ProfileKey, number>>>())
 function characteristicModifiersFromRuleText(value: string) {
-  const out: Partial<Record<ProfileKey, number>> = {}
-  const labels: Array<[ProfileKey, string]> = [
-    ['M', 'Movement|M'], ['WS', 'Weapon\\s+Skill|WS'], ['BS', 'Ballistic\\s+Skill|BS'],
-    ['S', 'Strength|S'], ['T', 'Toughness|T'], ['W', 'Wounds?|W'],
-    ['I', 'Initiative|I'], ['A', 'Attacks?|A'], ['Ld', 'Leadership|Ld'],
-  ]
-  const clean = String(value || '').replace(/[’]/g, "'").replace(/\s+/g, ' ').trim()
-  const apply = (key: ProfileKey, amountValue: string | number) => {
-    const amount = Math.max(0, Number(amountValue) || 0)
-    if (amount) out[key] = Math.max(out[key] || 0, amount)
-  }
-
-  // Multi-characteristic wording used by rules such as Celestial Dragon Guard:
-  // "+1 modifier to their Weapon Skill and Leadership characteristics".
-  // Parse only the explicitly named characteristic list; never infer bonuses from
-  // other numbers or profile-table columns elsewhere on the reference page.
-  for (const match of clean.matchAll(/\+(\d+)\s+(?:modifier|bonus)\s+to\s+(?:(?:their|its|the model's|the unit's)\s+)?([^.;!?]{1,120}?)\s+characteristics?\b/gi)) {
-    for (const [key, label] of labels) if (new RegExp(`\\b(?:${label})\\b`, 'i').test(match[2])) apply(key, match[1])
-  }
-
-  // Singular/direct forms. Keep the amount adjacent to the characteristic name
-  // so movement values, Strength values, Wounds, Initiative, etc. in unrelated
-  // rule text cannot be mistaken for upgrade modifiers.
-  for (const [key, label] of labels) {
-    const patterns = [
-      new RegExp(`\\+(\\d+)\\s*(?:modifier|bonus)?\\s*(?:to\\s+)?(?:(?:their|its|the model's|the unit's)\\s+)?(?:${label})(?:\\s+characteristic)?\\b`, 'i'),
-      new RegExp(`(?:${label})(?:\\s+characteristic)?\\s+(?:is|are)\\s+(?:increased|improved|raised)\\s+(?:by\\s+)?\\+?(\\d+)\\b`, 'i'),
-      new RegExp(`(?:increase|improve|raise)s?\\s+(?:(?:their|its|the model's|the unit's)\\s+)?(?:${label})(?:\\s+characteristic)?\\s+(?:by\\s+)?\\+?(\\d+)\\b`, 'i'),
-      new RegExp(`(?:gains?|receives?|has|have)\\s+(?:a\\s+)?\\+(\\d+)\\s*(?:modifier|bonus)?\\s*(?:to\\s+)?(?:(?:their|its|the model's|the unit's)\\s+)?(?:${label})(?:\\s+characteristic)?\\b`, 'i'),
-    ]
-    for (const pattern of patterns) {
-      const match = clean.match(pattern)
-      if (match) apply(key, match[1])
-    }
-  }
-  return out
+  return persistentModelCharacteristicModifiers(value)
 }
 
 function upgradeRuleExcerpt(value: string, optionName: string) {
@@ -596,8 +562,10 @@ async function hydrateUpgradeProfileModifiers() {
   await Promise.allSettled(selected.map(async (option) => {
     const combined: Partial<Record<ProfileKey, number>> = { ...(option.profileModifiers || {}) }
     mergeCharacteristicModifiers(combined, characteristicModifiersFromRuleText(option.note || ''))
+    // Never treat a generic option/weapon reference page as a model-profile
+    // modifier source. Weapon Strength/AP and conditional rule text belong to
+    // the weapon/rule, not to the model's displayed characteristics.
     const documents: Array<{ path: string; requiresOptionMention: boolean }> = []
-    if (option.referencePath) documents.push({ path: option.referencePath, requiresOptionMention: false })
     const requirementNames = [...(option.requiresRosterGeneral || []), ...(option.requiresRosterUnit || [])]
     for (const row of rosterRows.filter((candidate) => requirementNames.some((name) => rosterRowMatchesName(candidate, name)))) {
       for (const rule of row.specialRules || []) if (rule.path) documents.push({ path: rule.path, requiresOptionMention: true })
@@ -613,7 +581,7 @@ async function hydrateUpgradeProfileModifiers() {
         const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
         const body = dom.body.textContent?.replace(/\s+/g, ' ').trim() || ''
         const optionName = canonicalOptionName(option)
-        const modifierSource = source.requiresOptionMention ? upgradeRuleExcerpt(body, optionName) : body
+        const modifierSource = source.requiresOptionMention ? upgradeRuleExcerpt(body, optionName) : ''
         if (!modifierSource) continue
         mergeCharacteristicModifiers(combined, characteristicModifiersFromRuleText(modifierSource))
       } catch (error) { reportAppError(error, 'UNIT_UPGRADE_PROFILE_REFERENCE', { unitId: unit.id, optionId: option.id, path }) }
@@ -1159,7 +1127,11 @@ async function loadMagicItemDetail(item: MagicItem) {
     }
     const ward = body.match(/(?:Ward\s+save(?:\s+of)?\s*\(?\s*(2\+|3\+|4\+|5\+|6\+)\s*\)?|(2\+|3\+|4\+|5\+|6\+)\s+Ward\s+save)/i); if (ward) override.Ward = ward[1] || ward[2]
     const regeneration = body.match(/Regeneration\s*\(?\s*([2-6]\+)\s*\)?/i); if (regeneration) override.Rn = regeneration[1]
-    ;[[/Toughness(?: characteristic)?(?: by)? \+?1/i, 'T'], [/Wounds?(?: characteristic)?(?: by)? \+?1/i, 'W'], [/Initiative(?: characteristic)?(?: by)? \+?1/i, 'I'], [/Attacks?(?: characteristic)?(?: by)? \+?1/i, 'A'], [/Leadership(?: characteristic)?(?: by)? \+?1/i, 'Ld']].forEach(([pattern, key]) => { if ((pattern as RegExp).test(body)) override[key as ProfileKey] = incrementCharacteristic(prototypeUnit.value?.profile[key as ProfileKey] || '—', 1) })
+    const persistent = persistentModelCharacteristicModifiers(body)
+    for (const [key, amount] of Object.entries(persistent) as Array<[ProfileKey, number]>) {
+      const base = prototypeUnit.value?.profile[key] || '—'
+      override[key] = incrementCharacteristic(base, amount)
+    }
     if (Object.keys(override).length) detail.profileOverride = override
     magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, detail)
   } catch (error) { reportAppError(error, 'MAGIC_ITEM_DETAIL', { itemId: item.id, unitId: unitId.value }); magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, { fluff: item.fluff }) }

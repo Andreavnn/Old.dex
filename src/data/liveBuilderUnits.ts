@@ -6,8 +6,10 @@ import { inferEquipmentOptionDependencies } from '../domain/optionDependencies'
 import { isRecord } from '../domain/schemas'
 import type { ArmyDataDocument, RawBuilderItem, RawBuilderUnit } from '../domain/rawArmyData'
 import { baseUnitSize, blankProfile, maximumModels, minimumModels, noteText, phaseLabel, slug, specialRuleTone, text } from '../domain/liveUnitShared'
-import { loadOwbRuleCatalog, owbStatsRows, resolveOwbRuleFromCatalog, splitOwbSourceList, type OwbRuleCatalog } from '../services/owbRuleResolver'
+import { loadOwbRuleCatalog, resolveOwbRuleFromCatalog, splitOwbSourceList, type OwbRuleCatalog } from '../services/owbRuleResolver'
 import { localizedSourceText } from '../services/language'
+import { canonicalOwbProfileRows, selectCanonicalPrimaryProfile } from '../domain/canonicalProfiles'
+import { customUnitForArmy, customUnitsForArmy } from '../services/customData'
 
 export type { RawBuilderUnit } from '../domain/rawArmyData'
 
@@ -632,23 +634,17 @@ function namedGeneralRequirement(raw: RawBuilderUnit, compositionId: string) {
   return false
 }
 
-function indexedProfileRows(catalog: OwbRuleCatalog, sourceName: string, displayName: string) {
-  const entry = resolveOwbRuleFromCatalog(catalog, sourceName)?.entry
-  const rows = owbStatsRows(entry).map((row) => {
-    const profile = blankProfile()
-    for (const key of ['M', 'WS', 'BS', 'S', 'T', 'W', 'I', 'A', 'Ld'] as const) {
-      const value = row[key]
-      if (value !== undefined && value !== null && String(value).trim()) profile[key] = String(value).trim()
-    }
-    const save = row.Sv ?? row.Save
-    const ward = row.Ward ?? row.Wd
-    const regen = row.Rn ?? row.Regen
-    if (save !== undefined && save !== null && String(save).trim()) profile.Sv = String(save).trim()
-    if (ward !== undefined && ward !== null && String(ward).trim()) profile.Ward = String(ward).trim()
-    if (regen !== undefined && regen !== null && String(regen).trim()) profile.Rn = String(regen).trim()
-    return { name: String(row.Name || displayName).trim() || displayName, profile }
-  }).filter((row) => Object.values(row.profile).some((value) => value !== '—'))
-  return { entry, rows }
+function indexedProfileRows(catalog: OwbRuleCatalog, sourceName: string, displayName: string, dataKey: string, compositionId: string, unitId: string) {
+  const resolved = resolveOwbRuleFromCatalog(catalog, sourceName)
+  const entry = resolved?.entry
+  const rows = canonicalOwbProfileRows(entry, displayName, {
+    factionId: dataKey,
+    compositionId,
+    rosterUnitId: unitId,
+    rulesPath: resolved?.path || '',
+  })
+  const primary = selectCanonicalPrimaryProfile(rows, [sourceName, displayName, unitId])
+  return { entry, rows, primary }
 }
 
 function formatLoreName(value: string) {
@@ -660,12 +656,12 @@ function formatLoreName(value: string) {
   }).join(' ')
 }
 
-function makeCatalogUnit(raw: RawBuilderUnit, category: BuilderCategory, armyName: string, compositionId: string, catalog: OwbRuleCatalog): PrototypeUnit {
+function makeCatalogUnit(raw: RawBuilderUnit, category: BuilderCategory, armyName: string, dataKey: string, compositionId: string, catalog: OwbRuleCatalog): PrototypeUnit {
   const options = equipmentOptions(raw, catalog, compositionId)
   const weapons = equipmentRows(raw, catalog, compositionId)
   const sourceName = text(raw) || String(raw.id)
   const displayName = displayText(raw) || sourceName
-  const indexed = indexedProfileRows(catalog, sourceName, displayName)
+  const indexed = indexedProfileRows(catalog, sourceName, displayName, dataKey, compositionId, String(raw.id))
   return {
     id: String(raw.id),
     name: displayName,
@@ -673,7 +669,8 @@ function makeCatalogUnit(raw: RawBuilderUnit, category: BuilderCategory, armyNam
     category,
     points: baseSelectionPoints(raw, compositionId),
     unitSize: compositionUnitSize(raw, compositionId),
-    profile: indexed.rows[0]?.profile || blankProfile(),
+    profile: indexed.primary?.profile || blankProfile(),
+    profileIdentity: indexed.primary?.identity,
     profiles: indexed.rows.length ? indexed.rows : undefined,
     weapons,
     equipmentOptions: options,
@@ -779,9 +776,10 @@ export async function loadLiveArmyCatalog(dataKey: string, armyName: string, com
       if (!raw?.id || !raw?.name_en) continue
       const category = compositionCategory(raw, compositionId, sourceKey)
       if (!category) continue
-      rows.push(makeCatalogUnit(raw, category, armyName, compositionId, ruleCatalog))
+      rows.push(makeCatalogUnit(raw, category, armyName, dataKey, compositionId, ruleCatalog))
     }
   }
+  rows.push(...customUnitsForArmy(dataKey, compositionId))
   const seen = new Set<string>()
   return rows.filter((unit) => !seen.has(unit.id) && seen.add(unit.id)).sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
 }
@@ -807,16 +805,14 @@ function clonePrototypeUnit(unit: PrototypeUnit): PrototypeUnit {
   return {
     ...unit,
     profile: { ...unit.profile },
-    profiles: unit.profiles?.map((row) => ({ name: row.name, profile: { ...row.profile } })),
+    profiles: unit.profiles?.map((row) => ({ ...row, identity: row.identity ? { ...row.identity } : undefined, profile: { ...row.profile } })),
     weapons: unit.weapons.map((weapon) => ({
       ...weapon,
       rules: [...(weapon.rules || [])],
       ruleLinks: weapon.ruleLinks?.map((link) => ({ ...link })),
-      profileOverride: weapon.profileOverride ? { ...weapon.profileOverride } : undefined,
     })),
     equipmentOptions: unit.equipmentOptions.map((option) => ({
       ...option,
-      rules: option.rules ? [...option.rules] : undefined,
       profileOverride: option.profileOverride ? { ...option.profileOverride } : undefined,
       riderProfileModifiers: option.riderProfileModifiers ? { ...option.riderProfileModifiers } : undefined,
       magicAllowance: option.magicAllowance ? { ...option.magicAllowance, types: [...option.magicAllowance.types] } : undefined,
@@ -833,7 +829,7 @@ function clonePrototypeUnit(unit: PrototypeUnit): PrototypeUnit {
     optionalProfiles: unit.optionalProfiles?.map((profile) => ({
       ...profile,
       profile: { ...profile.profile },
-      equipment: [...profile.equipment],
+      equipment: profile.equipment ? [...profile.equipment] : undefined,
     })),
     lores: unit.lores ? [...unit.lores] : undefined,
     compositionNotes: unit.compositionNotes ? [...unit.compositionNotes] : undefined,
@@ -855,16 +851,20 @@ async function prepareLiveUnitProfile(dataKey: string, armyName: string, unitId:
   }
   if (!raw) return null
   const category = compositionCategory(raw, compositionId, sourceKey) || categoryMap[sourceKey] || 'Core'
-  const unit = makeCatalogUnit(raw, category, armyName, compositionId, ruleCatalog)
+  const unit = makeCatalogUnit(raw, category, armyName, dataKey, compositionId, ruleCatalog)
   return { raw, category, unit, data }
 }
 
 export async function loadBaseLiveUnitProfile(dataKey: string, armyName: string, unitId: string, compositionId: string): Promise<PrototypeUnit | null> {
+  const custom = customUnitForArmy(dataKey, compositionId, unitId)
+  if (custom) return clonePrototypeUnit(custom)
   const prepared = await prepareLiveUnitProfile(dataKey, armyName, unitId, compositionId)
   return prepared ? clonePrototypeUnit(prepared.unit) : null
 }
 
 export async function loadLiveUnitProfile(dataKey: string, armyName: string, unitId: string, compositionId: string): Promise<PrototypeUnit | null> {
+  const custom = customUnitForArmy(dataKey, compositionId, unitId)
+  if (custom) return clonePrototypeUnit(custom)
   const prepared = await prepareLiveUnitProfile(dataKey, armyName, unitId, compositionId)
   if (!prepared) return null
   const enriched = await enrichLiveUnitReference(clonePrototypeUnit(prepared.unit), prepared.raw, prepared.category, armyName, dataKey, compositionId, prepared.data)
@@ -878,6 +878,13 @@ export async function loadLiveUnitProfileProgressively(
   compositionId: string,
   callbacks: { onBase?: (unit: PrototypeUnit) => void; onEnriched?: (unit: PrototypeUnit) => void } = {},
 ): Promise<PrototypeUnit | null> {
+  const custom = customUnitForArmy(dataKey, compositionId, unitId)
+  if (custom) {
+    const resolved = clonePrototypeUnit(custom)
+    callbacks.onBase?.(clonePrototypeUnit(resolved))
+    callbacks.onEnriched?.(clonePrototypeUnit(resolved))
+    return resolved
+  }
   const prepared = await prepareLiveUnitProfile(dataKey, armyName, unitId, compositionId)
   if (!prepared) return null
   const baseUnit = clonePrototypeUnit(prepared.unit)

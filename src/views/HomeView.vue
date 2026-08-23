@@ -3,12 +3,15 @@ import { computed, onMounted, ref } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
 import { deleteSavedArmyLists, duplicateSavedArmyList, exportSavedArmyList, getSavedArmyLists, importSavedArmyListJson, savedArmyListRoute, updateSavedArmyList, type SavedArmyList } from '../services/savedLists'
 import { compositionOptions } from '../data/listBuilder'
+import { importCustomDataJson } from '../services/customData'
 
 const savedLists = ref<SavedArmyList[]>([])
 const deleteMode = ref(false)
 const selectedForDelete = ref(new Set<string>())
 const importInput = ref<HTMLInputElement | null>(null)
 const importMessage = ref('')
+const customDataInput = ref<HTMLInputElement | null>(null)
+const customDataMessage = ref('')
 
 function refreshLists() { savedLists.value = getSavedArmyLists() }
 onMounted(refreshLists)
@@ -56,6 +59,21 @@ async function importListFile(event: Event) {
     input.value = ''
   }
 }
+
+async function importCustomDataFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  customDataMessage.value = ''
+  try {
+    const result = importCustomDataJson(await file.text())
+    customDataMessage.value = `${result.units} custom unit${result.units === 1 ? '' : 's'} imported from ${result.packs} data pack${result.packs === 1 ? '' : 's'}.`
+  } catch (error) {
+    customDataMessage.value = error instanceof Error ? error.message : 'This custom-data JSON could not be imported.'
+  } finally {
+    input.value = ''
+  }
+}
 function optionLabel(id: string) { return compositionOptions.find((option) => option.value === id)?.label || id }
 function actualPoints(list: SavedArmyList) { return list.actualPoints ?? (list.roster || []).reduce((sum, row) => sum + row.totalPoints, 0) }
 function rosterState(list: SavedArmyList) {
@@ -83,10 +101,12 @@ function exportList(list: SavedArmyList) { exportSavedArmyList(list) }
         <strong>My Rosters</strong>
         <p>{{ savedLists.length ? `${savedLists.length} saved roster${savedLists.length === 1 ? '' : 's'}.` : 'No saved rosters yet.' }}</p>
         <p v-if="importMessage" class="list-import-message launch-import-message" role="status">{{ importMessage }}</p>
+        <p v-if="customDataMessage" class="list-import-message launch-import-message" role="status">{{ customDataMessage }}</p>
       </div>
       <div v-if="!deleteMode" class="list-launch-actions">
         <RouterLink to="/lists/create" class="primary-button">Create a roster</RouterLink>
         <button class="secondary-button" type="button" @click="importInput?.click()">Import roster</button><input ref="importInput" class="file-import-input" type="file" accept=".json,.owb.json,.owb.lists.json,application/json" @change="importListFile" />
+        <button class="secondary-button" type="button" @click="customDataInput?.click()">Import custom data</button><input ref="customDataInput" class="file-import-input" type="file" accept=".json,.olddex-custom.json,application/json" @change="importCustomDataFile" />
         <button class="list-delete-mode-button" type="button" aria-label="Select rosters to delete" title="Delete rosters" @click="toggleDeleteMode">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h17"/><path d="M9 6.5V4h6v2.5"/><path d="m6.5 6.5.9 13h9.2l.9-13"/><path d="M10 10.5v5.5M14 10.5v5.5"/></svg>
         </button>

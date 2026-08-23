@@ -1,28 +1,23 @@
 import type { BuilderCategory, ProfileKey, PrototypeUnit, PrototypeWeapon } from '../data/builderPrototype'
 import type { ArmyDataDocument, RawBuilderItem, RawBuilderUnit, RawRecord } from '../domain/rawArmyData'
 import { isRecord } from '../domain/schemas'
-import { baseUnitSize, blankProfile, maximumModels, minimumModels, normalizeDisplayLabel, noteText, phaseLabel, slug, specialRuleTone, text } from '../domain/liveUnitShared'
+import { baseUnitSize, normalizeDisplayLabel, noteText, phaseLabel, slug, specialRuleTone, text } from '../domain/liveUnitShared'
 import { normalizeRepositoryPath } from '../data/ruleRepository'
 import { fetchRuleDocument } from './ruleContent'
 import { extractMechanicalRuleText } from './ruleText'
 import { reportAppError } from './appErrors'
 import { localizedSourceText } from './language'
-import { loadOwbRuleCatalog, owbStatsRows, resolveOwbRuleFromCatalog, splitOwbSourceList, type OwbRuleCatalog, type OwbRuleIndexEntry } from './owbRuleResolver'
+import { BASE_PROFILE_KEYS, canonicalOwbProfileRows, normalizedProfileIdentityName, selectCanonicalPrimaryProfile, strictProfileRecord, type CanonicalProfileRow } from '../domain/canonicalProfiles'
+import { loadOwbRuleCatalog, resolveOwbRuleFromCatalog, splitOwbSourceList, type OwbRuleCatalog, type OwbRuleIndexEntry } from './owbRuleResolver'
 
 
-function owbProfileRows(entry: OwbRuleIndexEntry | undefined, fallbackName: string) {
-  return owbStatsRows(entry).map((row) => {
-    const profile = blankProfile()
-    const aliases: Array<[ProfileKey, string[]]> = [
-      ['M', ['M']], ['WS', ['WS']], ['BS', ['BS']], ['S', ['S']], ['T', ['T']], ['W', ['W']], ['I', ['I']], ['A', ['A']], ['Ld', ['Ld']],
-      ['Sv', ['Sv', 'Save']], ['Ward', ['Ward', 'Wd']], ['Rn', ['Rn', 'Regen']],
-    ]
-    for (const [key, names] of aliases) {
-      const value = names.map((name) => row[name]).find((candidate) => candidate !== undefined && candidate !== null && String(candidate).trim() !== '')
-      if (value !== undefined) profile[key] = String(value).trim()
-    }
-    return { name: String(row.Name || fallbackName).trim() || fallbackName, profile }
-  }).filter((row) => Object.values(row.profile).some((value) => value !== '—'))
+
+function owbProfileRows(
+  entry: OwbRuleIndexEntry | undefined,
+  fallbackName: string,
+  context: { factionId: string; compositionId: string; rosterUnitId: string; rulesPath: string },
+) {
+  return canonicalOwbProfileRows(entry, fallbackName, context)
 }
 
 
@@ -40,64 +35,75 @@ function rawUnitForResolvedReference(data: ArmyDataDocument | undefined, catalog
 }
 
 function parseProfileTable(dom: Document) {
-  const statNames = new Set(['M', 'WS', 'BS', 'S', 'T', 'W', 'I', 'A', 'Ld', 'Sv', 'Ward', 'Wd', 'Rn'])
-  const candidates = Array.from(dom.querySelectorAll('table'))
-  const table = candidates.find((candidate) => {
-    const headers = Array.from(candidate.querySelectorAll('thead th, tr:first-child th, tr:first-child td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '')
-    const matches = headers.filter((header) => statNames.has(header)).length
-    return matches >= 6 && headers.some((header) => header === 'M') && headers.some((header) => header === 'WS')
-  })
-  if (!table) return [] as Array<{ name: string; profile: Record<ProfileKey, string> }>
-  const headerCells = Array.from(table.querySelectorAll('thead th, tr:first-child th, tr:first-child td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '')
-  const statHeaders = headerCells.filter((header) => statNames.has(header))
-  const rows = Array.from(table.querySelectorAll('tbody tr'))
-  if (!rows.length) rows.push(...Array.from(table.querySelectorAll('tr')).slice(1))
-  return rows.map((row) => {
-    const cells = Array.from(row.querySelectorAll('th, td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '')
-    const profile = blankProfile()
-    const offset = Math.max(0, cells.length - statHeaders.length)
-    statHeaders.forEach((stat, index) => { const key = stat === 'Wd' ? 'Ward' : stat; profile[key as ProfileKey] = cells[offset + index] || '—' })
-    return { name: offset ? cells.slice(0, offset).join(' · ') : '', profile }
-  }).filter((row) => Object.values(row.profile).some((value) => value !== '—'))
+  const statNames = new Set([...BASE_PROFILE_KEYS, 'Sv', 'Save', 'Ward', 'Wd', 'Rn', 'Regen'])
+  const tables = Array.from(dom.querySelectorAll('table'))
+  for (const table of tables) {
+    const headerRow = table.querySelector('thead tr') || table.querySelector('tr')
+    if (!headerRow) continue
+    const headers = Array.from(headerRow.querySelectorAll('th, td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '')
+    const positions = new Map<string, number>()
+    headers.forEach((header, index) => {
+      if (statNames.has(header) && !positions.has(header)) positions.set(header, index)
+    })
+    if (!BASE_PROFILE_KEYS.every((key) => positions.has(key))) continue
+
+    const firstStat = Math.min(...BASE_PROFILE_KEYS.map((key) => positions.get(key)!))
+    const rows = Array.from(table.querySelectorAll('tbody tr'))
+    if (!rows.length) rows.push(...Array.from(table.querySelectorAll('tr')).slice(1))
+    const parsed: Array<{ name: string; profile: Record<ProfileKey, string> }> = []
+    for (const row of rows) {
+      const cells = Array.from(row.querySelectorAll('th, td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '')
+      const candidate: Record<string, unknown> = {}
+      for (const key of BASE_PROFILE_KEYS) candidate[key] = cells[positions.get(key)!]
+      const saveIndex = positions.get('Sv') ?? positions.get('Save')
+      const wardIndex = positions.get('Ward') ?? positions.get('Wd')
+      const regenIndex = positions.get('Rn') ?? positions.get('Regen')
+      if (saveIndex !== undefined) candidate.Sv = cells[saveIndex]
+      if (wardIndex !== undefined) candidate.Ward = cells[wardIndex]
+      if (regenIndex !== undefined) candidate.Rn = cells[regenIndex]
+      const profile = strictProfileRecord(candidate)
+      if (!profile) continue
+      const name = firstStat > 0 ? cells.slice(0, firstStat).filter(Boolean).join(' · ') : ''
+      parsed.push({ name, profile })
+    }
+    if (parsed.length) return parsed
+  }
+  return [] as Array<{ name: string; profile: Record<ProfileKey, string> }>
 }
 
 function rawProfileRows(raw: RawBuilderUnit, fallbackName: string) {
-  const aliases: Record<ProfileKey, string[]> = {
-    M: ['M', 'm', 'movement'], WS: ['WS', 'ws', 'weaponSkill', 'weapon_skill'], BS: ['BS', 'bs', 'ballisticSkill', 'ballistic_skill'],
-    S: ['S', 's', 'strength'], T: ['T', 't', 'toughness'], W: ['W', 'w', 'wounds'], I: ['I', 'i', 'initiative'], A: ['A', 'a', 'attacks'],
-    Ld: ['Ld', 'LD', 'ld', 'leadership'], Sv: ['Sv', 'SV', 'sv', 'save', 'armourSave', 'armorSave'], Ward: ['Ward', 'Wd', 'ward', 'wardSave'], Rn: ['Rn', 'rn', 'regeneration', 'regen'],
-  }
-  const toProfile = (value: unknown) => {
-    if (!isRecord(value)) return null
-    const profile = blankProfile()
-    let populated = 0
-    for (const [stat, keys] of Object.entries(aliases) as Array<[ProfileKey, string[]]>) {
-      const found = keys.map((key) => value[key]).find((candidate) => candidate !== undefined && candidate !== null && String(candidate).trim() !== '')
-      if (found !== undefined) { profile[stat] = String(found).trim(); populated += 1 }
-    }
-    return populated >= 5 ? profile : null
-  }
   const rows: Array<{ name: string; profile: Record<ProfileKey, string> }> = []
-  const push = (value: unknown, name = '') => { const profile = toProfile(value); if (profile) rows.push({ name: name || fallbackName, profile }) }
+  const push = (value: unknown, name = '') => {
+    const profile = strictProfileRecord(value)
+    if (profile) rows.push({ name: name || fallbackName, profile })
+  }
   for (const source of [raw.profile, raw.profiles, raw.characteristics, raw.stats, raw.modelProfiles]) {
     if (!source) continue
-    if (Array.isArray(source)) source.forEach((value, index) => { const row = isRecord(value) ? value : {}; push(row.profile || value, text(row.name_en || row.name) || `${fallbackName}${source.length > 1 ? ` ${index + 1}` : ''}`) })
-    else if (typeof source === 'object') {
+    if (Array.isArray(source)) {
+      source.forEach((value, index) => {
+        const row = isRecord(value) ? value : {}
+        push(row.profile || value, text(row.name_en || row.name) || `${fallbackName}${source.length > 1 ? ` ${index + 1}` : ''}`)
+      })
+    } else if (typeof source === 'object') {
       push(source, fallbackName)
-      for (const [name, value] of Object.entries(source)) if (value && typeof value === 'object') push((value as RawRecord).profile || value, String(name))
+      for (const [name, value] of Object.entries(source)) {
+        if (value && typeof value === 'object') push((value as RawRecord).profile || value, String(name))
+      }
     }
   }
   const seen = new Set<string>()
-  return rows.filter((row) => { const key = `${row.name}|${Object.values(row.profile).join('|')}`; if (seen.has(key)) return false; seen.add(key); return true })
+  return rows.filter((row) => {
+    const key = `${row.name}|${BASE_PROFILE_KEYS.map((stat) => row.profile[stat]).join('|')}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function unitReferenceName(value: string) {
   return slug(value).replace(/-(?:unit|regiment)$/i, '')
 }
 
-function normalizedProfileName(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-}
 
 async function resolveUnitReference(unitId: string, unitName: string, dataKey: string, canonicalPath = '') {
   const directPaths = [...new Set([canonicalPath, `/unit/${unitId}`, `/unit/${slug(unitName)}`].filter(Boolean))]
@@ -456,13 +462,21 @@ async function enrichWeapon(weapon: PrototypeWeapon, paths: Map<string, string>,
 
 
 export async function enrichLiveUnitReference(unit: PrototypeUnit, raw: RawBuilderUnit, category: BuilderCategory, armyName: string, dataKey: string, compositionId = '', armyData?: ArmyDataDocument) {
-  const rawProfiles = rawProfileRows(raw, unit.name)
-  if (rawProfiles.length) { unit.profile = rawProfiles[0].profile; unit.profiles = rawProfiles }
   const ruleCatalog = await loadOwbRuleCatalog()
   const unitSourceName = unit.sourceName || unit.name
   const unitIndex = resolveOwbRuleFromCatalog(ruleCatalog, unitSourceName)
-  const indexedProfiles = owbProfileRows(unitIndex?.entry, unit.name)
-  if (indexedProfiles.length) { unit.profile = indexedProfiles[0].profile; unit.profiles = indexedProfiles }
+  const indexedProfiles = owbProfileRows(unitIndex?.entry, unit.name, {
+    factionId: dataKey,
+    compositionId,
+    rosterUnitId: unit.id,
+    rulesPath: unitIndex?.path || '',
+  })
+  const indexedPrimary = selectCanonicalPrimaryProfile(indexedProfiles, [unitSourceName, unit.name, unit.id])
+  if (indexedProfiles.length) unit.profiles = indexedProfiles
+  if (indexedPrimary) {
+    unit.profile = indexedPrimary.profile
+    unit.profileIdentity = indexedPrimary.identity
+  }
   if (unitIndex?.entry.troopType && !unit.details.troopType) unit.details.troopType = String(unitIndex.entry.troopType)
   if (unitIndex?.entry.page) unit.details.publication = String(unitIndex.entry.page)
 
@@ -470,7 +484,47 @@ export async function enrichLiveUnitReference(unit: PrototypeUnit, raw: RawBuild
     const reference = await resolveUnitReference(unit.id, unitSourceName, dataKey, unitIndex?.path || '')
     const dom = reference?.dom || new DOMParser().parseFromString('<main></main>', 'text/html')
     const profiles = reference?.profiles || []
-    if (!indexedProfiles.length && profiles.length) { unit.profile = profiles[0].profile; unit.profiles = profiles }
+    if (!indexedProfiles.length && profiles.length) {
+      const ruleRows: CanonicalProfileRow[] = profiles.map((row, index) => ({
+        ...row,
+        identity: {
+          factionId: dataKey,
+          compositionId,
+          rosterUnitId: unit.id,
+          rulesPath: reference?.document.sourcePath || unitIndex?.path || '',
+          profileId: normalizedProfileIdentityName(row.name || `${unit.name}-${index + 1}`).replace(/\s+/g, '-') || `profile-${index + 1}`,
+          source: 'rules-page',
+        },
+      }))
+      const rulePrimary = selectCanonicalPrimaryProfile(ruleRows, [unitSourceName, unit.name, unit.id])
+      unit.profiles = ruleRows
+      if (rulePrimary) {
+        unit.profile = rulePrimary.profile
+        unit.profileIdentity = rulePrimary.identity
+      }
+    }
+    if (!indexedProfiles.length && !profiles.length) {
+      const rawProfiles = rawProfileRows(raw, unit.name)
+      if (rawProfiles.length) {
+        const canonicalRawRows: CanonicalProfileRow[] = rawProfiles.map((row, index) => ({
+          ...row,
+          identity: {
+            factionId: dataKey,
+            compositionId,
+            rosterUnitId: unit.id,
+            rulesPath: '',
+            profileId: normalizedProfileIdentityName(row.name || `${unit.name}-${index + 1}`).replace(/\s+/g, '-') || `profile-${index + 1}`,
+            source: 'builder-raw',
+          },
+        }))
+        const rawPrimary = selectCanonicalPrimaryProfile(canonicalRawRows, [unitSourceName, unit.name, unit.id])
+        unit.profiles = canonicalRawRows
+        if (rawPrimary) {
+          unit.profile = rawPrimary.profile
+          unit.profileIdentity = rawPrimary.identity
+        }
+      }
+    }
     const metadata = reference ? parseMetadata(dom, raw, category, armyName) : { unitCategory: category, troopType: unit.details.troopType || '', baseSize: unit.details.baseSize || '', unitSize: unit.unitSize, army: armyName, publication: unit.details.publication || '', notes: noteText(raw.notes) }
     const composition = isRecord(raw.armyComposition) && isRecord(raw.armyComposition[compositionId]) ? raw.armyComposition[compositionId] : null
     const hasBuilderMinimum = (raw.minimum !== undefined && raw.minimum !== null && Number.isFinite(Number(raw.minimum)) && Number(raw.minimum) > 0) || (composition?.minimum !== undefined && Number.isFinite(Number(composition.minimum)) && Number(composition.minimum) > 0)
@@ -480,13 +534,13 @@ export async function enrichLiveUnitReference(unit: PrototypeUnit, raw: RawBuild
       // The Builder JSON (including army-composition overrides) is authoritative.
       // makeCatalogUnit already normalized those values; reference-page metadata is
       // only a fallback for units where OWB itself does not provide structured size data.
-      if (unit.basePointsPerModel !== undefined) unit.points = unit.basePointsPerModel * unit.minimumModels
+      if (unit.basePointsPerModel !== undefined) unit.points = unit.basePointsPerModel * (unit.minimumModels ?? 1)
     } else {
       unit.unitSize = metadata.unitSize || unit.unitSize
       if (bounds) {
         unit.minimumModels = Math.max(1, bounds.minimum)
         unit.maximumModels = bounds.maximum
-        if (unit.basePointsPerModel !== undefined) unit.points = unit.basePointsPerModel * unit.minimumModels
+        if (unit.basePointsPerModel !== undefined) unit.points = unit.basePointsPerModel * (unit.minimumModels ?? 1)
       }
     }
     const referenceText = dom.body.textContent?.replace(/\s+/g, ' ').trim() || ''
@@ -521,15 +575,33 @@ export async function enrichLiveUnitReference(unit: PrototypeUnit, raw: RawBuild
       }
       try {
         const resolvedProfile = resolveOwbRuleFromCatalog(ruleCatalog, profileSourceName)
-        const indexed = owbProfileRows(resolvedProfile?.entry, profileName)
+        const indexed = owbProfileRows(resolvedProfile?.entry, profileName, {
+          factionId: dataKey,
+          compositionId,
+          rosterUnitId: unit.id,
+          rulesPath: resolvedProfile?.path || '',
+        })
         const optionalReference = await resolveUnitReference(slug(profileSourceName), profileSourceName, dataKey, resolvedProfile?.path || '')
-        const row = indexed.find((candidate) => normalizedProfileName(candidate.name).includes(normalizedProfileName(profileSourceName))) || indexed[0] || optionalReference?.profiles.find((candidate) => normalizedProfileName(candidate.name).includes(normalizedProfileName(profileSourceName))) || optionalReference?.profiles[0]
+        const indexedRow = selectCanonicalPrimaryProfile(indexed, [profileSourceName, profileName])
+        const rawReferenceRow = optionalReference ? selectCanonicalPrimaryProfile(optionalReference.profiles, [profileSourceName, profileName]) : null
+        const referenceRow: CanonicalProfileRow | null = rawReferenceRow ? {
+          ...rawReferenceRow,
+          identity: {
+            factionId: dataKey,
+            compositionId,
+            rosterUnitId: unit.id,
+            rulesPath: optionalReference?.document.sourcePath || resolvedProfile?.path || '',
+            profileId: normalizedProfileIdentityName(rawReferenceRow.name || profileName).replace(/\s+/g, '-') || normalizedProfileIdentityName(profileName).replace(/\s+/g, '-'),
+            source: 'rules-page',
+          },
+        } : null
+        const row = indexedRow || referenceRow
         if (row && !optionalProfiles.some((existing) => existing.selectionId === option.id)) {
           const equipment: string[] = []
           const referencedRaw = rawUnitForResolvedReference(armyData, ruleCatalog, resolvedProfile?.path || '')
           const rawEquipment = referencedRaw && Array.isArray(referencedRaw.equipment) ? referencedRaw.equipment.map((entry: RawBuilderItem) => text(entry)).filter(Boolean) : []
           for (const label of [...(optionalReference ? referenceEquipment(optionalReference.dom) : []), ...rawEquipment, ...(option.profileEquipment || [])]) if (!equipment.some((existing) => existing.toLowerCase() === label.toLowerCase())) equipment.push(label)
-          optionalProfiles.push({ selectionId: option.id, name: profileName, sourceName: profileSourceName, profile: row.profile, equipment })
+          optionalProfiles.push({ selectionId: option.id, name: profileName, sourceName: profileSourceName, profile: row.profile, identity: row.identity, equipment })
           if (option.kind === 'mount') {
             const mountText = optionalReference?.dom.body.textContent || ''
             const modifiers = riderCharacteristicModifiers(`${option.note || ''} ${mountText}`)

@@ -20,7 +20,7 @@ export type OwbRuleCatalog = {
 }
 
 let catalogCache: OwbRuleCatalog | null = null
-const STORAGE_KEY = 'olddex.owb-rule-catalog.v1'
+const STORAGE_KEY = 'olddex.owb-rule-catalog.v2'
 const STORAGE_TTL_MS = 12 * 60 * 60 * 1000
 
 type PersistedCatalog = { savedAt: number; catalog: OwbRuleCatalog }
@@ -129,7 +129,7 @@ export async function loadOwbRuleCatalog(force = false): Promise<OwbRuleCatalog>
 
 export function clearOwbRuleCatalog() {
   catalogCache = null
-  if (typeof window !== 'undefined') { try { window.localStorage.removeItem(STORAGE_KEY) } catch { /* optional cache */ } }
+  if (typeof window !== 'undefined') { try { window.localStorage.removeItem(STORAGE_KEY); window.localStorage.removeItem('olddex.owb-rule-catalog.v1') } catch { /* optional cache */ } }
 }
 
 function candidateNames(value: string) {

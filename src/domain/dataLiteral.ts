@@ -82,7 +82,7 @@ export function parseDataLiteral(source: string): unknown {
 
   const parseNumber = () => {
     const match = source.slice(index).match(/^[+-]?(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)/)
-    if (!match) error('Invalid number')
+    if (!match) return error('Invalid number')
     index += match[0].length
     const raw = match[0]
     const value = /^[-+]?0[xX]/.test(raw) ? Number.parseInt(raw, 16) : /^[-+]?0[bB]/.test(raw) ? Number.parseInt(raw.replace(/^[+-]?0[bB]/, ''), 2) : /^[-+]?0[oO]/.test(raw) ? Number.parseInt(raw.replace(/^[+-]?0[oO]/, ''), 8) : Number(raw)

@@ -1,5 +1,6 @@
 import type { ProfileKey, PrototypeEquipmentOption, PrototypeUnit } from '../data/builderPrototype'
 import { isPerModelEquipmentSelection } from './loadout'
+import { saveOnlyProfileOverride } from './canonicalProfiles'
 
 export function improveSaveBy(value: string, amount = 1) {
   const parsed = Number.parseInt(value, 10)
@@ -101,7 +102,7 @@ export function applyProfileEffects(input: ProfileEffectInput) {
     if (!optionAppliesToProfile(input.unit, option, input.profileName)) continue
     const appliesToWholeUnit = !isPerModelEquipmentSelection(option) || input.equipmentCount(option) >= input.modelCount
     if (!appliesToWholeUnit) continue
-    for (const [key, value] of Object.entries(option.profileOverride || {})) profile[key as ProfileKey] = String(value)
+    for (const [key, value] of Object.entries(saveOnlyProfileOverride(option.profileOverride))) profile[key as ProfileKey] = String(value)
     if (option.saveModifier) profile.Sv = improveSaveBy(profile.Sv, option.saveModifier)
   }
   if (input.bigUnsSelected && !isMountProfileName(input.profileName)) profile.S = incrementCharacteristic(profile.S, 1)

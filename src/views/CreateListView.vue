@@ -59,7 +59,7 @@ const activeCompositionRules = computed(() => {
 function optionAvailable(option: CompositionOptionId) {
   if (option === 'allow-allies') return Boolean(activeCompositionRules.value?.allies)
   if (option === 'allow-mercenaries') return Boolean(activeCompositionRules.value?.mercenaries)
-  if (option === 'allow-custom-units') return false
+  if (option === 'allow-custom-units') return true
   return true
 }
 function normalizeCompositionAvailability() {

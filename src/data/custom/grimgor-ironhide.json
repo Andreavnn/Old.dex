@@ -1,0 +1,324 @@
+{
+  "id": "custom-grimgor-ironhide-test",
+  "name": "Grimgor Ironhide — Custom Old.dex Test",
+  "faction": "Orc & Goblin Tribes",
+  "factionName": "Orc & Goblin Tribes",
+  "compositionRule": "Orc & Goblin Tribes — Grand Army",
+  "armyComposition": "Orc & Goblin Tribes — Grand Army",
+  "points": 0,
+  "totalPoints": 0,
+  "units": [
+    {
+      "id": "grimgor-ironhide",
+      "sourceId": "custom-grimgor-ironhide",
+      "name": "Grimgor Ironhide",
+      "category": "Character",
+      "troopType": "Heavy Infantry",
+      "unitType": "Heavy Infantry (Character)",
+      "baseSize": "30 x 30 mm",
+      "strength": 1,
+      "minimum": 1,
+      "maximum": 1,
+      "startModels": 1,
+      "unitSize": "1 model",
+      "points": 0,
+      "totalPoints": 0,
+      "named": true,
+      "isGeneral": true,
+      "leadershipAura": true,
+      "command": [
+        {
+          "id": "general",
+          "name": "General",
+          "active": true,
+          "alwaysActive": true
+        }
+      ],
+      "profile": {
+        "M": 4,
+        "WS": 7,
+        "BS": 1,
+        "S": 6,
+        "T": 5,
+        "W": 4,
+        "I": 5,
+        "A": 6,
+        "Ld": 9
+      },
+      "profiles": [
+        {
+          "id": "grimgor-ironhide",
+          "name": "Grimgor Ironhide",
+          "countMode": "unit",
+          "owner": "rider",
+          "stats": {
+            "M": 4,
+            "WS": 7,
+            "BS": 1,
+            "S": 6,
+            "T": 5,
+            "W": 4,
+            "I": 5,
+            "A": 6,
+            "Ld": 9
+          }
+        }
+      ],
+      "saves": {
+        "armour": 2,
+        "ward": 5,
+        "regen": 0
+      },
+      "armourSave": 2,
+      "wardSave": 5,
+      "equipment": [
+        {
+          "id": "gitsnik",
+          "name": "Gitsnik",
+          "type": "Magic Weapon",
+          "active": true,
+          "alwaysActive": true,
+          "notes": "Range: Combat. Strength: S+1. AP: -3. Special Rules: Armour Bane (1), Magical Attacks, Strike First."
+        },
+        {
+          "id": "blood-forged-armour",
+          "name": "Blood-Forged Armour",
+          "type": "Magic Armour",
+          "active": true,
+          "alwaysActive": true,
+          "notes": "Grimgor has an Armour Value of 2+ and a 5+ Ward save."
+        },
+        {
+          "id": "morks-all-seeing-eye",
+          "name": "Mork's All-seeing Eye",
+          "type": "Talisman",
+          "active": true,
+          "alwaysActive": true,
+          "notes": "Grimgor has Magic Resistance (-1)."
+        }
+      ],
+      "magicItems": [
+        {
+          "id": "gitsnik",
+          "name": "Gitsnik",
+          "category": "Magic Weapon",
+          "active": true,
+          "alwaysActive": true
+        },
+        {
+          "id": "blood-forged-armour",
+          "name": "Blood-Forged Armour",
+          "category": "Magic Armour",
+          "active": true,
+          "alwaysActive": true
+        },
+        {
+          "id": "morks-all-seeing-eye",
+          "name": "Mork's All-seeing Eye",
+          "category": "Talisman",
+          "active": true,
+          "alwaysActive": true
+        }
+      ],
+      "items": [
+        {
+          "selected": [
+            {
+              "id": "gitsnik",
+              "name": "Gitsnik",
+              "active": true
+            },
+            {
+              "id": "blood-forged-armour",
+              "name": "Blood-Forged Armour",
+              "active": true
+            },
+            {
+              "id": "morks-all-seeing-eye",
+              "name": "Mork's All-seeing Eye",
+              "active": true
+            }
+          ]
+        }
+      ],
+      "weapons": [
+        {
+          "id": "gitsnik",
+          "name": "Gitsnik",
+          "kind": "combat",
+          "range": "Combat",
+          "strength": "S+1",
+          "ap": -3,
+          "magic": true,
+          "owner": "rider",
+          "rules": [
+            "Armour Bane (1)",
+            "Magical Attacks",
+            "Strike First"
+          ],
+          "supportRanks": 0,
+          "active": true,
+          "alwaysActive": true
+        }
+      ],
+      "rules": [
+        "choppas",
+        "daBoyz",
+        "furiousCharge",
+        "hatredAllEnemies",
+        "ignorePanic",
+        "immuneToPsychology",
+        "quellImpetuosity",
+        "rallyingCry",
+        "waaagh",
+        "magicResistanceMinus1",
+        "daImmortulz",
+        "bestOfDaBest"
+      ],
+      "ruleNames": [
+        "Choppas",
+        "Da Boyz",
+        "Furious Charge",
+        "Hatred (all enemies)",
+        "Ignore Panic",
+        "Immune to Psychology",
+        "Quell Impetuosity",
+        "Rallying Cry",
+        "Waaagh!",
+        "Magic Resistance (-1)",
+        "Da Immortulz",
+        "Best of da Best"
+      ],
+      "specialRules": [
+        {
+          "id": "choppas",
+          "name": "Choppas",
+          "active": true,
+          "alwaysActive": true
+        },
+        {
+          "id": "da-boyz",
+          "name": "Da Boyz",
+          "active": true,
+          "alwaysActive": true
+        },
+        {
+          "id": "furious-charge",
+          "name": "Furious Charge",
+          "active": true,
+          "alwaysActive": true
+        },
+        {
+          "id": "hatred-all-enemies",
+          "name": "Hatred (all enemies)",
+          "active": true,
+          "alwaysActive": true
+        },
+        {
+          "id": "ignore-panic",
+          "name": "Ignore Panic",
+          "active": true,
+          "alwaysActive": true
+        },
+        {
+          "id": "immune-to-psychology",
+          "name": "Immune to Psychology",
+          "active": true,
+          "alwaysActive": true
+        },
+        {
+          "id": "quell-impetuosity",
+          "name": "Quell Impetuosity",
+          "active": true,
+          "alwaysActive": true
+        },
+        {
+          "id": "rallying-cry",
+          "name": "Rallying Cry",
+          "active": true,
+          "alwaysActive": true
+        },
+        {
+          "id": "waaagh",
+          "name": "Waaagh!",
+          "active": true,
+          "alwaysActive": true
+        },
+        {
+          "id": "magic-resistance-minus-1",
+          "name": "Magic Resistance (-1)",
+          "active": true,
+          "alwaysActive": true,
+          "notes": "Granted by Mork's All-seeing Eye."
+        },
+        {
+          "id": "da-immortulz",
+          "name": "Da Immortulz",
+          "active": true,
+          "alwaysActive": true,
+          "notes": "After deployment but before the first turn begins, nominate one friendly Black Orc Mob to be Da Immortulz. That unit has a +1 modifier to its Weapon Skill characteristic (to a maximum of 10) and gains Hatred (all enemies). Whilst Grimgor has joined Da Immortulz, that unit also gains Immune to Psychology and Stubborn."
+        },
+        {
+          "id": "best-of-da-best",
+          "name": "Best of da Best",
+          "active": true,
+          "alwaysActive": true,
+          "notes": "Whilst fighting in a challenge, Grimgor may re-roll any failed rolls To Hit and To Wound."
+        }
+      ],
+      "commandAbilities": [
+        "waaagh",
+        "rallyingCry"
+      ],
+      "_olddexCustom": {
+        "version": 1,
+        "status": "TEST",
+        "pointsStatus": "UNPRICED",
+        "profileLocked": {
+          "M": 4,
+          "WS": 7,
+          "BS": 1,
+          "S": 6,
+          "T": 5,
+          "W": 4,
+          "I": 5,
+          "A": 6,
+          "Ld": 9
+        },
+        "customItems": {
+          "Gitsnik": {
+            "type": "Magic Weapon",
+            "range": "Combat",
+            "strength": "S+1",
+            "ap": -3,
+            "specialRules": [
+              "Armour Bane (1)",
+              "Magical Attacks",
+              "Strike First"
+            ]
+          },
+          "Blood-Forged Armour": {
+            "type": "Magic Armour",
+            "armourValue": "2+",
+            "wardSave": "5+"
+          },
+          "Mork's All-seeing Eye": {
+            "type": "Talisman",
+            "specialRules": [
+              "Magic Resistance (-1)"
+            ]
+          }
+        },
+        "customRuleText": {
+          "Da Immortulz": "After deployment but before the first turn begins, nominate one friendly Black Orc Mob to be Da Immortulz. That unit has a +1 modifier to its Weapon Skill characteristic (to a maximum of 10) and gains Hatred (all enemies). Whilst Grimgor has joined Da Immortulz, that unit also gains Immune to Psychology and Stubborn.",
+          "Best of da Best": "Whilst fighting in a challenge, Grimgor may re-roll any failed rolls To Hit and To Wound."
+        }
+      }
+    }
+  ],
+  "_olddexCustom": {
+    "format": "direct-units-array-test",
+    "purpose": "Custom Grimgor Ironhide import/normalization test",
+    "pointsStatus": "UNPRICED"
+  }
+}

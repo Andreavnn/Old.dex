@@ -16,6 +16,7 @@ import { validateRoster } from '../services/rosterValidation'
 import { duplicateSavedArmyList, exportSavedArmyList, getSavedArmyList, importSavedArmyListJson, updateSavedArmyList, savedArmyListRoute } from '../services/savedLists'
 import { reportAppError } from '../services/appErrors'
 import { useLanguagePreference } from '../services/language'
+import { customUnitsForArmy } from '../services/customData'
 
 const route = useRoute()
 const { language } = useLanguagePreference()
@@ -34,7 +35,7 @@ const compositionRuleId = computed(() => String(route.query.rule || 'open-war') 
 const compositionRule = computed(() => compositionRuleLabel(compositionRuleId.value))
 const selectedOptions = computed(() => {
   const ids = new Set(String(route.query.options || '').split(',').map((value) => value.trim()).filter(Boolean))
-  return compositionOptions.filter((option) => ids.has(option.value) && option.value !== 'allow-custom-units')
+  return compositionOptions.filter((option) => ids.has(option.value))
 })
 const points = computed(() => {
   const parsed = Number(route.query.points || 2000)
@@ -115,7 +116,7 @@ async function loadCatalog() {
   } catch (error) {
     reportAppError(error, 'LIST_BUILDER_CATALOG', { army: selectedArmy.value.slug, composition: selectedComposition.value.id })
     catalogError.value = error instanceof Error ? error.message : 'The current army data could not be loaded.'
-    availableUnits.value = prototypeUnitsForArmy(selectedArmy.value.slug)
+    availableUnits.value = [...prototypeUnitsForArmy(selectedArmy.value.slug), ...customUnitsForArmy(selectedArmy.value.dataKey, selectedComposition.value.id)]
   } finally {
     favoriteIds.value = favoriteUnitIdsForArmy(selectedArmy.value.slug)
     catalogLoading.value = false
@@ -142,8 +143,8 @@ onMounted(() => {
   void loadValidationData()
 })
 
-const pickerTabs = computed(() => standardCategories.value.filter((category): category is Exclude<BuilderCategory, 'General' | 'Custom Units'> => category !== 'Custom Units'))
-function switchPickerCategory(category: Exclude<BuilderCategory, 'General' | 'Custom Units'>) {
+const pickerTabs = computed(() => standardCategories.value)
+function switchPickerCategory(category: Exclude<BuilderCategory, 'General'>) {
   if (pickerAdding.value) return
   pickerCategory.value = category
   pickerSearch.value = ''
@@ -279,7 +280,7 @@ function categoryAllowancePointsText(category: DisplayCategory) {
   return allowance.state === 'over' ? `${Math.abs(allowance.points)} pts over` : `${Math.max(0, allowance.points)} pts left`
 }
 function openPicker(category: DisplayCategory) {
-  if (listLocked.value || category === 'General' || category === 'Battle Standard Bearer' || category === 'Custom Units') return
+  if (listLocked.value || category === 'General' || category === 'Battle Standard Bearer') return
   pickerCategory.value = category
   pickerSearch.value = ''
   pickerSelectedIds.value = new Set()
@@ -421,7 +422,7 @@ const settingsCompositionRules = computed(() => {
 function settingsOptionAvailable(option: CompositionOptionId) {
   if (option === 'allow-allies') return Boolean(settingsCompositionRules.value?.allies)
   if (option === 'allow-mercenaries') return Boolean(settingsCompositionRules.value?.mercenaries)
-  if (option === 'allow-custom-units') return false
+  if (option === 'allow-custom-units') return true
   return true
 }
 function normalizeSettingsAvailability() {
@@ -496,9 +497,9 @@ async function applySettings() {
             <div v-if="unitsInCategory(category).length" class="builder-unit-stack">
               <BuilderUnitEntry v-for="row in unitsInCategory(category)" :key="row.instanceId" :row="row" :army-slug="selectedArmy.slug" :return-path="route.fullPath" :composition-id="selectedComposition.id" :locked="listLocked" :invalid="invalidInstanceIds.has(row.instanceId)" @remove="removeUnit(row.instanceId)" @duplicate="duplicateUnit(row)" />
             </div>
-            <div v-else-if="category === 'Custom Units'" class="builder-category-empty custom-unit-placeholder">Custom unit creation will be added in a later build.</div>
+            <div v-else-if="category === 'Custom Units'" class="builder-category-empty custom-unit-placeholder">No custom units selected. Imported and bundled custom units appear here when Custom Units are enabled.</div>
             <div v-else class="builder-category-empty">No {{ category.toLowerCase() }} selected.</div>
-            <button v-if="category !== 'General' && category !== 'Battle Standard Bearer' && category !== 'Custom Units'" type="button" class="builder-add-unit" :disabled="listLocked" @click="openPicker(category)">+ Add {{ category === 'Characters' ? 'character' : 'unit' }}</button>
+            <button v-if="category !== 'General' && category !== 'Battle Standard Bearer'" type="button" class="builder-add-unit" :disabled="listLocked" @click="openPicker(category)">+ Add {{ category === 'Characters' ? 'character' : category === 'Custom Units' ? 'custom unit' : 'unit' }}</button>
           </div>
         </details>
       </div>
