@@ -1,5 +1,17 @@
 # Old.dex Changelog
 
+## Alpha Build 0.32 — Roster-rule fixes, integrated custom units, and mobile polish
+
+- Increased splash-page typography by 2px and fixed the mobile/tablet Text Size control so its flex basis cannot stretch the selector into an oversized vertical field.
+- Corrected shield save handling so armour replacements resolve first and selected shield/save modifiers are applied afterward instead of being overwritten by source option order.
+- Changed per-1,000-point composition limits to inclusive tiers: 0–1,000 uses one allowance, 1,001–2,000 uses two, and each additional 1,000-point band adds another allowance.
+- Removed Armour Save from mount profile displays; mount profiles retain their own characteristics and no longer present an armour-save contribution as a model save.
+- Added a roster Lock/Unlock control between View and Export on the Army Rosters page and tightened model-count number centering across mobile browsers.
+- Enabled custom-data JSON import from Settings in addition to the roster page and removed the remaining footer-language-control styling.
+- Integrated custom units into their real roster categories while keeping a visible CUSTOM marker; custom units remain gated by the Allow Custom Units battle-composition option.
+- Updated bundled Grimgor Ironhide to Characters and replaced Da Boyz with the custom Da Bigst Boys rule, allowing Grimgor to satisfy the Black Orc character requirement for all Black Orc Mobs.
+- Added rule-text redundancy filtering for vice-versa quota wording and deduplicated repeated special-rule cards so equivalent source sentences are not displayed multiple times.
+
 ## Alpha Build 0.31 — Canonical profile integrity rebuild, custom data imports, and splash cleanup
 
 - Rebuilt model-profile ingestion around exact faction, army-composition, roster-unit, rules-page and model-profile identity instead of treating the first returned profile row as authoritative.

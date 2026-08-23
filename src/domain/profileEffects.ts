@@ -98,13 +98,18 @@ export type ProfileEffectInput = {
 
 export function applyProfileEffects(input: ProfileEffectInput) {
   const profile = { ...input.baseProfile }
+  let saveModifier = 0
   for (const option of input.selectedEquipment) {
     if (!optionAppliesToProfile(input.unit, option, input.profileName)) continue
     const appliesToWholeUnit = !isPerModelEquipmentSelection(option) || input.equipmentCount(option) >= input.modelCount
     if (!appliesToWholeUnit) continue
+    // Resolve armour/profile replacements first, then apply additive save bonuses
+    // (most commonly shields) once. This prevents a later armour option from
+    // overwriting a shield that was selected earlier in the source option list.
     for (const [key, value] of Object.entries(saveOnlyProfileOverride(option.profileOverride))) profile[key as ProfileKey] = String(value)
-    if (option.saveModifier) profile.Sv = improveSaveBy(profile.Sv, option.saveModifier)
+    saveModifier += Math.max(0, Number(option.saveModifier) || 0)
   }
+  if (saveModifier > 0) profile.Sv = improveSaveBy(profile.Sv, saveModifier)
   if (input.bigUnsSelected && !isMountProfileName(input.profileName)) profile.S = incrementCharacteristic(profile.S, 1)
   for (const [key, value] of Object.entries(input.magicOverride || {})) if (value !== undefined) profile[key as ProfileKey] = String(value)
   const hide = armouredHideBonus(input.unit, input.activeRules, input.profileName)

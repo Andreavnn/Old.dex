@@ -30,6 +30,7 @@ export type BuilderRosterSelection = {
   modelCount?: number
   maximumModels?: number
   named?: boolean
+  custom?: boolean
   mustBeGeneral?: boolean
   cannotBeGeneral?: boolean
   troopType?: string

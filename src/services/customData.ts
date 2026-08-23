@@ -102,11 +102,22 @@ function completeProfile(unit: CustomDataRecord) {
   return profile
 }
 
+function customUnitCategory(unit: CustomDataRecord): PrototypeUnit['category'] | null {
+  const value = clean(unit.category || unit.unitCategory).toLowerCase()
+  if (/general|character/.test(value)) return 'Characters'
+  if (/^core\b/.test(value)) return 'Core'
+  if (/^special\b/.test(value)) return 'Special'
+  if (/^rare\b/.test(value)) return 'Rare'
+  if (/mercenar/.test(value)) return 'Mercenaries'
+  if (/all(?:y|ies)/.test(value)) return 'Allies'
+  return null
+}
+
 function validUnitRows(pack: CustomDataRecord) {
   return records(pack.units).filter((unit) => {
     const name = clean(unit.name || unit.name_en)
     const id = clean(unit.sourceId || unit.id)
-    return Boolean(name && id && completeBaseProfile(unit))
+    return Boolean(name && id && completeBaseProfile(unit) && customUnitCategory(unit))
   })
 }
 
@@ -165,7 +176,7 @@ function compositionMatches(pack: CustomDataRecord, unit: CustomDataRecord, army
 
 function unitId(pack: CustomDataRecord, unit: CustomDataRecord) {
   const explicit = slug(unit.sourceId)
-  if (explicit) return explicit
+  if (explicit) return explicit.startsWith('custom-') ? explicit : `custom-${explicit}`
   const id = slug(unit.id || unit.name)
   const prefix = slug(pack.id || pack.name)
   return id.startsWith('custom-') ? id : `custom-${prefix ? `${prefix}-` : ''}${id}`
@@ -193,7 +204,7 @@ function ruleTiming(tone: RuleTone) {
 }
 
 function rulePath(name: string) {
-  const unique = /^(?:Da Immortulz|Best of da Best)$/i.test(name)
+  const unique = /^(?:Da Immortulz|Best of da Best|Da Bigst Boys)$/i.test(name)
   return unique ? '' : `/special-rules/${slug(name.replace(/\s*\([^)]*\)\s*$/, ''))}`
 }
 
@@ -345,7 +356,8 @@ function profileRows(pack: CustomDataRecord, unit: CustomDataRecord, army: Army,
 
 function normalizeCustomUnit(pack: CustomDataRecord, unit: CustomDataRecord, army: Army, compositionId: string): PrototypeUnit | null {
   const base = completeProfile(unit)
-  if (!base || !compositionMatches(pack, unit, army, compositionId)) return null
+  const category = customUnitCategory(unit)
+  if (!base || !category || !compositionMatches(pack, unit, army, compositionId)) return null
   const id = unitId(pack, unit)
   const name = clean(unit.name || unit.name_en)
   if (!id || !name) return null
@@ -376,7 +388,7 @@ function normalizeCustomUnit(pack: CustomDataRecord, unit: CustomDataRecord, arm
     id,
     name,
     sourceName: name,
-    category: 'Custom Units',
+    category,
     points: pointValue,
     unitSize: clean(unit.unitSize) || `${Math.max(1, Number(unit.minimum || unit.startModels) || 1)} model`,
     profile: { ...primary.profile },
@@ -389,12 +401,12 @@ function normalizeCustomUnit(pack: CustomDataRecord, unit: CustomDataRecord, arm
       baseSize: clean(unit.baseSize),
       publication: `Custom Data${status ? ` — ${status}` : ''}`,
       army: army.name,
-      unitCategory: 'Custom Units',
+      unitCategory: category,
       notes: pointStatus === 'UNPRICED' ? 'Custom unit data is marked UNPRICED.' : undefined,
     },
     specialRules: customSpecialRules(unit),
     keywords: [
-      { label: 'Character', path: '/characters/characters' },
+      ...(category === 'Characters' ? [{ label: 'Character', path: '/characters/characters' }] : []),
       { label: 'Custom Unit', path: '/model-profiles/model-profiles' },
     ],
     minimumModels: Math.max(1, Number(unit.minimum || unit.startModels) || 1),
@@ -414,8 +426,11 @@ function normalizeCustomUnit(pack: CustomDataRecord, unit: CustomDataRecord, arm
 function allCustomPacks() {
   const merged = new Map<string, CustomDataRecord>()
   const builtIns = customPackRows(builtInGrimgor)
-  builtIns.forEach((pack, index) => merged.set(packId(pack, index), pack))
-  importedCustomPacks().forEach((pack, index) => merged.set(packId(pack, builtIns.length + index), pack))
+  const imported = importedCustomPacks()
+  // User packs may add new units, but a bundled pack with the same id remains
+  // authoritative so app updates cannot be shadowed by an older local copy.
+  imported.forEach((pack, index) => merged.set(packId(pack, index), pack))
+  builtIns.forEach((pack, index) => merged.set(packId(pack, imported.length + index), pack))
   return [...merged.values()]
 }
 
@@ -455,7 +470,7 @@ export function importCustomDataJson(text: string): CustomDataImportResult {
     return Boolean(army && validUnitRows(pack).length)
   })
   if (!accepted.length) {
-    throw new Error('Custom data did not contain a complete unit profile for a recognized Old.dex faction.')
+    throw new Error('Custom data did not contain a complete unit profile with a recognized roster category for a recognized Old.dex faction.')
   }
 
   const existing = new Map<string, CustomDataRecord>()

@@ -84,8 +84,10 @@ const prototypeUnit = computed(() => liveUnit.value || prototypeUnitsForArmy(arm
 const prettyUnitName = computed(() => prototypeUnit.value?.name || unitId.value.split('-').filter(Boolean).map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' '))
 const statOrder: ProfileKey[] = ['M', 'WS', 'BS', 'S', 'T', 'W', 'I', 'A', 'Ld', 'Sv', 'Ward', 'Rn']
 const showBuilderCharacteristicIcons = computed(() => backPath.value.startsWith('/lists/builder'))
-function statsForProfile(profile: Record<ProfileKey, string>) {
+function statsForProfile(profile: Record<ProfileKey, string>, profileName = '') {
+  const mount = isMountProfileName(profileName)
   return statOrder.filter((stat) => {
+    if (mount && stat === 'Sv') return false
     if (stat === 'Ward') return Boolean(profile.Ward && profile.Ward !== '—')
     if (stat === 'Rn') return Boolean(profile.Rn && profile.Rn !== '—')
     return true
@@ -749,11 +751,6 @@ const profileRows = computed(() => {
     const explicitUpgradeRow = /\bBig\s*[’']?Uns?\b/i.test(sourceName)
     const bigUns = bigUnsSelected.value && !explicitBigUns && !isMountProfileName(sourceName)
     const profile = effectiveProfileFor(row.profile, sourceName, row.selectionId, !explicitUpgradeRow)
-    if (isMountProfileName(sourceName)) {
-      const save = Number.parseInt(profile.Sv, 10)
-      const contribution = Number.isFinite(save) ? Math.max(0, 7 - save) : 0
-      profile.Sv = contribution > 0 ? `+${contribution}` : '—'
-    }
     return { name: `${sourceName}${bigUns && !explicitUpgradeRow ? " - Big 'Uns" : ''}`, sourceName, profile, loadout: loadoutForProfile(sourceName, index, names, row.optionalEquipment, row.selectionId) }
   })
 })
@@ -789,7 +786,13 @@ const activeSpecialRules = computed(() => {
   const unit = prototypeUnit.value
   if (!unit) return []
   const sourceRules = unit.specialRules.filter((rule) => (!rule.requiresSelection || selectionHas(rule.requiresSelection)) && (!rule.requiresAnySelection?.length || rule.requiresAnySelection.some(selectionHas)))
-  return [...sourceRules, ...selectedLoreRules.value]
+  const seen = new Set<string>()
+  return [...sourceRules, ...selectedLoreRules.value].filter((rule) => {
+    const key = `${ruleDisplayName(canonicalRuleName(rule)).toLowerCase()}:${rule.path || ''}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 })
 const magicItemCards = computed(() => selectedMagicEntries.value.map(({ item, count }) => {
   const detail = magicItemDetails.value.get(item.id)
@@ -1250,7 +1253,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
         <div v-for="row in profileRows" :key="row.name" class="model-profile-row">
           <h2 v-if="profileRows.length > 1">{{ row.name }}</h2>
           <div class="warscroll-stat-grid">
-            <div v-for="stat in statsForProfile(row.profile)" :key="stat" class="warscroll-stat-circle" :class="{ 'save-stat': stat === 'Sv' || stat === 'Ward' || stat === 'Rn' }">
+            <div v-for="stat in statsForProfile(row.profile, row.sourceName)" :key="stat" class="warscroll-stat-circle" :class="{ 'save-stat': stat === 'Sv' || stat === 'Ward' || stat === 'Rn' }">
               <CharacteristicIcon v-if="showBuilderCharacteristicIcons" :stat="stat" />
               <span class="warscroll-stat-label">{{ statLabel(stat) }}</span>
               <strong>{{ displayStat(row.profile, stat) }}</strong>

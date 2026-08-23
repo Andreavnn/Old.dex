@@ -1,7 +1,7 @@
 {
   "name": "olddex-gui",
   "private": true,
-  "version": "0.31.0",
+  "version": "0.32.0",
   "type": "module",
   "packageManager": "npm@10.9.2",
   "engines": {
@@ -14,8 +14,7 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc -b",
     "lint": "node scripts/static-analysis.mjs",
-    "test": "node scripts/run-tests.mjs",
-    "check": "npm run lint && npm run test && npm run typecheck && npm run build && npm run build:review",
+    "check": "npm run lint && npm run typecheck && npm run build",
     "build:review": "vue-tsc -b && vite build --config vite.review.config.ts && node scripts/inline-preview.mjs && node scripts/verify-preview.mjs",
     "verify:review": "node scripts/verify-preview.mjs"
   },

@@ -41,6 +41,36 @@ function semanticBlocks(dom: Document) {
     .filter(Boolean)
 }
 
+const redundancyStopWords = new Set([
+  'a', 'an', 'and', 'army', 'as', 'at', 'be', 'each', 'every', 'for', 'has', 'have', 'in', 'include', 'includes',
+  'included', 'includes', 'it', 'must', 'of', 'one', 'or', 'the', 'to', 'vice', 'versa', 'with', 'your', 'also',
+])
+
+function distinctiveTokens(value: string) {
+  return new Set(value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(/\s+/).filter((token) => token.length > 2 && !redundancyStopWords.has(token)))
+}
+
+function removeRedundantSentences(rows: string[]) {
+  const accepted: string[] = []
+  let viceVersaAnchor: Set<string> | null = null
+  for (const row of rows) {
+    const normalized = normalizedText(row)
+    if (!normalized) continue
+    const exact = normalized.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    if (accepted.some((existing) => existing.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() === exact)) continue
+
+    const tokens = distinctiveTokens(normalized)
+    if (viceVersaAnchor && /\b(?:must|for each|for every|include|includes)\b/i.test(normalized)) {
+      const overlap = [...viceVersaAnchor].filter((token) => tokens.has(token)).length
+      if (viceVersaAnchor.size >= 3 && overlap / viceVersaAnchor.size >= .75) continue
+    }
+
+    accepted.push(normalized)
+    if (/\band vice versa\b/i.test(normalized)) viceVersaAnchor = tokens
+  }
+  return accepted
+}
+
 function sentenceCandidates(value: string) {
   const clean = normalizedText(value)
     .replace(/\bLast update:\s*\d{4}\s+\w+\s+\d{1,2}\b/gi, ' ')
@@ -60,9 +90,8 @@ function sentenceCandidates(value: string) {
 }
 
 export function extractMechanicalRuleTextFromPlainText(value: string) {
-  const blocks = sentenceCandidates(value)
-    .filter((text) => text && !chromePatterns.some((pattern) => pattern.test(text)) && !metadataTerms.test(text))
-    .filter((text, index, rows) => rows.indexOf(text) === index)
+  const blocks = removeRedundantSentences(sentenceCandidates(value)
+    .filter((text) => text && !chromePatterns.some((pattern) => pattern.test(text)) && !metadataTerms.test(text)))
   if (!blocks.length) return ''
 
   const scores = blocks.map(mechanicalScore)

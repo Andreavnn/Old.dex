@@ -47,7 +47,6 @@ const standardCategories = computed<Array<Exclude<BuilderCategory, 'General'>>>(
   const rows: Array<Exclude<BuilderCategory, 'General'>> = ['Characters', 'Core', 'Special', 'Rare']
   if (selectedOptionIds.value.has('allow-mercenaries')) rows.push('Mercenaries')
   if (selectedOptionIds.value.has('allow-allies')) rows.push('Allies')
-  if (selectedOptionIds.value.has('allow-custom-units')) rows.push('Custom Units')
   return rows
 })
 const builderPath = computed(() => route.fullPath)
@@ -156,7 +155,10 @@ function monsterMashEligible(unit: PrototypeUnit) {
 const monsterMashUsed = computed(() => roster.value.some((row) => row.category === 'Core' && /(?:Monstrous Creature|War Machine|Chariot)/i.test(String(row.troopType || ''))))
 const filteredPickerUnits = computed(() => {
   const query = pickerSearch.value.trim().toLowerCase()
-  let rows = availableUnits.value.filter((unit) => unit.category === pickerCategory.value || (pickerCategory.value === 'Core' && selectedOptionIds.value.has('monster-mash') && !monsterMashUsed.value && monsterMashEligible(unit)))
+  let rows = availableUnits.value.filter((unit) => {
+    if (unit.sourceKind === 'custom' && !selectedOptionIds.value.has('allow-custom-units')) return false
+    return unit.category === pickerCategory.value || (pickerCategory.value === 'Core' && selectedOptionIds.value.has('monster-mash') && !monsterMashUsed.value && monsterMashEligible(unit))
+  })
   if (query) rows = rows.filter((unit) => unit.name.toLowerCase().includes(query))
   if (favoritesOnly.value) rows = rows.filter((unit) => favoriteIds.value.has(unit.id))
   return [...rows].sort((a, b) => sortMode.value === 'points' ? startingUnitPoints(a) - startingUnitPoints(b) || a.name.localeCompare(b.name) : a.name.localeCompare(b.name))
@@ -491,15 +493,14 @@ async function applySettings() {
       <p v-else class="builder-data-note">Unit names, base costs, composition availability and option lists are loaded from the current Builder dataset for {{ selectedArmy.name }}.</p>
 
       <div class="builder-category-stack">
-        <details v-for="category in categories" :key="category" class="builder-category-card" :open="unitsInCategory(category).length > 0 || category === 'Characters' || category === 'Core' || category === 'Custom Units'">
+        <details v-for="category in categories" :key="category" class="builder-category-card" :open="unitsInCategory(category).length > 0 || category === 'Characters' || category === 'Core'">
           <summary class="builder-category-summary"><span>{{ category }}</span><span v-if="!isRoleDisplayCategory(category)" class="builder-category-summary-meta"><small>{{ categorySelectedCount(category) }} Selected</small><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPoints(category) }} pts</strong><template v-if="categoryAllowance(category)"><span class="category-meta-separator" aria-hidden="true">/</span><em class="category-allowance" :class="`is-${categoryAllowance(category)?.state}`">{{ categoryAllowancePointsText(category) }} ({{ categoryAllowance(category)?.qualifier }})</em><span class="category-meta-separator" aria-hidden="true">-</span><strong class="category-percentage-readout"><span class="category-percentage-current" :class="`status-${categoryPercentageState(category)}`">{{ categoryPercent(category) }}%</span><span class="category-percentage-target"> / {{ categoryAllowance(category)?.percent }}%</span></strong></template><template v-else><span class="category-meta-separator" aria-hidden="true">-</span><strong>{{ categoryPercent(category) }}%</strong></template></span></summary>
           <div class="builder-category-body">
             <div v-if="unitsInCategory(category).length" class="builder-unit-stack">
               <BuilderUnitEntry v-for="row in unitsInCategory(category)" :key="row.instanceId" :row="row" :army-slug="selectedArmy.slug" :return-path="route.fullPath" :composition-id="selectedComposition.id" :locked="listLocked" :invalid="invalidInstanceIds.has(row.instanceId)" @remove="removeUnit(row.instanceId)" @duplicate="duplicateUnit(row)" />
             </div>
-            <div v-else-if="category === 'Custom Units'" class="builder-category-empty custom-unit-placeholder">No custom units selected. Imported and bundled custom units appear here when Custom Units are enabled.</div>
             <div v-else class="builder-category-empty">No {{ category.toLowerCase() }} selected.</div>
-            <button v-if="category !== 'General' && category !== 'Battle Standard Bearer'" type="button" class="builder-add-unit" :disabled="listLocked" @click="openPicker(category)">+ Add {{ category === 'Characters' ? 'character' : category === 'Custom Units' ? 'custom unit' : 'unit' }}</button>
+            <button v-if="category !== 'General' && category !== 'Battle Standard Bearer'" type="button" class="builder-add-unit" :disabled="listLocked" @click="openPicker(category)">+ Add {{ category === 'Characters' ? 'character' : 'unit' }}</button>
           </div>
         </details>
       </div>
@@ -514,7 +515,7 @@ async function applySettings() {
         <div v-else-if="filteredPickerUnits.length" class="unit-picker-list">
           <article v-for="unit in filteredPickerUnits" :key="unit.id" class="unit-picker-row" :class="{ 'is-selected': pickerUnitSelected(unit.id) }">
             <button type="button" class="unit-picker-favourite" :class="{ active: favoriteIds.has(unit.id) }" @click.stop="toggleFavorite(unit.id)" :aria-label="`Favorite ${unit.name}`">★</button>
-            <button type="button" class="picker-unit-main" :disabled="pickerAdding" :aria-pressed="pickerUnitSelected(unit.id)" @click="togglePickerUnit(unit.id)"><span><strong>{{ unit.name }}</strong><small>{{ unit.unitSize }} · {{ pickerCategory === 'Core' && unit.category !== 'Core' && monsterMashEligible(unit) ? 'Core · Monster Mash' : unit.category }}</small><small v-if="unit.compositionNotes?.length" class="picker-composition-note">{{ unit.compositionNotes.join(' • ') }}</small></span></button><span class="unit-picker-points">{{ startingUnitPoints(unit) }} pts</span>
+            <button type="button" class="picker-unit-main" :disabled="pickerAdding" :aria-pressed="pickerUnitSelected(unit.id)" @click="togglePickerUnit(unit.id)"><span><strong>{{ unit.name }} <em v-if="unit.sourceKind === 'custom'" class="custom-unit-badge">CUSTOM</em></strong><small>{{ unit.unitSize }} · {{ pickerCategory === 'Core' && unit.category !== 'Core' && monsterMashEligible(unit) ? 'Core · Monster Mash' : unit.category }}</small><small v-if="unit.compositionNotes?.length" class="picker-composition-note">{{ unit.compositionNotes.join(' • ') }}</small></span></button><span class="unit-picker-points">{{ startingUnitPoints(unit) }} pts</span>
             <div class="unit-picker-actions"><button type="button" class="builder-mini-action primary icon-only-action" :class="{ selected: pickerUnitSelected(unit.id) }" :disabled="pickerAdding" :aria-label="`${pickerUnitSelected(unit.id) ? 'Remove' : 'Select'} ${unit.name}`" :title="pickerUnitSelected(unit.id) ? 'Selected' : 'Select'" @click="togglePickerUnit(unit.id)"><svg v-if="pickerUnitSelected(unit.id)" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg><svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button><RouterLink class="builder-mini-action icon-only-action" :to="`/army/${selectedArmy.slug}/unit/${unit.id}?return=${encodeURIComponent(route.fullPath)}&composition=${encodeURIComponent(selectedComposition.id)}&mode=view`" :aria-label="`View ${unit.name}`" title="View"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></RouterLink></div>
           </article>
         </div>

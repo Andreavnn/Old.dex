@@ -145,6 +145,7 @@ export function parseBuilderRosterSelection(value: unknown): BuilderRosterSelect
     modelCount: Number(value.modelCount) > 0 ? Number(value.modelCount) : undefined,
     maximumModels: Number(value.maximumModels) > 0 ? Number(value.maximumModels) : undefined,
     named: typeof value.named === 'boolean' ? value.named : undefined,
+    custom: typeof value.custom === 'boolean' ? value.custom : undefined,
     mustBeGeneral: typeof value.mustBeGeneral === 'boolean' ? value.mustBeGeneral : undefined,
     cannotBeGeneral: typeof value.cannotBeGeneral === 'boolean' ? value.cannotBeGeneral : undefined,
     troopType: typeof value.troopType === 'string' ? value.troopType : undefined,

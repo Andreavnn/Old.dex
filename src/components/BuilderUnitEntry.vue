@@ -69,7 +69,7 @@ const displayRules = computed(() => {
   <article class="builder-unit-entry configured-unit-entry" :class="{ invalid }">
     <div class="builder-unit-main">
       <div class="builder-unit-name-row">
-        <RouterLink class="builder-unit-name" :to="viewPath">{{ row.name }}</RouterLink>
+        <RouterLink class="builder-unit-name" :to="viewPath">{{ row.name }}</RouterLink><span v-if="row.custom || row.unitId.startsWith('custom-')" class="custom-unit-badge">CUSTOM</span>
       </div>
       <div class="builder-unit-subline" aria-label="Unit summary">
         <span>{{ displayUnitSize }}</span>

@@ -278,6 +278,7 @@ export function createDefaultRosterSelection(unit: PrototypeUnit, instanceId: st
     modelCount,
     maximumModels: unit.maximumModels,
     named: unit.named,
+    custom: unit.sourceKind === 'custom',
     mustBeGeneral: unit.mustBeGeneral,
     cannotBeGeneral: unit.cannotBeGeneral,
     troopType: unit.details.troopType,

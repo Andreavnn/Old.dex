@@ -12,11 +12,14 @@ import { reportAppError } from '../services/appErrors'
 import { clearSavedGamesByStatus } from '../services/games'
 import { clearSavedArmyListsByType } from '../services/savedLists'
 import { useInstallApp } from '../services/installApp'
+import { importCustomDataJson } from '../services/customData'
 
 const { darkMode, compactRows, fontSize, boldText, visualTheme, backgroundImage, reset } = useSettings()
 const updateState = ref<'idle' | 'running' | 'success' | 'error'>('idle')
 const updateMessage = ref('')
 const dataResetState = ref<'idle' | 'running'>('idle')
+const customDataInput = ref<HTMLInputElement | null>(null)
+const customDataMessage = ref('')
 
 const { installPrompt, installedApp, requestInstall: requestOldDexInstall } = useInstallApp()
 async function installOldDex() {
@@ -92,6 +95,21 @@ const configuredRulePages = [
   ...battleScenarioEntries.map((scenario) => scenario.sourcePath),
   ...armies.map((army) => armySourcePath(army.slug)),
 ]
+
+async function importCustomDataFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  customDataMessage.value = ''
+  try {
+    const result = importCustomDataJson(await file.text())
+    customDataMessage.value = `${result.units} custom unit${result.units === 1 ? '' : 's'} imported from ${result.packs} data pack${result.packs === 1 ? '' : 's'}.`
+  } catch (error) {
+    customDataMessage.value = error instanceof Error ? error.message : 'This custom-data JSON could not be imported.'
+  } finally {
+    input.value = ''
+  }
+}
 
 async function updateBuilderRules() {
   if (updateState.value === 'running') return
@@ -283,9 +301,11 @@ async function updateBuilderRules() {
           <span class="value-chip">REMOTE</span>
         </div>
         <div class="setting-row custom-data-setting-row">
-          <span><strong>Custom data</strong><small>Upload custom armies, units, rules, and related Old.dex datasets. Import support will be enabled in a later build.</small></span>
-          <button class="secondary-button settings-compact-action" type="button" disabled title="Custom data import is not enabled yet">Upload</button>
+          <span><strong>Custom data</strong><small>Import an Old.dex custom-data JSON pack stored only on this device. Custom units become available when Allow Custom Units is enabled for a roster.</small></span>
+          <button class="secondary-button settings-compact-action" type="button" @click="customDataInput?.click()">Import</button>
+          <input ref="customDataInput" class="file-import-input" type="file" accept=".json,.olddex-custom.json,application/json" @change="importCustomDataFile" />
         </div>
+        <div v-if="customDataMessage" class="update-status custom-data-status" role="status">{{ customDataMessage }}</div>
       </section>
     </section>
   </main>

@@ -12,7 +12,7 @@
       "id": "grimgor-ironhide",
       "sourceId": "custom-grimgor-ironhide",
       "name": "Grimgor Ironhide",
-      "category": "Character",
+      "category": "Characters",
       "troopType": "Heavy Infantry",
       "unitType": "Heavy Infantry (Character)",
       "baseSize": "30 x 30 mm",
@@ -163,7 +163,7 @@
       ],
       "rules": [
         "choppas",
-        "daBoyz",
+        "daBigstBoys",
         "furiousCharge",
         "hatredAllEnemies",
         "ignorePanic",
@@ -177,7 +177,7 @@
       ],
       "ruleNames": [
         "Choppas",
-        "Da Boyz",
+        "Da Bigst Boys",
         "Furious Charge",
         "Hatred (all enemies)",
         "Ignore Panic",
@@ -197,10 +197,11 @@
           "alwaysActive": true
         },
         {
-          "id": "da-boyz",
-          "name": "Da Boyz",
+          "id": "da-bigst-boys",
+          "name": "Da Bigst Boys",
           "active": true,
-          "alwaysActive": true
+          "alwaysActive": true,
+          "notes": "Grimgor Ironhide is enough to satisfy the Black Orc character requirement for any number of Black Orc Mob units in the army. Black Orc Mobs do not require a separate Black Orc War Boss or Black Orc Big Boss while Grimgor is included."
         },
         {
           "id": "furious-charge",
@@ -311,7 +312,8 @@
         },
         "customRuleText": {
           "Da Immortulz": "After deployment but before the first turn begins, nominate one friendly Black Orc Mob to be Da Immortulz. That unit has a +1 modifier to its Weapon Skill characteristic (to a maximum of 10) and gains Hatred (all enemies). Whilst Grimgor has joined Da Immortulz, that unit also gains Immune to Psychology and Stubborn.",
-          "Best of da Best": "Whilst fighting in a challenge, Grimgor may re-roll any failed rolls To Hit and To Wound."
+          "Best of da Best": "Whilst fighting in a challenge, Grimgor may re-roll any failed rolls To Hit and To Wound.",
+          "Da Bigst Boys": "Grimgor Ironhide is enough to satisfy the Black Orc character requirement for any number of Black Orc Mob units in the army. Black Orc Mobs do not require a separate Black Orc War Boss or Black Orc Big Boss while Grimgor is included."
         }
       }
     }

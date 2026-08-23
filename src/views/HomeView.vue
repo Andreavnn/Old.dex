@@ -44,6 +44,10 @@ function toggleEnemyRoster(list: SavedArmyList) {
   updateSavedArmyList(list.id, { enemyRoster: !list.enemyRoster })
   refreshLists()
 }
+function toggleRosterLock(list: SavedArmyList) {
+  updateSavedArmyList(list.id, { locked: !list.locked })
+  refreshLists()
+}
 async function importListFile(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -127,6 +131,7 @@ function exportList(list: SavedArmyList) { exportSavedArmyList(list) }
           </RouterLink>
           <div v-if="!deleteMode" class="saved-list-row-actions">
             <RouterLink class="saved-list-icon-action" :to="{ name: 'list-view', params: { listId: list.id } }" aria-label="View roster" title="View roster"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.2-5 9.2-5 9.2 5 9.2 5-3.2 5-9.2 5-9.2-5-9.2-5Z"/><circle cx="12" cy="12" r="2.5"/></svg></RouterLink>
+            <button type="button" class="saved-list-icon-action roster-lock-action" :class="{ active: list.locked }" :aria-label="list.locked ? 'Unlock roster' : 'Lock roster'" :title="list.locked ? 'Unlock roster' : 'Lock roster'" @click="toggleRosterLock(list)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path v-if="list.locked" d="M8 10V7a4 4 0 0 1 8 0v3"/><path v-else d="M16 10V7a4 4 0 0 0-7.7-1.5"/></svg></button>
             <button type="button" class="saved-list-icon-action" aria-label="Export roster" title="Export JSON" @click="exportList(list)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 20h14"/></svg></button>
             <button type="button" class="saved-list-icon-action enemy-roster-toggle" aria-label="Mark as enemy roster" title="Mark as Enemy Army Roster" @click="toggleEnemyRoster(list)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M6 5h11l-2.5 3L17 11H6"/></svg></button>
             <button type="button" class="saved-list-copy-button" aria-label="Copy roster" title="Copy roster" @click="copyList(list.id)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1.5"/><path d="M16 8V5H5v11h3"/></svg></button>

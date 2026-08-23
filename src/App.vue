@@ -73,7 +73,7 @@ onMounted(() => {
     </section>
 
     <footer class="app-footer">
-      <span>Old.dex Alpha Build 0.31</span>
+      <span>Old.dex Alpha Build 0.32</span>
     </footer>
   </div>
 </template>

@@ -27,7 +27,13 @@ function rowsByType(roster: BuilderRosterSelection[], type?: string) {
 function scaled(rule: CompositionUnitRule, key: 'min' | 'max', points: number) {
   const value = Number(rule[key])
   if (!Number.isFinite(value)) return undefined
-  return rule.points ? Math.floor(points / Number(rule.points)) * value : value
+  if (!rule.points) return value
+  const interval = Number(rule.points)
+  if (!Number.isFinite(interval) || interval <= 0) return value
+  // Per-X-point allowances use inclusive tiers: 0–X = one allowance,
+  // X+1–2X = two, 2X+1–3X = three, etc.
+  const tiers = Math.max(1, Math.ceil(Math.max(0, points) / interval))
+  return tiers * value
 }
 function namesForIds(ids: string[] = []) { return ids.map((id) => id.split('-').map((part) => part ? part[0].toUpperCase() + part.slice(1) : '').join(' ')).join(' / ') }
 
@@ -65,6 +71,19 @@ function markCounts(rows: BuilderRosterSelection[]) {
   const result = new Map<string, number>()
   for (const row of rows) for (const mark of marks) if (hasOption(row, new RegExp(`^${mark}$`, 'i'))) result.set(mark, (result.get(mark) || 0) + 1)
   return result
+}
+
+function hasGrimgorIronhide(roster: BuilderRosterSelection[]) {
+  return roster.some((row) => row.unitId === 'custom-grimgor-ironhide' || /^Grimgor Ironhide$/i.test(row.name))
+}
+
+function grimgorSatisfiesBlackOrcMobRequirement(rule: CompositionUnitRule, targetRows: BuilderRosterSelection[], roster: BuilderRosterSelection[]) {
+  if (!targetRows.length || !hasGrimgorIronhide(roster)) return false
+  const targets = (rule.ids || []).map(slug)
+  const requirements = (rule.requires || []).map(slug)
+  const targetsBlackOrcMobs = targets.some((id) => id.includes('black-orc') && id.includes('mob'))
+  const requiresBlackOrcCharacter = requirements.some((id) => id.includes('black-orc') && (id.includes('boss') || id.includes('war-boss') || id.includes('big-boss')))
+  return targetsBlackOrcMobs && requiresBlackOrcCharacter
 }
 
 function validateLimitOneMagic(roster: BuilderRosterSelection[], issues: RosterValidationIssue[]) {
@@ -135,7 +154,7 @@ export function validateRoster(input: {
   const mercenariesAllowed = optionSet.has('allow-mercenaries') && Boolean(composition?.mercenaries)
   roster.filter((row) => row.category === 'Allies' && !alliesAllowed).forEach((row) => issues.push({ severity: 'error', section: 'Allies', instanceId: row.instanceId, message: `${row.name} is an Ally, but Allies are not enabled for this list.` }))
   roster.filter((row) => row.category === 'Mercenaries' && !mercenariesAllowed).forEach((row) => issues.push({ severity: 'error', section: 'Mercenaries', instanceId: row.instanceId, message: `${row.name} is a Mercenary, but Mercenaries are not enabled for this list.` }))
-  roster.filter((row) => row.category === 'Custom Units' && !optionSet.has('allow-custom-units')).forEach((row) => issues.push({ severity: 'error', section: 'Custom Units', instanceId: row.instanceId, message: `${row.name} is a custom unit, but Custom Units are not enabled for this list.` }))
+  roster.filter((row) => (row.custom || row.category === 'Custom Units' || row.unitId.startsWith('custom-')) && !optionSet.has('allow-custom-units')).forEach((row) => issues.push({ severity: 'error', section: row.category, instanceId: row.instanceId, message: `${row.name} is a custom unit, but Custom Units are not enabled for this list.` }))
 
   const monsterMashRows = roster.filter((row) => row.category === 'Core' && /(?:Monstrous Creature|War Machine|Chariot)/i.test(String(row.troopType || '')))
   if (!optionSet.has('monster-mash')) monsterMashRows.forEach((row) => issues.push({ severity: 'error', section: 'Core', instanceId: row.instanceId, message: `${row.name} requires the Monster Mash Battle Composition option to count as Core.` }))
@@ -216,9 +235,10 @@ export function validateRoster(input: {
         }
         if (!unitRule.requiresGeneral && unitRule.requires?.length && targetRows.length) {
           const requiredRows = rowsByType(roster, unitRule.requiresType).filter((row) => unitRule.requires?.includes(row.unitId.split('.')[0]))
-          if (unitRule.perUnit && max !== undefined && targetRows.length > requiredRows.length * max) targetRows.forEach((row) => issues.push({ severity: 'error', section: label, instanceId: row.instanceId, message: `${targetNames} needs enough ${namesForIds(unitRule.requires)} entries to support it.` }))
-          else if (unitRule.perUnit && max === undefined && min !== undefined && targetRows.length > requiredRows.length + min) targetRows.forEach((row) => issues.push({ severity: 'error', section: label, instanceId: row.instanceId, message: `${targetNames} needs enough ${namesForIds(unitRule.requires)} entries to support it.` }))
-          else if (!unitRule.perUnit && requiredRows.length === 0) targetRows.forEach((row) => issues.push({ severity: 'error', section: label, instanceId: row.instanceId, message: `${targetNames} requires ${namesForIds(unitRule.requires)}.` }))
+          const grimgorCoversRequirement = grimgorSatisfiesBlackOrcMobRequirement(unitRule, targetRows, roster)
+          if (!grimgorCoversRequirement && unitRule.perUnit && max !== undefined && targetRows.length > requiredRows.length * max) targetRows.forEach((row) => issues.push({ severity: 'error', section: label, instanceId: row.instanceId, message: `${targetNames} needs enough ${namesForIds(unitRule.requires)} entries to support it.` }))
+          else if (!grimgorCoversRequirement && unitRule.perUnit && max === undefined && min !== undefined && targetRows.length > requiredRows.length + min) targetRows.forEach((row) => issues.push({ severity: 'error', section: label, instanceId: row.instanceId, message: `${targetNames} needs enough ${namesForIds(unitRule.requires)} entries to support it.` }))
+          else if (!grimgorCoversRequirement && !unitRule.perUnit && requiredRows.length === 0) targetRows.forEach((row) => issues.push({ severity: 'error', section: label, instanceId: row.instanceId, message: `${targetNames} requires ${namesForIds(unitRule.requires)}.` }))
           if (!unitRule.perUnit && max !== undefined && targetRows.length > max && !(compositionRuleId.includes('battle-march') && unitRule.points)) targetRows.forEach((row) => issues.push({ severity: 'error', section: label, instanceId: row.instanceId, message: `${targetNames}: maximum ${max} allowed.` }))
         }
         const optionRequirement = selectionRequirement(unitRule.requiresOption)
