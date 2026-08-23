@@ -5,6 +5,7 @@ import { reportAppError } from './services/appErrors'
 import { initializeInstallApp } from './services/installApp'
 import './services/language'
 import './styles.css'
+import './styles-v033.css'
 
 initializeInstallApp()
 

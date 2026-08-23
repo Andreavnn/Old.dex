@@ -12,6 +12,10 @@ export type Army = {
   dataKey: string
   compositions: ArmyComposition[]
   sampleUnits?: Array<{ name: string; category: string }>
+  /** Games Workshop Legacy PDF army. Kept separate from the currently supported army set. */
+  legacy?: boolean
+  /** Some data identities remain addressable for compatibility but are not standalone faction choices. */
+  selectable?: boolean
 }
 
 // These are compact Old.dex navigation families only. They do not alter or imply game rules.
@@ -68,7 +72,7 @@ export const armies: Army[] = [
     ],
   },
   {
-    slug: 'lizardmen', name: 'Lizardmen', family: 'Forces of Fantasy', dataKey: 'lizardmen',
+    slug: 'lizardmen', name: 'Lizardmen', family: 'Forces of Fantasy', dataKey: 'lizardmen', legacy: true,
     compositions: [
       { id: 'lizardmen', name: 'Grand Army' },
       { id: 'lm-renegade', name: 'Renegade' },
@@ -83,7 +87,7 @@ export const armies: Army[] = [
     ],
   },
   {
-    slug: 'dark-elves', name: 'Dark Elves', family: 'Forces of Fantasy', dataKey: 'dark-elves',
+    slug: 'dark-elves', name: 'Dark Elves', family: 'Forces of Fantasy', dataKey: 'dark-elves', legacy: true,
     compositions: [
       { id: 'dark-elves', name: 'Grand Army' },
       { id: 'de-renegade', name: 'Renegade' },
@@ -99,27 +103,27 @@ export const armies: Army[] = [
     ],
   },
   {
-    slug: 'chaos-dwarfs', name: 'Chaos Dwarfs', family: 'Powers of Chaos', dataKey: 'chaos-dwarfs',
+    slug: 'chaos-dwarfs', name: 'Chaos Dwarfs', family: 'Powers of Chaos', dataKey: 'chaos-dwarfs', legacy: true,
     compositions: [
       { id: 'chaos-dwarfs', name: 'Grand Army' },
       { id: 'cd-renegade', name: 'Renegade' },
     ],
   },
   {
-    slug: 'daemons-of-chaos', name: 'Daemons of Chaos', family: 'Powers of Chaos', dataKey: 'daemons-of-chaos',
+    slug: 'daemons-of-chaos', name: 'Daemons of Chaos', family: 'Powers of Chaos', dataKey: 'daemons-of-chaos', legacy: true,
     compositions: [
       { id: 'daemons-of-chaos', name: 'Grand Army' },
       { id: 'doc-renegade', name: 'Renegade' },
     ],
   },
   {
-    slug: 'renegade-crowns', name: 'Renegade Crowns', family: 'Powers of Chaos', dataKey: 'renegade-crowns',
+    slug: 'renegade-crowns', name: 'Renegade Crowns', family: 'Powers of Chaos', dataKey: 'renegade-crowns', selectable: false,
     compositions: [
       { id: 'renegade-crowns', name: 'Grand Army' },
     ],
   },
   {
-    slug: 'skaven', name: 'Skaven', family: 'Powers of Chaos', dataKey: 'skaven',
+    slug: 'skaven', name: 'Skaven', family: 'Powers of Chaos', dataKey: 'skaven', legacy: true,
     compositions: [
       { id: 'skaven', name: 'Grand Army' },
       { id: 'sk-renegade', name: 'Renegade' },
@@ -143,7 +147,7 @@ export const armies: Army[] = [
     ],
   },
   {
-    slug: 'vampire-counts', name: 'Vampire Counts', family: 'Legions of Undead', dataKey: 'vampire-counts',
+    slug: 'vampire-counts', name: 'Vampire Counts', family: 'Legions of Undead', dataKey: 'vampire-counts', legacy: true,
     compositions: [
       { id: 'vampire-counts', name: 'Grand Army' },
       { id: 'vc-renegade', name: 'Renegade' },
@@ -151,7 +155,7 @@ export const armies: Army[] = [
   },
 
   {
-    slug: 'ogre-kingdoms', name: 'Ogre Kingdoms', family: 'Ravening Hordes', dataKey: 'ogre-kingdoms',
+    slug: 'ogre-kingdoms', name: 'Ogre Kingdoms', family: 'Ravening Hordes', dataKey: 'ogre-kingdoms', legacy: true,
     compositions: [
       { id: 'ogre-kingdoms', name: 'Grand Army' },
       { id: 'ok-renegade', name: 'Renegade' },
@@ -174,7 +178,14 @@ export const armies: Army[] = [
 ]
 
 export const armyFamilyOrder: ArmyFamily[] = ['Forces of Fantasy', 'Powers of Chaos', 'Legions of Undead', 'Ravening Hordes']
+export const selectableArmies = armies.filter((army) => army.selectable !== false)
+export const officialArmies = selectableArmies.filter((army) => !army.legacy)
+export const legacyArmies = selectableArmies.filter((army) => army.legacy)
 
 export function getArmy(slug: string) {
   return armies.find((army) => army.slug === slug)
+}
+
+export function isLegacyArmy(slug: string) {
+  return Boolean(getArmy(slug)?.legacy)
 }

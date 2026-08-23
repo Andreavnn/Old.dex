@@ -2,16 +2,17 @@
 
 **Old.dex** is an unofficial companion web app for **Warhammer: The Old World** focused on army building, rules reference, roster validation, and guided match play.
 
-Current public version: **Alpha Build 0.32**
+Current public version: **Alpha Build 0.33**
 
 ## What Old.dex Does
 
 Old.dex combines several tools into one browser-based application:
 
 - Build and manage Warhammer: The Old World army rosters.
-- Validate army composition, category percentages, unit restrictions, and roster requirements.
+- Separate currently supported Official Armies from Legacy Armies during roster creation and visibly mark Legacy rosters.
+- Validate army composition, category percentages, unit restrictions, roster requirements, magical-item allowances, and roster-wide dependencies.
 - Display unit and model profiles, equipment, weapons, saves, mounts, and special rules.
-- Keep rider, mount, crew, and other model profiles distinct where appropriate.
+- Keep unit models, champions, special models, riders, mounts, crew, and other profiles distinct and consistently ordered.
 - Apply persistent model changes without incorrectly folding temporary weapon or phase effects into base characteristics.
 - Import and export Old.dex roster JSON.
 - Import supported Old World Builder data.
@@ -19,8 +20,9 @@ Old.dex combines several tools into one browser-based application:
 - Save friendly and enemy rosters separately.
 - Lock completed rosters against accidental editing.
 - Start and track games using saved rosters.
-- Guide players through setup, deployment, phases, charge tests, spells, special rules, and end-of-round steps.
-- Track optional phase actions and required-charge results during matches.
+- Guide players through setup, deployment, phases, subphases, charge tests, spells, special rules, combat actions, and end-of-round steps.
+- Route timing-specific rules to the subphase in which their rule text says they are resolved.
+- Track optional phase actions, required-charge results, and Combat completion during matches.
 - Install as a Progressive Web App on supported desktop and mobile browsers.
 
 ## Current Alpha Focus
@@ -29,10 +31,10 @@ Old.dex is still under active development. Current work is focused primarily on:
 
 1. Rules and profile accuracy.
 2. Reliable army-composition validation.
-3. Canonical model/profile identity.
-4. Better handling of mounts, equipment, saves, and persistent modifiers.
-5. Custom-unit support.
-6. Guided match-flow tools.
+3. Canonical model/profile identity and upgrade scope.
+4. Better handling of mounts, equipment, saves, magical-item allowances, and persistent modifiers.
+5. Guided phase/subphase match-flow tools.
+6. Official/Legacy army organization.
 7. Mobile and tablet usability.
 
 The project deliberately favors **failing closed rather than guessing** when a model profile or source rule cannot be resolved with sufficient confidence.
@@ -52,13 +54,13 @@ Custom units:
 
 Custom data can be imported from the roster workflow or from the Data & Content section in Settings.
 
-Alpha Build 0.32 also includes a bundled custom **Grimgor Ironhide** implementation for Orc & Goblin Tribes.
+Old.dex also includes a bundled custom **Grimgor Ironhide** implementation for Orc & Goblin Tribes.
 
 ## Data and Rules Sources
 
-Old.dex uses and normalizes publicly available community rules data, including data originating from the **Old World Builder** and the **Warhammer Fantasy Online Rules Index Project**.
+Old.dex uses and normalizes publicly available community rules data, including data originating from **BSData / Old World Builder data** and the **Warhammer Fantasy Online Rules Index Project**.
 
-Old.dex does not treat every imported value as authoritative automatically. The application contains additional resolution, normalization, validation, and profile-identity logic intended to prevent equipment, mount, weapon, or alternate-profile information from incorrectly overwriting a model's canonical base characteristics.
+Old.dex does not treat every imported value as authoritative automatically. The application contains additional resolution, normalization, validation, timing, and profile-identity logic intended to prevent equipment, mount, weapon, alternate-profile, optional-upgrade, or broad phase information from incorrectly changing a model or appearing in the wrong place during a match.
 
 Special thanks to the maintainers and contributors of those community resources, including **Nico Thiebes** and the Old World Builder project.
 

@@ -9,9 +9,8 @@ import { loadOwbRuleCatalog } from './services/owbRuleResolver'
 
 useSettings()
 const route = useRoute()
-const { installedApp, canInstall, requestInstall } = useInstallApp()
+const { installedApp, requestInstall } = useInstallApp()
 const showGlobalPageTools = computed(() => route.name !== 'welcome')
-
 
 let rulesObserver: MutationObserver | null = null
 function patchRulesIntro() {
@@ -72,8 +71,9 @@ onMounted(() => {
       </div>
     </section>
 
-    <footer class="app-footer">
-      <span>Old.dex Alpha Build 0.32</span>
+    <footer v-if="showGlobalPageTools" class="app-footer olddex-legal-footer">
+      <span>Old.dex Alpha Build 0.33</span>
+      <span>Olddex is not affiliated with Games Workshop. It displays data from BSData.</span>
     </footer>
   </div>
 </template>

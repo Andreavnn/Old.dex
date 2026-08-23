@@ -26,7 +26,7 @@ import {
 import { applyMagicalMaelstromSelections, magicalMaelstromWizardLevel, wizardLevelFromName, wizardLevelGroupId } from '../domain/wizard'
 import { magicItemPointLimit as resolveMagicItemPointLimit } from '../domain/magicItems'
 import { equipmentRequirementsMet, normalizeUnitSelections, selectExclusiveEquipment, selectExclusiveWeapon } from '../domain/selection'
-import { applyProfileEffects, incrementCharacteristic, isMountProfileName, normalizedModelName } from '../domain/profileEffects'
+import { applyProfileEffects, incrementCharacteristic, isMountProfileName, normalizedModelName, optionAppliesToProfile, profileRoleForName } from '../domain/profileEffects'
 import { ruleDisplayName } from '../domain/rulePresentation'
 import { persistentModelCharacteristicModifiers } from '../domain/canonicalProfiles'
 import { reportAppError } from '../services/appErrors'
@@ -248,10 +248,6 @@ async function resetSelections() {
   const defaultEquipment = unit.equipmentOptions.filter((option) => option.default).map((option) => option.id)
   const knownWeaponIds = new Set(unit.weapons.map((weapon) => weapon.id))
   const savedWeaponIds = (saved?.weaponIds || []).filter((id) => knownWeaponIds.has(id))
-  // Saved selections are authoritative. Do not blindly union locked defaults
-  // into a saved exclusive group (that was re-selecting the starting Wizard
-  // level beside a purchased higher level). normalizeSelections() restores any
-  // included default that is not legitimately displaced by a saved alternative.
   selectedWeaponIds.value = new Set(saved?.weaponIds?.length ? savedWeaponIds : unit.weapons.filter((weapon) => defaultWeapons.includes(weapon.id) || (saved?.options?.includes(weapon.name) || saved?.options?.includes(canonicalWeaponName(weapon)))).map((weapon) => weapon.id))
   const knownEquipmentIds = new Set(unit.equipmentOptions.map((option) => option.id))
   const savedEquipmentIds = (saved?.equipmentIds || []).filter((id) => knownEquipmentIds.has(id))
@@ -335,27 +331,15 @@ const activeMagicPools = computed<MagicPool[]>(() => {
     if (!allowance || allowance.maxPoints <= 0) return
     const types = legalMagicTypes([...allowance.types], option)
     if (!types.length) return
-    pools.push({
-      id: option.id,
-      label: displayOptionName(option).replace(/\s*\(champion\)\s*/i, '').trim(),
-      maxPoints: allowance.maxPoints,
-      types,
-      magicStandardLimit: option.magicStandardLimit ? { ...option.magicStandardLimit } : undefined,
-    })
+    pools.push({ id: option.id, label: displayOptionName(option).replace(/\s*\(champion\)\s*/i, '').trim(), maxPoints: allowance.maxPoints, types, magicStandardLimit: option.magicStandardLimit ? { ...option.magicStandardLimit } : undefined })
   })
   return pools
 })
 const selectedMagicPool = computed(() => activeMagicPools.value.find((pool) => pool.id === selectedMagicPoolId.value) || activeMagicPools.value[0] || null)
-function selectMagicPool(id: string) {
-  if (!activeMagicPools.value.some((pool) => pool.id === id)) return
-  selectedMagicPoolId.value = id
-}
+function selectMagicPool(id: string) { if (activeMagicPools.value.some((pool) => pool.id === id)) selectedMagicPoolId.value = id }
 const selectedMagicEntries = computed(() => {
   const rows: Array<{ item: MagicItem; count: number }> = []
-  for (const [id, count] of selectedMagicCounts.value.entries()) {
-    const item = magicItems.value.find((candidate) => candidate.id === id)
-    if (item && count > 0) rows.push({ item, count })
-  }
+  for (const [id, count] of selectedMagicCounts.value.entries()) { const item = magicItems.value.find((candidate) => candidate.id === id); if (item && count > 0) rows.push({ item, count }) }
   return rows
 })
 function magicPoolPoints(ownerId: string) { return selectedMagicEntries.value.filter(({ item }) => item.ownerId === ownerId).reduce((sum, entry) => sum + entry.item.points * entry.count, 0) }
@@ -404,31 +388,18 @@ function specialRulePath(name: string) {
   return clean ? `/special-rules/${clean}` : '/special-rules'
 }
 function weaponRuleLabels(weapon: PrototypeWeapon) {
-  // Prefer the authoritative link supplied by the weapon/profile source. This
-  // avoids rendering a second generic special-rules link for the same label.
   const linkedLabels = new Set((weapon.ruleLinks || []).map((row) => row.label.trim().toLowerCase()))
   const rows = [
     ...(weapon.rules || []).filter(Boolean).filter((label) => !linkedLabels.has(label.trim().toLowerCase())).map((label) => ({ label, path: specialRulePath(label) })),
     ...(weapon.ruleLinks || []),
   ]
-  // A weapon-specific rule should identify the weapon itself rather than use a
-  // generic "Weapon Rule" placeholder. Universal special rules remain listed
-  // individually above, while this pill opens the weapon/magic-item rule page.
   if (weapon.hasUniqueRule && weapon.path) rows.push({ label: weapon.name.replace(/^.*? — /, '').replace(/\s+×\d+$/, ''), path: weapon.path })
   const seen = new Set<string>()
   return rows.filter((row) => { const key = `${row.label.toLowerCase()}:${row.path}`; if (seen.has(key)) return false; seen.add(key); return true })
 }
 
-
-function armourBaneValue(label: string) {
-  const match = String(label || '').match(/Armou?r Bane\s*\(\s*(\d+)\s*\)/i)
-  return match ? Math.max(0, Number(match[1]) || 0) : 0
-}
-function weaponBaseApMagnitude(weapon: PrototypeWeapon) {
-  const raw = String(weapon.ap || '').trim()
-  const match = raw.match(/-?\s*(\d+)/)
-  return match ? Math.max(0, Number(match[1]) || 0) : 0
-}
+function armourBaneValue(label: string) { const match = String(label || '').match(/Armou?r Bane\s*\(\s*(\d+)\s*\)/i); return match ? Math.max(0, Number(match[1]) || 0) : 0 }
+function weaponBaseApMagnitude(weapon: PrototypeWeapon) { const raw = String(weapon.ap || '').trim(); const match = raw.match(/-?\s*(\d+)/); return match ? Math.max(0, Number(match[1]) || 0) : 0 }
 function externalWeaponApBonus(row: WeaponRow) {
   const weapon = row.weapon
   let bonus = activeSpecialRules.value.reduce((sum, rule) => sum + armourBaneValue(canonicalRuleName(rule)), 0)
@@ -437,13 +408,8 @@ function externalWeaponApBonus(row: WeaponRow) {
   return bonus
 }
 function weaponApDisplay(row: WeaponRow) {
-  const bonus = externalWeaponApBonus(row)
-  const base = weaponBaseApMagnitude(row.weapon)
-  if (bonus <= 0) {
-    const raw = String(row.weapon.ap || '').trim()
-    if (/^\d+$/.test(raw)) return `-${raw}`
-    return raw || '—'
-  }
+  const bonus = externalWeaponApBonus(row); const base = weaponBaseApMagnitude(row.weapon)
+  if (bonus <= 0) { const raw = String(row.weapon.ap || '').trim(); if (/^\d+$/.test(raw)) return `-${raw}`; return raw || '—' }
   if (base <= 0) return `-${bonus}*`
   return `-${base}(+${bonus})`
 }
@@ -453,10 +419,7 @@ function mundaneEquipmentSuperseded(_option: PrototypeEquipmentOption) { return 
 function applyMagicSupersession() { normalizeSelections() }
 
 const selectedMountOption = computed(() => selectedEquipment.value.find((option) => option.kind === 'mount' && !/^On foot$/i.test(canonicalOptionName(option))))
-const isMounted = computed(() => {
-  const troopType = prototypeUnit.value?.details.troopType || ''
-  return Boolean(selectedMountOption.value) || /cavalry|chariot/i.test(troopType)
-})
+const isMounted = computed(() => { const troopType = prototypeUnit.value?.details.troopType || ''; return Boolean(selectedMountOption.value) || /cavalry|chariot/i.test(troopType) })
 function weaponUnavailable(weapon: PrototypeWeapon) { return Boolean(weapon.requiresMounted && !isMounted.value) }
 
 const availableEquipmentOptions = computed(() => {
@@ -497,52 +460,27 @@ const showWizardLoreGroup = computed(() => wizardLevelOptions.value.length > 0 |
 const loreSelectionEnabled = computed(() => isWizard.value || isPrayerCaster.value)
 function toggleLore(lore: string, selected: boolean) {
   if (isReadOnly.value || !loreSelectionEnabled.value) return
-  // A Wizard selects one spell lore. Treat these source lore choices like a
-  // radio group even though the profile UI uses our common checkbox control.
-  // Priests keep the existing multi-lore behavior because prayer sources can
-  // legitimately expose more than one prayer grouping.
-  if (isWizard.value) {
-    selectedLores.value = selected ? new Set([lore]) : new Set()
-    return
-  }
+  if (isWizard.value) { selectedLores.value = selected ? new Set([lore]) : new Set(); return }
   const next = new Set(selectedLores.value)
   if (selected) next.add(lore); else next.delete(lore)
   selectedLores.value = next
 }
-function handleLoreCheckbox(lore: string, event: Event) {
-  toggleLore(lore, Boolean((event.target as HTMLInputElement | null)?.checked))
-}
+function handleLoreCheckbox(lore: string, event: Event) { toggleLore(lore, Boolean((event.target as HTMLInputElement | null)?.checked)) }
 function formatLoreName(value: string) {
   const words = String(value || '').trim().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').split(' ').filter(Boolean)
-  return words.map((word, index) => {
-    const lower = word.toLowerCase()
-    if (index > 0 && ['of', 'the', 'and'].includes(lower)) return lower
-    return lower ? lower.charAt(0).toUpperCase() + lower.slice(1) : ''
-  }).join(' ')
+  return words.map((word, index) => { const lower = word.toLowerCase(); if (index > 0 && ['of', 'the', 'and'].includes(lower)) return lower; return lower ? lower.charAt(0).toUpperCase() + lower.slice(1) : '' }).join(' ')
 }
 function loreRulePath(_lore: string) { return '/the-lores-of-magic' }
 const activeLoreNames = computed(() => [...new Set([...selectedLores.value, ...selectedEquipment.value.filter(isLoreEquipmentOption).map((option) => option.name)])])
 const selectedLoreRules = computed<PrototypeUnit['specialRules']>(() => activeLoreNames.value.map((lore) => {
   const displayLore = formatLoreName(lore)
   const prayer = /prayer/i.test(lore) || isPrayerCaster.value && !isWizard.value
-  return {
-    name: displayLore,
-    path: loreRulePath(lore),
-    timing: prayer ? 'Prayer Lore' : 'Winds of Magic',
-    tone: 'magic' as RuleTone,
-    summary: prayer ? `Selected prayer lore for ${prettyUnitName.value}.` : `Selected spell lore for ${prettyUnitName.value}.`,
-    keywords: [{ label: prayer ? `Prayer Lore: ${displayLore}` : `Spell Lore: ${displayLore}`, path: '/the-lores-of-magic' }],
-  }
+  return { name: displayLore, path: loreRulePath(lore), timing: prayer ? 'Prayer Lore' : 'Winds of Magic', tone: 'magic' as RuleTone, summary: prayer ? `Selected prayer lore for ${prettyUnitName.value}.` : `Selected spell lore for ${prettyUnitName.value}.`, keywords: [{ label: prayer ? `Prayer Lore: ${displayLore}` : `Spell Lore: ${displayLore}`, path: '/the-lores-of-magic' }] }
 }))
-watch([isWizard, isPrayerCaster], ([wizard, priest]) => {
-  if (!wizard && !priest && selectedLores.value.size) selectedLores.value = new Set()
-})
+watch([isWizard, isPrayerCaster], ([wizard, priest]) => { if (!wizard && !priest && selectedLores.value.size) selectedLores.value = new Set() })
 
 const upgradeProfileModifiers = ref(new Map<string, Partial<Record<ProfileKey, number>>>())
-function characteristicModifiersFromRuleText(value: string) {
-  return persistentModelCharacteristicModifiers(value)
-}
-
+function characteristicModifiersFromRuleText(value: string) { return persistentModelCharacteristicModifiers(value) }
 function upgradeRuleExcerpt(value: string, optionName: string) {
   const clean = String(value || '').replace(/[’]/g, "'").replace(/\s+/g, ' ').trim()
   const needle = String(optionName || '').replace(/[’]/g, "'").toLowerCase().trim()
@@ -551,16 +489,10 @@ function upgradeRuleExcerpt(value: string, optionName: string) {
   const indexes = sentences.flatMap((row, index) => row.toLowerCase().includes(needle) ? [index] : [])
   if (!indexes.length) return ''
   const keep = new Set<number>()
-  for (const index of indexes) {
-    keep.add(index)
-    if (index > 0) keep.add(index - 1)
-    if (index + 1 < sentences.length) keep.add(index + 1)
-  }
+  for (const index of indexes) { keep.add(index); if (index > 0) keep.add(index - 1); if (index + 1 < sentences.length) keep.add(index + 1) }
   return sentences.filter((_row, index) => keep.has(index)).join(' ')
 }
-function mergeCharacteristicModifiers(target: Partial<Record<ProfileKey, number>>, source: Partial<Record<ProfileKey, number>>) {
-  for (const [key, amount] of Object.entries(source) as Array<[ProfileKey, number]>) if (amount > 0) target[key] = Math.max(target[key] || 0, amount)
-}
+function mergeCharacteristicModifiers(target: Partial<Record<ProfileKey, number>>, source: Partial<Record<ProfileKey, number>>) { for (const [key, amount] of Object.entries(source) as Array<[ProfileKey, number]>) if (amount > 0) target[key] = Math.max(target[key] || 0, amount) }
 async function hydrateUpgradeProfileModifiers() {
   const unit = prototypeUnit.value
   if (!unit) { upgradeProfileModifiers.value = new Map(); return }
@@ -570,26 +502,19 @@ async function hydrateUpgradeProfileModifiers() {
   await Promise.allSettled(selected.map(async (option) => {
     const combined: Partial<Record<ProfileKey, number>> = { ...(option.profileModifiers || {}) }
     mergeCharacteristicModifiers(combined, characteristicModifiersFromRuleText(option.note || ''))
-    // Never treat a generic option/weapon reference page as a model-profile
-    // modifier source. Weapon Strength/AP and conditional rule text belong to
-    // the weapon/rule, not to the model's displayed characteristics.
     const documents: Array<{ path: string; requiresOptionMention: boolean }> = []
     const requirementNames = [...(option.requiresRosterGeneral || []), ...(option.requiresRosterUnit || [])]
-    for (const row of rosterRows.filter((candidate) => requirementNames.some((name) => rosterRowMatchesName(candidate, name)))) {
-      for (const rule of row.specialRules || []) if (rule.path) documents.push({ path: rule.path, requiresOptionMention: true })
-    }
+    for (const row of rosterRows.filter((candidate) => requirementNames.some((name) => rosterRowMatchesName(candidate, name)))) for (const rule of row.specialRules || []) if (rule.path) documents.push({ path: rule.path, requiresOptionMention: true })
     const seen = new Set<string>()
     for (const source of documents) {
-      const path = source.path
-      const seenKey = `${path}:${source.requiresOptionMention ? 'scoped' : 'direct'}`
+      const path = source.path; const seenKey = `${path}:${source.requiresOptionMention ? 'scoped' : 'direct'}`
       if (!path || seen.has(seenKey)) continue
       seen.add(seenKey)
       try {
         const document = await fetchRuleDocument(path)
         const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
         const body = dom.body.textContent?.replace(/\s+/g, ' ').trim() || ''
-        const optionName = canonicalOptionName(option)
-        const modifierSource = source.requiresOptionMention ? upgradeRuleExcerpt(body, optionName) : ''
+        const modifierSource = source.requiresOptionMention ? upgradeRuleExcerpt(body, canonicalOptionName(option)) : ''
         if (!modifierSource) continue
         mergeCharacteristicModifiers(combined, characteristicModifiersFromRuleText(modifierSource))
       } catch (error) { reportAppError(error, 'UNIT_UPGRADE_PROFILE_REFERENCE', { unitId: unit.id, optionId: option.id, path }) }
@@ -608,10 +533,7 @@ function magicProfileOverridesFor(profileName: string) {
   selectedMagicEntries.value.forEach(({ item }) => {
     const detail = magicItemDetails.value.get(item.id)
     if (!detail?.profileOverride) return
-    if (item.ownerId === 'unit') {
-      if (!mountProfile) Object.assign(override, detail.profileOverride)
-      return
-    }
+    if (item.ownerId === 'unit') { if (!mountProfile) Object.assign(override, detail.profileOverride); return }
     const ownerKey = normalizedModelName(item.ownerLabel)
     if (ownerKey && (profileKey.includes(ownerKey) || ownerKey.includes(profileKey))) Object.assign(override, detail.profileOverride)
   })
@@ -646,15 +568,11 @@ function effectiveProfileFor(baseProfile: Record<ProfileKey, string>, profileNam
     magicSaveModifier: magicShieldSaveModifierFor(profileName),
     mountedRider: { active: Boolean(selectedMount) && !selectedMountProfile, modifiers: selectedMount?.riderProfileModifiers },
   })
-
-  // Mount entries can explicitly grant characteristic bonuses to their rider.
-  // Older profile-effect builds applied some of those bonuses but could miss W.
-  // Only fill the gap when the profile effect did not already change the rider's
-  // Wounds value, preventing the same mount bonus from being counted twice.
   const woundBonus = !selectedMountProfile ? Math.max(0, Number(selectedMount?.riderProfileModifiers?.W || 0)) : 0
   if (woundBonus > 0 && profile.W === baseProfile.W) profile.W = incrementCharacteristic(baseProfile.W || '—', woundBonus)
   if (!selectedMountProfile) {
     for (const option of selectedEquipment.value) {
+      if (!optionAppliesToProfile(unit, option, profileName)) continue
       const modifiers = upgradeProfileModifiers.value.get(option.id)
       if (!modifiers) continue
       for (const [key, amount] of Object.entries(modifiers) as Array<[ProfileKey, number]>) {
@@ -736,40 +654,42 @@ const profileRows = computed(() => {
   let baseProfiles = (unit.profiles?.length ? unit.profiles : [{ name: unit.name, profile: unit.profile }]).map((row) => ({ ...row, optionalEquipment: undefined as string[] | undefined, selectionId: undefined as string | undefined }))
   const optional = (unit.optionalProfiles || []).filter((row) => selectedEquipmentIds.value.has(row.selectionId)).map((row) => ({ name: row.name, profile: row.profile, optionalEquipment: row.equipment, selectionId: row.selectionId }))
 
-  // Reference pages can contain both the ordinary model and an upgraded model
-  // profile (Big 'Uns is the common example). Show only the version actually
-  // selected instead of presenting both characteristic rows at once.
-  const explicitBigUns = baseProfiles.some((row) => /\bBig\s*[’']?Uns?\b/i.test(row.name || ''))
-  if (explicitBigUns) {
-    if (bigUnsSelected.value) {
-      baseProfiles = baseProfiles.filter((row) => {
-        const name = row.name || unit.name
-        return /\bBig\s*[’']?Uns?\b/i.test(name) || isMountProfileName(name) || /\b(?:champion|boss|captain|sergeant|champ|musician|standard bearer)\b/i.test(name)
-      })
-    } else {
-      baseProfiles = baseProfiles.filter((row) => !/\bBig\s*[’']?Uns?\b/i.test(row.name || ''))
-    }
+  const isBigUnProfile = (name: string) => /\bBig\s*[’']?Uns?\b/i.test(name)
+  const explicitBigUnRows = baseProfiles.filter((row) => isBigUnProfile(row.name || ''))
+  const explicitBigUnRoles = new Set(explicitBigUnRows.map((row) => profileRoleForName(unit, row.name || unit.name)))
+  if (!bigUnsSelected.value) {
+    baseProfiles = baseProfiles.filter((row) => !isBigUnProfile(row.name || ''))
+  } else if (explicitBigUnRows.length) {
+    // An explicit upgraded champion profile must not erase the ordinary unit
+    // profile. Replace only the model role for which an explicit upgraded row
+    // actually exists; all other eligible unit/champion roles use the sourced
+    // base row plus the unit-wide Big 'Uns modifier.
+    baseProfiles = baseProfiles.filter((row) => {
+      const name = row.name || unit.name
+      if (isBigUnProfile(name)) return true
+      const role = profileRoleForName(unit, name)
+      return !explicitBigUnRoles.has(role)
+    })
   }
 
   const profiles = [...baseProfiles, ...optional]
     .map((row, index) => ({ ...row, originalIndex: index }))
     .sort((a, b) => {
-      const weight = (row: typeof a) => {
-        const name = row.name || unit.name
-        if (isMountProfileName(name)) return 3
-        if (row.selectionId) return 2
-        if (/\b(?:champion|boss|captain|sergeant|champ)\b/i.test(name) && normalizedModelName(name) !== normalizedModelName(unit.name)) return 1
-        return 0
-      }
-      return weight(a) - weight(b) || a.originalIndex - b.originalIndex
+      const roleWeight: Record<ReturnType<typeof profileRoleForName>, number> = { unit: 0, champion: 1, special: 2, mount: 3 }
+      const aRole = profileRoleForName(unit, a.name || unit.name)
+      const bRole = profileRoleForName(unit, b.name || unit.name)
+      return roleWeight[aRole] - roleWeight[bRole] || a.originalIndex - b.originalIndex
     })
   const names = profiles.map((row) => row.name || unit.name)
   return profiles.map((row, index) => {
     const sourceName = row.name || unit.name
-    const explicitUpgradeRow = /\bBig\s*[’']?Uns?\b/i.test(sourceName)
-    const bigUns = bigUnsSelected.value && !explicitBigUns && !isMountProfileName(sourceName)
-    const profile = effectiveProfileFor(row.profile, sourceName, row.selectionId, !explicitUpgradeRow)
-    return { name: `${sourceName}${bigUns && !explicitUpgradeRow ? " - Big 'Uns" : ''}`, sourceName, profile, loadout: loadoutForProfile(sourceName, index, names, row.optionalEquipment, row.selectionId) }
+    const role = profileRoleForName(unit, sourceName)
+    const explicitUpgradeRow = isBigUnProfile(sourceName)
+    const eligibleFallback = role === 'unit' || role === 'champion'
+    const hasExplicitForRole = explicitBigUnRoles.has(role)
+    const applyFallback = bigUnsSelected.value && eligibleFallback && !explicitUpgradeRow && !hasExplicitForRole
+    const profile = effectiveProfileFor(row.profile, sourceName, row.selectionId, applyFallback)
+    return { name: `${sourceName}${applyFallback ? " - Big 'Uns" : ''}`, sourceName, profile, loadout: loadoutForProfile(sourceName, index, names, row.optionalEquipment, row.selectionId) }
   })
 })
 
@@ -846,14 +766,9 @@ function weaponCount(weapon: PrototypeWeapon) { return Math.max(0, weaponCounts.
 function weaponOptionSelected(weapon: PrototypeWeapon) { return isPerModelWeaponSelection(weapon) ? weaponCount(weapon) > 0 : selectedWeaponIds.value.has(weapon.id) }
 function weaponGroupAllocated(weapon: PrototypeWeapon) {
   const group = weaponAllocationGroup(weapon)
-  return (prototypeUnit.value?.weapons || [])
-    .filter((candidate) => candidate.id !== weapon.id && isPerModelWeaponSelection(candidate) && weaponAllocationGroup(candidate) === group)
-    .reduce((sum, candidate) => sum + weaponCount(candidate), 0)
+  return (prototypeUnit.value?.weapons || []).filter((candidate) => candidate.id !== weapon.id && isPerModelWeaponSelection(candidate) && weaponAllocationGroup(candidate) === group).reduce((sum, candidate) => sum + weaponCount(candidate), 0)
 }
-function weaponCountMaximum(weapon: PrototypeWeapon) {
-  const capacity = modelCount.value - weaponGroupAllocated(weapon)
-  return Math.max(0, Math.min(weapon.maximum || modelCount.value, capacity))
-}
+function weaponCountMaximum(weapon: PrototypeWeapon) { const capacity = modelCount.value - weaponGroupAllocated(weapon); return Math.max(0, Math.min(weapon.maximum || modelCount.value, capacity)) }
 function normalizeWeaponCounts() {
   if (!prototypeUnit.value) return
   const normalized = normalizeWeaponAllocation(prototypeUnit.value, selectedWeaponIds.value, weaponCounts.value, modelCount.value)
@@ -914,30 +829,13 @@ function adjustEquipmentCount(option: PrototypeEquipmentOption, delta: number) {
 function normalizeSelections() {
   const unit = prototypeUnit.value
   if (!unit) return
-  const normalized = normalizeUnitSelections(unit, selectedEquipmentIds.value, selectedWeaponIds.value, {
-    startingWizardLevel: startingWizardLevel.value,
-    mounted: isMounted.value,
-  })
+  const normalized = normalizeUnitSelections(unit, selectedEquipmentIds.value, selectedWeaponIds.value, { startingWizardLevel: startingWizardLevel.value, mounted: isMounted.value })
   selectedEquipmentIds.value = magicalMaelstromEnabled.value ? applyMagicalMaelstromSelections(unit.equipmentOptions, normalized.equipmentIds) : normalized.equipmentIds
   selectedWeaponIds.value = normalized.weaponIds
 }
-function restoreScrollAfterMutation(mutator: () => void) {
-  if (isReadOnly.value) return
-  const x = window.scrollX
-  const y = window.scrollY
-  mutator()
-  restoreScrollPosition(x, y)
-}
+function restoreScrollAfterMutation(mutator: () => void) { if (isReadOnly.value) return; const x = window.scrollX; const y = window.scrollY; mutator(); restoreScrollPosition(x, y) }
 function restoreScrollPosition(x = window.scrollX, y = window.scrollY) {
-  void nextTick(() => {
-    window.requestAnimationFrame(() => {
-      window.scrollTo({ left: x, top: y, behavior: 'auto' })
-      // Dynamic characteristics (Ward/Regeneration/mount bonuses) can change
-      // layout again on the following frame. Re-assert the user's position so
-      // the profile panel never becomes an unintended scroll target.
-      window.requestAnimationFrame(() => window.scrollTo({ left: x, top: y, behavior: 'auto' }))
-    })
-  })
+  void nextTick(() => { window.requestAnimationFrame(() => { window.scrollTo({ left: x, top: y, behavior: 'auto' }); window.requestAnimationFrame(() => window.scrollTo({ left: x, top: y, behavior: 'auto' })) }) })
 }
 function setWeaponSelected(weapon: PrototypeWeapon, selected: boolean) {
   if (isReadOnly.value || mundaneWeaponSuperseded(weapon) || weaponUnavailable(weapon) || weaponEffectivelyLocked(weapon)) return
@@ -983,9 +881,7 @@ function setEquipmentSelected(option: PrototypeEquipmentOption, selected: boolea
     normalizeSelections()
   })
 }
-function handleEquipmentCheckbox(option: PrototypeEquipmentOption, event: Event) {
-  setEquipmentSelected(option, Boolean((event.target as HTMLInputElement | null)?.checked))
-}
+function handleEquipmentCheckbox(option: PrototypeEquipmentOption, event: Event) { setEquipmentSelected(option, Boolean((event.target as HTMLInputElement | null)?.checked)) }
 function optionCost(points: number) { return points > 0 ? `+${points} pts` : '' }
 
 const magicTypeOrder: MagicItem['type'][] = ['weapon', 'armor', 'talisman', 'enchanted-item', 'arcane-item', 'banner']
@@ -995,9 +891,7 @@ function fallbackMagicItemText(html: string, itemName: string) {
   const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
   dom.querySelectorAll('script,style,nav,header,footer,table').forEach((node) => node.remove())
   const wanted = itemName.toLowerCase().trim()
-  const rows = Array.from(dom.querySelectorAll('p, li'))
-    .map((node) => node.textContent?.replace(/\s+/g, ' ').trim() || '')
-    .filter((value) => value.length >= 18 && value.toLowerCase() !== wanted && !/^(publication|source|page)\b/i.test(value))
+  const rows = Array.from(dom.querySelectorAll('p, li')).map((node) => node.textContent?.replace(/\s+/g, ' ').trim() || '').filter((value) => value.length >= 18 && value.toLowerCase() !== wanted && !/^(publication|source|page)\b/i.test(value))
   const seen = new Set<string>()
   return rows.filter((value) => { const key = value.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true }).slice(0, 4).join(' ').slice(0, 1800)
 }
@@ -1006,27 +900,14 @@ const magicPickerTabs = computed(() => magicTypeOrder.filter((type) => magicPick
 const magicPickerItems = computed(() => {
   const pool = magicPickerPool.value
   if (!pool || !magicPickerTab.value) return []
-  return magicItems.value
-    .filter((item) => item.ownerId === pool.id && item.type === magicPickerTab.value)
-    .filter((item) => magicPickerCount(item.id) > 0 || item.points <= magicPickerRemaining())
+  return magicItems.value.filter((item) => item.ownerId === pool.id && item.type === magicPickerTab.value).filter((item) => magicPickerCount(item.id) > 0 || item.points <= magicPickerRemaining())
 })
 function magicPickerCount(id: string) { return magicPickerCounts.value.get(id) || 0 }
-function magicPickerSpent() {
-  const pool = magicPickerPool.value
-  if (!pool) return 0
-  return magicItems.value.filter((item) => item.ownerId === pool.id).reduce((sum, item) => sum + item.points * magicPickerCount(item.id), 0)
-}
+function magicPickerSpent() { const pool = magicPickerPool.value; if (!pool) return 0; return magicItems.value.filter((item) => item.ownerId === pool.id).reduce((sum, item) => sum + item.points * magicPickerCount(item.id), 0) }
 function magicPickerRemaining() { return Math.max(0, Number(magicPickerPool.value?.maxPoints || 0) - magicPickerSpent()) }
 function magicPickerDetail(item: MagicItem) { return magicItemDetails.value.get(item.id) }
-function magicPickerCanSelect(item: MagicItem) {
-  if (magicPickerCount(item.id) > 0) return true
-  return item.points <= magicPickerRemaining()
-}
-async function preloadMagicPickerDetails() {
-  const rows = magicPickerItems.value.filter((item) => !magicItemDetails.value.has(item.id))
-  if (!rows.length) return
-  await Promise.allSettled(rows.map((item) => loadMagicItemDetail(item)))
-}
+function magicPickerCanSelect(item: MagicItem) { if (magicPickerCount(item.id) > 0) return true; return item.points <= magicPickerRemaining() }
+async function preloadMagicPickerDetails() { const rows = magicPickerItems.value.filter((item) => !magicItemDetails.value.has(item.id)); if (!rows.length) return; await Promise.allSettled(rows.map((item) => loadMagicItemDetail(item))) }
 function openMagicPicker() {
   const pool = selectedMagicPool.value
   if (!isEditing.value || !pool) return
@@ -1038,35 +919,17 @@ function openMagicPicker() {
   magicPickerOpen.value = true
   void preloadMagicPickerDetails()
 }
-function cancelMagicPicker() {
-  magicPickerOpen.value = false
-  magicPickerCounts.value = new Map()
-  magicPickerExpanded.value = new Set()
-}
-function toggleMagicPickerItem(item: MagicItem, selected: boolean) {
-  if (!selected && magicPickerCount(item.id) <= 0) return
-  if (selected && !magicPickerCanSelect(item)) return
-  const next = new Map(magicPickerCounts.value)
-  if (selected) next.set(item.id, Math.max(1, next.get(item.id) || 1)); else next.delete(item.id)
-  magicPickerCounts.value = next
-}
-function handleMagicPickerCheckbox(item: MagicItem, event: Event) {
-  toggleMagicPickerItem(item, Boolean((event.target as HTMLInputElement | null)?.checked))
-}
+function cancelMagicPicker() { magicPickerOpen.value = false; magicPickerCounts.value = new Map(); magicPickerExpanded.value = new Set() }
+function toggleMagicPickerItem(item: MagicItem, selected: boolean) { if (!selected && magicPickerCount(item.id) <= 0) return; if (selected && !magicPickerCanSelect(item)) return; const next = new Map(magicPickerCounts.value); if (selected) next.set(item.id, Math.max(1, next.get(item.id) || 1)); else next.delete(item.id); magicPickerCounts.value = next }
+function handleMagicPickerCheckbox(item: MagicItem, event: Event) { toggleMagicPickerItem(item, Boolean((event.target as HTMLInputElement | null)?.checked)) }
 function adjustMagicPickerCount(item: MagicItem, delta: number) {
-  const current = magicPickerCount(item.id)
-  const maximum = maxMagicCopies(item)
-  const nextCount = Math.max(0, Math.min(maximum, current + delta))
+  const current = magicPickerCount(item.id); const maximum = maxMagicCopies(item); const nextCount = Math.max(0, Math.min(maximum, current + delta))
   if (nextCount > current && item.points > magicPickerRemaining()) return
   const next = new Map(magicPickerCounts.value)
   if (nextCount > 0) next.set(item.id, nextCount); else next.delete(item.id)
   magicPickerCounts.value = next
 }
-async function toggleMagicPickerDescription(item: MagicItem) {
-  const next = new Set(magicPickerExpanded.value)
-  if (next.has(item.id)) next.delete(item.id); else { next.add(item.id); await loadMagicItemDetail(item) }
-  magicPickerExpanded.value = next
-}
+async function toggleMagicPickerDescription(item: MagicItem) { const next = new Set(magicPickerExpanded.value); if (next.has(item.id)) next.delete(item.id); else { next.add(item.id); await loadMagicItemDetail(item) }; magicPickerExpanded.value = next }
 async function finishMagicPicker() {
   const pool = magicPickerPool.value
   if (!pool) return
@@ -1109,8 +972,7 @@ async function loadMagicItemChoices() {
         id: `${pool.id}::${baseId}`, baseId, ownerId: pool.id, ownerLabel: pool.label, poolMaxPoints: pool.maxPoints,
         name, sourceName, points: itemPoints, type, source, stackable: Boolean(raw.stackable), maximum: Number(raw.maximum || 0) > 0 ? Number(raw.maximum) : undefined,
         magicStandardLimit: pool.magicStandardLimit ? { ...pool.magicStandardLimit } : undefined,
-        onePerArmy: raw.onePerArmy !== false, slug: magicSlug(String(raw.name || sourceName)),
-        fluff: String(localizedFluff).replace(/\s+/g, ' ').trim() || undefined,
+        onePerArmy: raw.onePerArmy !== false, slug: magicSlug(String(raw.name || sourceName)), fluff: String(localizedFluff).replace(/\s+/g, ' ').trim() || undefined,
       }))
     }))
     const selectedBefore = selectedMagicEntries.value.map(({ item }) => item)
@@ -1123,29 +985,19 @@ async function loadMagicItemChoices() {
 }
 function selectedMagicCount(id: string) { return selectedMagicCounts.value.get(id) || 0 }
 function maxMagicCopies(item: MagicItem) { if (!item.stackable) return 1; if (item.maximum) return item.maximum; if (item.points <= 0) return 99; return Math.max(1, Math.floor(item.poolMaxPoints / item.points)) }
-function magicStandardUnitAllowance(limit: { maxUnits: number; perPoints: number }) {
-  const listPoints = Math.max(0, Number(getSavedArmyList(builderListId.value)?.points || 0))
-  const tiers = Math.max(1, Math.ceil(listPoints / Math.max(1, Number(limit.perPoints) || 1000)))
-  return tiers * Math.max(1, Number(limit.maxUnits) || 1)
-}
+function magicStandardUnitAllowance(limit: { maxUnits: number; perPoints: number }) { const listPoints = Math.max(0, Number(getSavedArmyList(builderListId.value)?.points || 0)); const tiers = Math.max(1, Math.ceil(listPoints / Math.max(1, Number(limit.perPoints) || 1000))); return tiers * Math.max(1, Number(limit.maxUnits) || 1) }
 function otherRosterMagicStandardUnits(limit: { maxUnits: number; perPoints: number }) {
-  return currentBuilderRosterRows().filter((row) => row.instanceId !== instanceId.value && (row.magicItems || []).some((entry) => {
-    if (entry.type !== 'banner' || !entry.magicStandardLimit) return false
-    return Number(entry.magicStandardLimit.maxUnits || 0) === Number(limit.maxUnits || 0) && Number(entry.magicStandardLimit.perPoints || 0) === Number(limit.perPoints || 0)
-  })).length
+  return currentBuilderRosterRows().filter((row) => row.instanceId !== instanceId.value && (row.magicItems || []).some((entry) => entry.type === 'banner' && entry.magicStandardLimit && Number(entry.magicStandardLimit.maxUnits || 0) === Number(limit.maxUnits || 0) && Number(entry.magicStandardLimit.perPoints || 0) === Number(limit.perPoints || 0))).length
 }
 function canAddMagicItem(item: MagicItem) {
   if (!activeMagicPools.value.some((pool) => pool.id === item.ownerId && pool.types.includes(item.type))) return false
   if (selectedMagicCount(item.id) >= maxMagicCopies(item)) return false
   if (item.type === 'banner') {
-    // A Standard Bearer may be selected normally. The per-1,000 restriction
-    // applies only when that bearer actually purchases a magic standard.
     if (selectedMagicEntries.value.some(({ item: selected }) => selected.type === 'banner' && selected.ownerId === item.ownerId)) return false
     if (item.magicStandardLimit && otherRosterMagicStandardUnits(item.magicStandardLimit) >= magicStandardUnitAllowance(item.magicStandardLimit)) return false
   }
   return magicPoolPoints(item.ownerId) + item.points <= item.poolMaxPoints
 }
-
 async function loadMagicItemDetail(item: MagicItem) {
   if (magicItemDetails.value.has(item.id)) return
   try {
@@ -1160,25 +1012,16 @@ async function loadMagicItemDetail(item: MagicItem) {
     if (item.type === 'weapon' && cells) { detail.range = cells[0] || 'Combat'; detail.strength = cells[1] || 'See rule'; detail.ap = cells[2] || 'See rule'; detail.rules = cells[3] && !/^[-—]$/.test(cells[3]) ? cells[3].split(/,\s*/).filter(Boolean) : ['Magic Weapon']; detail.kind = detail.range.toLowerCase() === 'combat' ? 'melee' : 'missile' }
     const body = dom.body.textContent?.replace(/\s+/g, ' ').trim() || ''
     const override: Partial<Record<ProfileKey, string>> = {}
-    if (item.type === 'armor') {
-      detail.shield = /\bshield\b/i.test(item.sourceName) || /\bshield\b/i.test(body)
-      if (/full plate armour/i.test(body)) override.Sv = '4+'; else if (/heavy armour/i.test(body)) override.Sv = '5+'; else if (/light armour/i.test(body)) override.Sv = '6+'
-    }
+    if (item.type === 'armor') { detail.shield = /\bshield\b/i.test(item.sourceName) || /\bshield\b/i.test(body); if (/full plate armour/i.test(body)) override.Sv = '4+'; else if (/heavy armour/i.test(body)) override.Sv = '5+'; else if (/light armour/i.test(body)) override.Sv = '6+' }
     const ward = body.match(/(?:Ward\s+save(?:\s+of)?\s*\(?\s*(2\+|3\+|4\+|5\+|6\+)\s*\)?|(2\+|3\+|4\+|5\+|6\+)\s+Ward\s+save)/i); if (ward) override.Ward = ward[1] || ward[2]
     const regeneration = body.match(/Regeneration\s*\(?\s*([2-6]\+)\s*\)?/i); if (regeneration) override.Rn = regeneration[1]
     const persistent = persistentModelCharacteristicModifiers(body)
-    for (const [key, amount] of Object.entries(persistent) as Array<[ProfileKey, number]>) {
-      const base = prototypeUnit.value?.profile[key] || '—'
-      override[key] = incrementCharacteristic(base, amount)
-    }
+    for (const [key, amount] of Object.entries(persistent) as Array<[ProfileKey, number]>) { const base = prototypeUnit.value?.profile[key] || '—'; override[key] = incrementCharacteristic(base, amount) }
     if (Object.keys(override).length) detail.profileOverride = override
     magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, detail)
   } catch (error) { reportAppError(error, 'MAGIC_ITEM_DETAIL', { itemId: item.id, unitId: unitId.value }); magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, { fluff: item.fluff }) }
 }
-watch(() => [magicPickerOpen.value, magicPickerTab.value, magicPickerItems.value.map((item) => item.id).join('|')], () => {
-  if (magicPickerOpen.value) void preloadMagicPickerDetails()
-})
-
+watch(() => [magicPickerOpen.value, magicPickerTab.value, magicPickerItems.value.map((item) => item.id).join('|')], () => { if (magicPickerOpen.value) void preloadMagicPickerDetails() })
 async function adjustMagicItem(id: string, delta: number) {
   if (isReadOnly.value) return
   const item = magicItems.value.find((candidate) => candidate.id === id); if (!item) return
@@ -1186,29 +1029,20 @@ async function adjustMagicItem(id: string, delta: number) {
   const next = new Map(selectedMagicCounts.value); const count = Math.max(0, current + delta); if (!count) next.delete(id); else next.set(id, count); selectedMagicCounts.value = next
   if (count) await loadMagicItemDetail(item); applyMagicSupersession(); restoreScrollPosition(scrollX, scrollY)
 }
-
 watch(() => activeMagicPools.value.map((pool) => `${pool.id}:${pool.maxPoints}:${pool.types.join(',')}`).join('|'), async () => {
   if (!hydratedFromRoster.value) return
   const pools = new Map(activeMagicPools.value.map((pool) => [pool.id, pool]))
   const next = new Map(selectedMagicCounts.value)
-  for (const [id] of next) {
-    const item = magicItems.value.find((candidate) => candidate.id === id)
-    const pool = item ? pools.get(item.ownerId) : null
-    if (!item || !pool || !pool.types.includes(item.type)) next.delete(id)
-  }
+  for (const [id] of next) { const item = magicItems.value.find((candidate) => candidate.id === id); const pool = item ? pools.get(item.ownerId) : null; if (!item || !pool || !pool.types.includes(item.type)) next.delete(id) }
   selectedMagicCounts.value = next
   if (!activeMagicPools.value.some((pool) => pool.id === selectedMagicPoolId.value)) selectedMagicPoolId.value = activeMagicPools.value[0]?.id || ''
   await loadMagicItemChoices()
   applyMagicSupersession()
 })
 
-function rosterMagicItems(): BuilderRosterMagicItem[] {
-  return selectedMagicEntries.value.map(({ item, count }) => ({ ...item, count }))
-}
+function rosterMagicItems(): BuilderRosterMagicItem[] { return selectedMagicEntries.value.map(({ item, count }) => ({ ...item, count })) }
 function saveCurrentRosterConfiguration() {
   if (!isEditing.value || !hydratedFromRoster.value || !instanceId.value) return
-  // Autosave must be a pure snapshot. Mutating the watched selection refs here
-  // creates a reactive feedback loop because normalization replaces Sets/Maps.
   updateBuilderRosterSelection(backPath.value, instanceId.value, {
     totalPoints: totalPoints.value,
     basePoints: baseUnitPoints.value,
@@ -1240,15 +1074,10 @@ let rosterSaveQueued = false
 function queueRosterSave() {
   if (!isEditing.value || !hydratedFromRoster.value || rosterSaveQueued) return
   rosterSaveQueued = true
-  void nextTick(() => {
-    rosterSaveQueued = false
-    saveCurrentRosterConfiguration()
-  })
+  void nextTick(() => { rosterSaveQueued = false; saveCurrentRosterConfiguration() })
 }
 watch([selectedWeaponIds, selectedEquipmentIds, selectedMagicCounts, magicItemDetails, selectedLores, modelCount, weaponCounts, equipmentCounts], queueRosterSave)
-
 function toggleFavourite() { if (!army.value) return; favourite.value = setFavoriteUnit(army.value.slug, unitId.value, !favourite.value) }
-
 onMounted(() => { if (prototypeUnit.value) void resetSelections() })
 </script>
 
@@ -1261,47 +1090,23 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
 
     <template v-if="prototypeUnit">
       <section class="warscroll-hero card-surface">
-        <div class="warscroll-hero-actions">
-          <button class="favourite-button warscroll-favourite" type="button" :aria-pressed="favourite" @click="toggleFavourite" aria-label="Favorite unit">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.75 5.57 6.15.9-4.45 4.33 1.05 6.12L12 17.03l-5.5 2.89 1.05-6.12L3.1 9.47l6.15-.9L12 3Z" /></svg>
-          </button>
-        </div>
-        <p class="eyebrow">{{ army?.name || 'OLD WORLD UNIT' }}</p>
-        <h1>{{ prettyUnitName }}</h1>
-        <span class="warscroll-points-badge">{{ totalPoints }} pts</span>
-        <div class="warscroll-unit-size" aria-label="Unit size">
-          <span class="warscroll-unit-size-label">Unit Size</span>
-          <strong>{{ formatUnitSize() }}</strong>
-          <div v-if="canAdjustModelCount" class="unit-size-controls">
-            <button type="button" :disabled="modelCount <= (prototypeUnit.minimumModels || 1)" @click="adjustModelCount(-1)">−</button>
-            <input :value="modelCount" type="number" inputmode="numeric" :min="prototypeUnit.minimumModels || 1" :max="prototypeUnit.maximumModels || 999" @change="handleModelCountEvent" />
-            <button type="button" :disabled="Boolean(prototypeUnit.maximumModels && modelCount >= prototypeUnit.maximumModels)" @click="adjustModelCount(1)">+</button>
-          </div>
-          <small v-if="canAdjustModelCount">Minimum {{ prototypeUnit.minimumModels || 1 }}<template v-if="prototypeUnit.maximumModels"> · Maximum {{ prototypeUnit.maximumModels }}</template></small>
-          <small v-else>{{ startingUnitSize() }}</small>
-        </div>
+        <div class="warscroll-hero-actions"><button class="favourite-button warscroll-favourite" type="button" :aria-pressed="favourite" @click="toggleFavourite" aria-label="Favorite unit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.75 5.57 6.15.9-4.45 4.33 1.05 6.12L12 17.03l-5.5 2.89 1.05-6.12L3.1 9.47l6.15-.9L12 3Z" /></svg></button></div>
+        <p class="eyebrow">{{ army?.name || 'OLD WORLD UNIT' }}</p><h1>{{ prettyUnitName }}</h1><span class="warscroll-points-badge">{{ totalPoints }} pts</span>
+        <div class="warscroll-unit-size" aria-label="Unit size"><span class="warscroll-unit-size-label">Unit Size</span><strong>{{ formatUnitSize() }}</strong><div v-if="canAdjustModelCount" class="unit-size-controls"><button type="button" :disabled="modelCount <= (prototypeUnit.minimumModels || 1)" @click="adjustModelCount(-1)">−</button><input :value="modelCount" type="number" inputmode="numeric" :min="prototypeUnit.minimumModels || 1" :max="prototypeUnit.maximumModels || 999" @change="handleModelCountEvent" /><button type="button" :disabled="Boolean(prototypeUnit.maximumModels && modelCount >= prototypeUnit.maximumModels)" @click="adjustModelCount(1)">+</button></div><small v-if="canAdjustModelCount">Minimum {{ prototypeUnit.minimumModels || 1 }}<template v-if="prototypeUnit.maximumModels"> · Maximum {{ prototypeUnit.maximumModels }}</template></small><small v-else>{{ startingUnitSize() }}</small></div>
       </section>
-
 
       <section v-if="liveReferenceLoading" class="unit-reference-loading card-surface" aria-live="polite"><p><strong>Loading reference details…</strong> Showing the Builder profile now while special rules, weapons, and optional profiles finish loading in the background.</p></section>
 
       <section class="old-world-profile" aria-label="Unit characteristics">
         <div v-for="row in profileRows" :key="row.name" class="model-profile-row">
           <h2 v-if="profileRows.length > 1">{{ row.name }}</h2>
-          <div class="warscroll-stat-grid">
-            <div v-for="stat in statsForProfile(row.profile, row.sourceName)" :key="stat" class="warscroll-stat-circle" :class="{ 'save-stat': stat === 'Sv' || stat === 'Ward' || stat === 'Rn' }">
-              <CharacteristicIcon v-if="showBuilderCharacteristicIcons" :stat="stat" />
-              <span class="warscroll-stat-label">{{ statLabel(stat) }}</span>
-              <strong>{{ displayStat(row.profile, stat) }}</strong>
-            </div>
-          </div>
+          <div class="warscroll-stat-grid"><div v-for="stat in statsForProfile(row.profile, row.sourceName)" :key="stat" class="warscroll-stat-circle" :class="{ 'save-stat': stat === 'Sv' || stat === 'Ward' || stat === 'Rn' }"><CharacteristicIcon v-if="showBuilderCharacteristicIcons" :stat="stat" /><span class="warscroll-stat-label">{{ statLabel(stat) }}</span><strong>{{ displayStat(row.profile, stat) }}</strong></div></div>
           <div v-if="row.loadout.length" class="profile-loadout" :aria-label="`${row.sourceName} equipped items`"><span class="profile-loadout-label">Equipped</span><span v-for="item in row.loadout" :key="item" class="profile-loadout-chip">{{ item }}</span></div>
         </div>
       </section>
 
       <div class="warscroll-section-stack static-unit-stack">
         <section v-if="meleeWeapons.length" class="unit-card-section static-unit-section weapons-panel"><h2>Melee Weapons</h2><div class="weapon-table-wrap warscroll-table-wrap"><table class="weapon-table old-world-weapon-table"><thead><tr><th>Name</th><th>Range</th><th>Strength</th><th>AP</th><th>Special Rules</th></tr></thead><tbody><tr v-for="row in meleeWeapons" :key="`${row.source}-${row.weapon.id}`"><td><span>{{ formatHandWeaponCountLabel(row.weapon.name) }}</span><small v-if="row.weapon.note" class="weapon-note">{{ row.weapon.note }}</small></td><td>{{ row.weapon.range }}</td><td>{{ row.weapon.strength }}</td><td class="weapon-ap-cell">{{ weaponApDisplay(row) }}</td><td><div v-if="weaponRuleLabels(row.weapon).length" class="weapon-rule-labels"><RouterLink v-for="link in weaponRuleLabels(row.weapon)" :key="`${link.label}-${link.path}`" :to="`/rules/read${link.path}`" class="weapon-rule-label">{{ link.label }}</RouterLink></div><span v-else>—</span></td></tr></tbody></table></div></section>
-
         <section v-if="rangedWeapons.length" class="unit-card-section static-unit-section weapons-panel"><h2>Range Weapons</h2><div class="weapon-table-wrap warscroll-table-wrap"><table class="weapon-table old-world-weapon-table"><thead><tr><th>Name</th><th>Range</th><th>Strength</th><th>AP</th><th>Special Rules</th></tr></thead><tbody><tr v-for="row in rangedWeapons" :key="`${row.source}-${row.weapon.id}`"><td><span>{{ formatHandWeaponCountLabel(row.weapon.name) }}</span><small v-if="row.weapon.note" class="weapon-note">{{ row.weapon.note }}</small></td><td>{{ row.weapon.range }}</td><td>{{ row.weapon.strength }}</td><td class="weapon-ap-cell">{{ weaponApDisplay(row) }}</td><td><div v-if="weaponRuleLabels(row.weapon).length" class="weapon-rule-labels"><RouterLink v-for="link in weaponRuleLabels(row.weapon)" :key="`${link.label}-${link.path}`" :to="`/rules/read${link.path}`" class="weapon-rule-label">{{ link.label }}</RouterLink></div><span v-else>—</span></td></tr></tbody></table></div></section>
 
         <section v-if="optionalWeaponOptions.length || equipmentGroups.length || showWizardLoreGroup" class="unit-card-section static-unit-section equipment-panel">
@@ -1312,12 +1117,8 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
               <div class="prototype-option-grid equipment-option-grid weapon-option-grid">
                 <template v-for="weapon in optionalWeaponOptions" :key="weapon.id">
                   <div v-if="isPerModelWeaponSelection(weapon)" class="weapon-equipment-option count-option-card" :class="{ selected: weaponOptionSelected(weapon), unavailable: weaponUnavailable(weapon) }">
-                    <span class="option-name">{{ formatHandWeaponCountLabel(weapon.name) }}</span>
-                    <small v-if="weapon.note" class="option-effect">{{ weapon.note }}</small>
-                    <strong v-if="weapon.points > 0" class="option-cost">{{ optionCost(weapon.points) }} / model</strong>
-                    <span class="equipment-quantity-controls option-stepper weapon-option-quantity">
-                      <button type="button" aria-label="Remove one model" :disabled="isReadOnly || weaponUnavailable(weapon) || weaponCount(weapon) <= 0" @click="adjustWeaponCount(weapon, -1)">−</button>
-                      <strong>{{ weaponCount(weapon) }}</strong>
+                    <span class="option-name">{{ formatHandWeaponCountLabel(weapon.name) }}</span><small v-if="weapon.note" class="option-effect">{{ weapon.note }}</small><strong v-if="weapon.points > 0" class="option-cost">{{ optionCost(weapon.points) }} / model</strong>
+                    <span class="equipment-quantity-controls option-stepper weapon-option-quantity"><button type="button" aria-label="Remove one model" :disabled="isReadOnly || weaponUnavailable(weapon) || weaponCount(weapon) <= 0" @click="adjustWeaponCount(weapon, -1)">−</button><strong>{{ weaponCount(weapon) }}</strong>
                       <button type="button" aria-label="Add one model" :disabled="isReadOnly || weaponUnavailable(weapon) || weaponCount(weapon) >= weaponCountMaximum(weapon)" @click="adjustWeaponCount(weapon, 1)">+</button>
                       <small>models</small>
                     </span>
