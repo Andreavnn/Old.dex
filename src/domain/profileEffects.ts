@@ -1,5 +1,5 @@
 import type { ProfileKey, PrototypeEquipmentOption, PrototypeUnit } from '../data/builderPrototype'
-import { isPerModelEquipmentSelection } from './loadout'
+import { isPerModelEquipmentSelection, isShieldName } from './loadout'
 import { saveOnlyProfileOverride } from './canonicalProfiles'
 
 export function improveSaveBy(value: string, amount = 1) {
@@ -90,6 +90,7 @@ export type ProfileEffectInput = {
   activeRules: PrototypeUnit['specialRules']
   bigUnsSelected: boolean
   magicOverride?: Partial<Record<ProfileKey, string>>
+  magicSaveModifier?: number
   mountedRider?: {
     active: boolean
     modifiers?: Partial<Record<ProfileKey, number>>
@@ -98,20 +99,33 @@ export type ProfileEffectInput = {
 
 export function applyProfileEffects(input: ProfileEffectInput) {
   const profile = { ...input.baseProfile }
+  const applicableEquipment = input.selectedEquipment.filter((option) => {
+    if (!optionAppliesToProfile(input.unit, option, input.profileName)) return false
+    return !isPerModelEquipmentSelection(option) || input.equipmentCount(option) >= input.modelCount
+  })
+
+  // Armour replacements establish the model's base Armour Save first. A shield
+  // is always an additive +1 save modifier, even when older prototype data gave
+  // the shield an absolute Sv profileOverride. Treating shields additively makes
+  // the displayed save react correctly in both directions when the checkbox is
+  // added or removed.
   let saveModifier = 0
-  for (const option of input.selectedEquipment) {
-    if (!optionAppliesToProfile(input.unit, option, input.profileName)) continue
-    const appliesToWholeUnit = !isPerModelEquipmentSelection(option) || input.equipmentCount(option) >= input.modelCount
-    if (!appliesToWholeUnit) continue
-    // Resolve armour/profile replacements first, then apply additive save bonuses
-    // (most commonly shields) once. This prevents a later armour option from
-    // overwriting a shield that was selected earlier in the source option list.
-    for (const [key, value] of Object.entries(saveOnlyProfileOverride(option.profileOverride))) profile[key as ProfileKey] = String(value)
-    saveModifier += Math.max(0, Number(option.saveModifier) || 0)
+  for (const option of applicableEquipment) {
+    const shield = isShieldName(option.sourceName || option.name)
+    if (!shield) {
+      for (const [key, value] of Object.entries(saveOnlyProfileOverride(option.profileOverride))) profile[key as ProfileKey] = String(value)
+    }
+    if (shield) saveModifier += Math.max(1, Number(option.saveModifier) || 0)
+    else saveModifier += Math.max(0, Number(option.saveModifier) || 0)
   }
-  if (saveModifier > 0) profile.Sv = improveSaveBy(profile.Sv, saveModifier)
+
   if (input.bigUnsSelected && !isMountProfileName(input.profileName)) profile.S = incrementCharacteristic(profile.S, 1)
+  // Magic armour can replace the mundane armour value, but a legal mundane
+  // shield still improves that resulting save. Therefore resolve magic save
+  // replacements before applying the accumulated shield/save modifier.
   for (const [key, value] of Object.entries(input.magicOverride || {})) if (value !== undefined) profile[key as ProfileKey] = String(value)
+  const totalSaveModifier = saveModifier + Math.max(0, Number(input.magicSaveModifier) || 0)
+  if (totalSaveModifier > 0) profile.Sv = improveSaveBy(profile.Sv, totalSaveModifier)
   const hide = armouredHideBonus(input.unit, input.activeRules, input.profileName)
   if (hide > 0) profile.Sv = improveSaveBy(profile.Sv, hide)
   const ruleWard = wardSaveFromRules(input.unit, input.activeRules, input.profileName)

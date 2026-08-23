@@ -113,6 +113,35 @@ function validateUniqueMagicItems(roster: BuilderRosterSelection[], issues: Rost
   seen.forEach((entry) => { if (entry.count > 1) issues.push({ severity: 'error', section: 'Army', message: `${entry.name} may only be selected once per army.` }) })
 }
 
+function validateMagicStandardAllowances(roster: BuilderRosterSelection[], points: number, issues: RosterValidationIssue[]) {
+  const groups = new Map<string, { maxUnits: number; perPoints: number; rows: BuilderRosterSelection[] }>()
+  for (const row of roster) {
+    const limits = new Map<string, { maxUnits: number; perPoints: number }>()
+    for (const item of row.magicItems || []) {
+      if (item.type !== 'banner' || !item.magicStandardLimit) continue
+      const maxUnits = Math.max(1, Number(item.magicStandardLimit.maxUnits) || 1)
+      const perPoints = Math.max(1, Number(item.magicStandardLimit.perPoints) || 1000)
+      limits.set(`${maxUnits}:${perPoints}`, { maxUnits, perPoints })
+    }
+    limits.forEach((limit, key) => {
+      const group = groups.get(key) || { ...limit, rows: [] }
+      group.rows.push(row)
+      groups.set(key, group)
+    })
+  }
+  groups.forEach((group) => {
+    const tiers = Math.max(1, Math.ceil(Math.max(0, points) / group.perPoints))
+    const allowed = tiers * group.maxUnits
+    if (group.rows.length <= allowed) return
+    group.rows.forEach((row) => issues.push({
+      severity: 'error',
+      section: row.category,
+      instanceId: row.instanceId,
+      message: `Only ${allowed} unit${allowed === 1 ? '' : 's'} may purchase a magic standard at ${points} points (${group.maxUnits} per ${group.perPoints.toLocaleString()} points).`,
+    }))
+  })
+}
+
 export function validateRoster(input: {
   roster: BuilderRosterSelection[]
   points: number
@@ -141,6 +170,7 @@ export function validateRoster(input: {
   }
 
   validateUniqueMagicItems(roster, issues)
+  validateMagicStandardAllowances(roster, points, issues)
   const optionSet = new Set(compositionOptionIds)
   if (optionSet.has('limit-one-magic')) validateLimitOneMagic(roster, issues)
   const magicCap = magicItemPointLimit(optionSet)

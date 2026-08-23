@@ -17,6 +17,7 @@ export type BuilderRosterMagicItem = {
   ownerId?: string
   ownerLabel?: string
   poolMaxPoints?: number
+  magicStandardLimit?: { maxUnits: number; perPoints: number }
 }
 
 export type BuilderRosterSelection = {

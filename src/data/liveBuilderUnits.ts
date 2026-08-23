@@ -335,11 +335,16 @@ function rosterOptionRequirements(value: unknown) {
   for (const match of note.matchAll(/(?:may|can)\s+only\s+be\s+(?:taken|selected|chosen|used)\s+if\s+(.+?)\s+is\s+(?:included|present)\s+in\s+(?:the|your)\s+army\b/gi)) add(requiresRosterUnit, match[1])
   for (const match of note.matchAll(/(?:requires?|only available with)\s+(.+?)\s+(?:in|included in|present in)\s+(?:the|your)\s+army\b/gi)) add(requiresRosterUnit, match[1])
   for (const match of note.matchAll(/(?:if|provided|only if)\s+(?:the\s+)?army\s+(?:includes|contains|has)\s+(?:at least one\s+)?(.+?)(?=[.;]|$)/gi)) add(requiresRosterUnit, match[1])
-  const maximumMatch = note.match(/\b0\s*[–-]\s*(\d+)\s+(?:unit|model|choice|selection)s?\b/i)
+  const magicStandardMatch = note.match(/\b0\s*[–-]\s*(\d+)\s+units?\s+per\s+([\d,]+)\s+points?\s+may\s+purchase\s+(?:a\s+)?magic(?:al)?\s+standard\b/i)
+  const maximumMatch = magicStandardMatch ? null : note.match(/\b0\s*[–-]\s*(\d+)\s+(?:unit|model|choice|selection)s?\b/i)
+  const magicStandardLimit = magicStandardMatch
+    ? { maxUnits: Math.max(1, Number(magicStandardMatch[1]) || 1), perPoints: Math.max(1, Number(String(magicStandardMatch[2]).replace(/,/g, '')) || 1000) }
+    : undefined
   return {
     requiresRosterGeneral: requiresRosterGeneral.length ? requiresRosterGeneral : undefined,
     requiresRosterUnit: requiresRosterUnit.length ? requiresRosterUnit : undefined,
     maximumPerRoster: maximumMatch ? Math.max(0, Number(maximumMatch[1]) || 0) : undefined,
+    magicStandardLimit,
   }
 }
 
@@ -816,6 +821,7 @@ function clonePrototypeUnit(unit: PrototypeUnit): PrototypeUnit {
       profileOverride: option.profileOverride ? { ...option.profileOverride } : undefined,
       riderProfileModifiers: option.riderProfileModifiers ? { ...option.riderProfileModifiers } : undefined,
       magicAllowance: option.magicAllowance ? { ...option.magicAllowance, types: [...option.magicAllowance.types] } : undefined,
+      magicStandardLimit: option.magicStandardLimit ? { ...option.magicStandardLimit } : undefined,
       profileEquipment: option.profileEquipment ? [...option.profileEquipment] : undefined,
     })),
     magicAllowance: unit.magicAllowance ? { ...unit.magicAllowance, types: [...unit.magicAllowance.types] } : undefined,

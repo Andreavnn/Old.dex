@@ -116,6 +116,12 @@ function magicItems(value: unknown): BuilderRosterMagicItem[] {
       ownerId: typeof row.ownerId === 'string' ? row.ownerId : undefined,
       ownerLabel: typeof row.ownerLabel === 'string' ? row.ownerLabel : undefined,
       poolMaxPoints: Number(row.poolMaxPoints) > 0 ? Number(row.poolMaxPoints) : undefined,
+      magicStandardLimit: isRecord(row.magicStandardLimit)
+        ? {
+            maxUnits: Math.max(1, Number(row.magicStandardLimit.maxUnits) || 1),
+            perPoints: Math.max(1, Number(row.magicStandardLimit.perPoints) || 1000),
+          }
+        : undefined,
     }]
   })
 }

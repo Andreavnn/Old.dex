@@ -80,6 +80,8 @@ export type PrototypeEquipmentOption = {
   requiresRosterUnit?: string[]
   /** Maximum number of roster entries that may select this option when source notes specify a 0-N limit. */
   maximumPerRoster?: number
+  /** Magic-standard allowance attached to this command option. This limits units purchasing a magic standard, not the Standard Bearer itself. */
+  magicStandardLimit?: { maxUnits: number; perPoints: number }
   /** Persistent characteristic bonuses granted by a selected upgrade. */
   profileModifiers?: Partial<Record<ProfileKey, number>>
   kind?: 'equipment' | 'armour' | 'special' | 'mount' | 'mount-option' | 'role'

@@ -139,7 +139,7 @@ watch(() => [army.value?.slug, unitId.value, compositionId.value, language.value
 const selectedWeaponIds = ref(new Set<string>())
 const selectedEquipmentIds = ref(new Set<string>())
 
-type MagicItem = { id: string; baseId: string; ownerId: string; ownerLabel: string; poolMaxPoints: number; name: string; sourceName: string; points: number; type: 'weapon' | 'armor' | 'talisman' | 'enchanted-item' | 'arcane-item' | 'banner'; source: string; stackable: boolean; maximum?: number; onePerArmy: boolean; slug: string; fluff?: string }
+type MagicItem = { id: string; baseId: string; ownerId: string; ownerLabel: string; poolMaxPoints: number; name: string; sourceName: string; points: number; type: 'weapon' | 'armor' | 'talisman' | 'enchanted-item' | 'arcane-item' | 'banner'; source: string; stackable: boolean; maximum?: number; onePerArmy: boolean; slug: string; fluff?: string; magicStandardLimit?: { maxUnits: number; perPoints: number } }
 type MagicItemDetail = { kind?: 'melee' | 'missile'; range?: string; strength?: string; ap?: string; rules?: string[]; summary?: string; fluff?: string; profileOverride?: Partial<Record<ProfileKey, string>>; shield?: boolean }
 
 const magicItems = ref<MagicItem[]>([])
@@ -297,7 +297,7 @@ watch(() => [prototypeUnit.value?.id, instanceId.value, pageMode.value], () => {
 
 const selectedWeapons = computed(() => prototypeUnit.value?.weapons.filter((weapon) => selectedWeaponIds.value.has(weapon.id)) || [])
 const selectedEquipment = computed(() => prototypeUnit.value?.equipmentOptions.filter((option) => selectedEquipmentIds.value.has(option.id)) || [])
-type MagicPool = { id: string; label: string; maxPoints: number; types: MagicItem['type'][] }
+type MagicPool = { id: string; label: string; maxPoints: number; types: MagicItem['type'][]; magicStandardLimit?: { maxUnits: number; perPoints: number } }
 const wizardLevel = computed(() => {
   const unit = prototypeUnit.value
   const levels = selectedEquipment.value.map((option) => wizardLevelFromName(canonicalOptionName(option))).filter((level) => level > 0)
@@ -335,7 +335,13 @@ const activeMagicPools = computed<MagicPool[]>(() => {
     if (!allowance || allowance.maxPoints <= 0) return
     const types = legalMagicTypes([...allowance.types], option)
     if (!types.length) return
-    pools.push({ id: option.id, label: displayOptionName(option).replace(/\s*\(champion\)\s*/i, '').trim(), maxPoints: allowance.maxPoints, types })
+    pools.push({
+      id: option.id,
+      label: displayOptionName(option).replace(/\s*\(champion\)\s*/i, '').trim(),
+      maxPoints: allowance.maxPoints,
+      types,
+      magicStandardLimit: option.magicStandardLimit ? { ...option.magicStandardLimit } : undefined,
+    })
   })
   return pools
 })
@@ -611,6 +617,17 @@ function magicProfileOverridesFor(profileName: string) {
   })
   return override
 }
+function magicShieldSaveModifierFor(profileName: string) {
+  if (isMountProfileName(profileName)) return 0
+  const profileKey = normalizedModelName(profileName)
+  return selectedMagicEntries.value.some(({ item }) => {
+    const detail = magicItemDetails.value.get(item.id)
+    if (!detail?.shield) return false
+    if (item.ownerId === 'unit') return true
+    const ownerKey = normalizedModelName(item.ownerLabel)
+    return Boolean(ownerKey && (profileKey.includes(ownerKey) || ownerKey.includes(profileKey)))
+  }) ? 1 : 0
+}
 function effectiveProfileFor(baseProfile: Record<ProfileKey, string>, profileName: string, optionalSelectionId?: string, applyBigUns = true) {
   const unit = prototypeUnit.value
   if (!unit) return { ...baseProfile }
@@ -626,6 +643,7 @@ function effectiveProfileFor(baseProfile: Record<ProfileKey, string>, profileNam
     activeRules: activeSpecialRules.value,
     bigUnsSelected: bigUnsSelected.value && applyBigUns,
     magicOverride: magicProfileOverridesFor(profileName),
+    magicSaveModifier: magicShieldSaveModifierFor(profileName),
     mountedRider: { active: Boolean(selectedMount) && !selectedMountProfile, modifiers: selectedMount?.riderProfileModifiers },
   })
 
@@ -1090,6 +1108,7 @@ async function loadMagicItemChoices() {
       activePools.filter((pool) => pool.types.includes(type)).forEach((pool) => rows.push({
         id: `${pool.id}::${baseId}`, baseId, ownerId: pool.id, ownerLabel: pool.label, poolMaxPoints: pool.maxPoints,
         name, sourceName, points: itemPoints, type, source, stackable: Boolean(raw.stackable), maximum: Number(raw.maximum || 0) > 0 ? Number(raw.maximum) : undefined,
+        magicStandardLimit: pool.magicStandardLimit ? { ...pool.magicStandardLimit } : undefined,
         onePerArmy: raw.onePerArmy !== false, slug: magicSlug(String(raw.name || sourceName)),
         fluff: String(localizedFluff).replace(/\s+/g, ' ').trim() || undefined,
       }))
@@ -1104,9 +1123,26 @@ async function loadMagicItemChoices() {
 }
 function selectedMagicCount(id: string) { return selectedMagicCounts.value.get(id) || 0 }
 function maxMagicCopies(item: MagicItem) { if (!item.stackable) return 1; if (item.maximum) return item.maximum; if (item.points <= 0) return 99; return Math.max(1, Math.floor(item.poolMaxPoints / item.points)) }
+function magicStandardUnitAllowance(limit: { maxUnits: number; perPoints: number }) {
+  const listPoints = Math.max(0, Number(getSavedArmyList(builderListId.value)?.points || 0))
+  const tiers = Math.max(1, Math.ceil(listPoints / Math.max(1, Number(limit.perPoints) || 1000)))
+  return tiers * Math.max(1, Number(limit.maxUnits) || 1)
+}
+function otherRosterMagicStandardUnits(limit: { maxUnits: number; perPoints: number }) {
+  return currentBuilderRosterRows().filter((row) => row.instanceId !== instanceId.value && (row.magicItems || []).some((entry) => {
+    if (entry.type !== 'banner' || !entry.magicStandardLimit) return false
+    return Number(entry.magicStandardLimit.maxUnits || 0) === Number(limit.maxUnits || 0) && Number(entry.magicStandardLimit.perPoints || 0) === Number(limit.perPoints || 0)
+  })).length
+}
 function canAddMagicItem(item: MagicItem) {
   if (!activeMagicPools.value.some((pool) => pool.id === item.ownerId && pool.types.includes(item.type))) return false
   if (selectedMagicCount(item.id) >= maxMagicCopies(item)) return false
+  if (item.type === 'banner') {
+    // A Standard Bearer may be selected normally. The per-1,000 restriction
+    // applies only when that bearer actually purchases a magic standard.
+    if (selectedMagicEntries.value.some(({ item: selected }) => selected.type === 'banner' && selected.ownerId === item.ownerId)) return false
+    if (item.magicStandardLimit && otherRosterMagicStandardUnits(item.magicStandardLimit) >= magicStandardUnitAllowance(item.magicStandardLimit)) return false
+  }
   return magicPoolPoints(item.ownerId) + item.points <= item.poolMaxPoints
 }
 
