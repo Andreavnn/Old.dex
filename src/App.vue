@@ -76,7 +76,7 @@ function startInstalledLaunchScene() {
   if (!isStandaloneLaunch() || typeof window === 'undefined') return
   const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
   if (navigation?.type === 'reload') return
-  const sessionKey = 'olddex.launch-scene.v035'
+  const sessionKey = 'olddex.launch-scene.v036'
   if (window.sessionStorage.getItem(sessionKey)) return
   window.sessionStorage.setItem(sessionKey, '1')
   launchSceneVisible.value = true
@@ -120,7 +120,7 @@ onMounted(() => {
     <Transition name="olddex-launch-fade">
       <section v-if="launchSceneVisible" class="olddex-launch-scene" aria-label="Old.dex launching">
         <img src="/icons/icon-192.png" alt="" aria-hidden="true" />
-        <div><strong>OLD.DEX</strong><small>ALPHA BUILD 0.35</small></div>
+        <div><strong>OLD.DEX</strong><small>ALPHA BUILD 0.36</small></div>
       </section>
     </Transition>
 
@@ -135,7 +135,7 @@ onMounted(() => {
     </section>
 
     <footer v-if="showGlobalPageTools" class="app-footer olddex-legal-footer">
-      <span>Old.dex Alpha Build 0.35</span>
+      <span>Old.dex Alpha Build 0.36</span>
       <span>Olddex is not affiliated with Games Workshop. It displays data from BSData.</span>
     </footer>
   </div>

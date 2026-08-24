@@ -37,6 +37,7 @@ export type MatchGuidanceRule = {
   timingConfidence?: number
   turn?: MatchTurnAffinity
   requiredCharge?: boolean
+  relatedRules?: Array<{ source: string; label: string; path?: string; summary: string }>
 }
 
 export type MatchDeploymentRule = {
@@ -428,7 +429,7 @@ async function maximumChargeRangeBonus(row: BuilderRosterSelection) {
   return bonus
 }
 
-async function declareChargeRows(game: SavedGame): Promise<MatchGuidanceRule[]> {
+async function declareChargeRows(game: SavedGame, relatedEvents: CompiledRuleEvent[] = []): Promise<MatchGuidanceRule[]> {
   const rows = gameRoster(game, 'player')
   return Promise.all(rows.map(async (unit) => {
     const result = game.chargeTests?.[chargeTestKey(game, 'player', unit.instanceId)]
@@ -443,11 +444,16 @@ async function declareChargeRows(game: SavedGame): Promise<MatchGuidanceRule[]> 
       chargeRange: maximum ? `${maximum}\"` : 'See Movement profile',
       chargeRangeNote: maximum ? `Maximum declaration range: M ${movement} + 6${bonusText}.` : 'Maximum declaration range could not be derived from the saved match snapshot.',
     }
+    const seen = new Set<string>()
+    const relatedRules = relatedEvents
+      .filter((event) => event.unitRefs?.some((unitRef) => unitRef.instanceId === unit.instanceId))
+      .map((event) => ({ source: event.source, label: event.label, path: event.path, summary: event.summary }))
+      .filter((event) => { const key = `${event.label}|${event.path || ''}|${event.summary}`.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true })
     return {
       id: stableRuleId(['declare-charge', game.round, unit.instanceId]),
-      side: 'player', sourceKind: 'core', source: unit.name, label: 'Declare Charge',
-      summary: required ? 'Failed Required Charge Test — this unit must declare a charge if a legal target is available.' : 'Mark this unit if it declares a charge.',
-      unitRefs: [ref], action: 'declare-charge', requiredCharge: required,
+      side: 'player', sourceKind: 'core', source: unit.name, label: 'Declare & Resolve Charge',
+      summary: required ? 'Failed Required Charge Test — this unit must declare a charge if a legal target is available, then immediately roll and resolve that charge.' : 'If this unit charges, declare the target, roll and resolve the charge before declaring another charge.',
+      unitRefs: [ref], action: 'declare-charge', requiredCharge: required, relatedRules,
     } satisfies MatchGuidanceRule
   }))
 }
@@ -471,14 +477,26 @@ function toGuidance(rows: CompiledRuleEvent[]) {
 
 export async function loadMatchTurnGuidance(game: SavedGame, stepId: string, viewSide: GameSide): Promise<MatchGuidanceRule[]> {
   const step = stepId as MatchActionStep
-  // Declare Charges is intentionally a flat unit checklist. The intelligence
-  // engine consumes Required Charge Test outcomes here instead of repeating the
-  // rule cards that caused the tests.
-  if (step === 'declare-charges' && viewSide === 'player') return declareChargeRows(game)
-
   const knowledge = await compileKnowledge(game)
+
+  // Old.dex combines declaration and movement into the real table sequence: a
+  // charge is declared, rolled and resolved before the next charge is declared.
+  // Unit-specific rules from either source-book operation are attached directly
+  // to that unit's charge entry instead of becoming a second page of cards.
+  if (step === 'declare-charges' && viewSide === 'player') {
+    const playerChargeEvents = knowledge.playerEvents.filter((row) => ['declare-charges', 'charge-moves'].includes(row.step) && visibleForTurn(row, viewSide))
+    const battleChargeEvents = knowledge.battleEvents.filter((row) => ['declare-charges', 'charge-moves'].includes(row.step) && visibleForTurn(row, viewSide))
+    const rows = [...toGuidance(battleChargeEvents), ...(await declareChargeRows(game, playerChargeEvents))]
+    const seen = new Set<string>()
+    return rows.filter((row) => { const key = row.id || stableRuleId([row.side,row.source,row.label,row.path,row.summary]); if (seen.has(key)) return false; seen.add(key); return true })
+  }
+
+  // Break Tests and Follow Up/Pursuit are likewise resolved combat-by-combat.
+  // The UI presents them together while the compiler keeps the source timing
+  // distinct enough to understand each rule correctly.
+  const acceptedSteps: MatchActionStep[] = step === 'break-test' ? ['break-test', 'follow-up'] : [step]
   const sourceRows = [...knowledge.battleEvents, ...knowledge.playerEvents, ...knowledge.opponentEvents]
-    .filter((row) => row.step === step && visibleForTurn(row, viewSide))
+    .filter((row) => acceptedSteps.includes(row.step) && visibleForTurn(row, viewSide))
   const rows = [...toGuidance(sourceRows), ...coreEnemyGuidance(step, viewSide)]
   const seen = new Set<string>()
   return rows.filter((row) => { const key = row.id || stableRuleId([row.side,row.source,row.label,row.path,row.summary]); if (seen.has(key)) return false; seen.add(key); return true })

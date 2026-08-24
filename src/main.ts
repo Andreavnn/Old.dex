@@ -8,6 +8,7 @@ import './styles.css'
 import './styles-v033.css'
 import './styles-v034.css'
 import './styles-v035.css'
+import './styles-v036.css'
 
 initializeInstallApp()
 
