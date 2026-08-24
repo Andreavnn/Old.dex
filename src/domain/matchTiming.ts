@@ -118,9 +118,15 @@ function semanticStep(text: string): MatchActionStep | '' {
   if (/\bbreak tests?\b/i.test(text)) return 'break-test'
   if (/\b(?:pursu(?:e|it|ing)|follow up|overrun|restrain(?:t|ing)?)\b/i.test(text)) return 'follow-up'
   if (/\b(?:Random Movement|compulsory move|fleeing move|reinforcement|arrives? from reserve)\b/i.test(text)) return 'compulsory-moves'
-  if (/\b(?:march(?:ed|es|ing)?|remaining move|normal move|Reserve Move)\b/i.test(text)) return 'remaining-moves'
-  if (/\b(?:shooting attack|missile weapon|to hit roll when shooting|fires? a missile)\b/i.test(text)) return 'shooting'
-  if (/\b(?:melee|in initiative order|when this combat is chosen|when a combat is chosen|close combat attack)\b/i.test(text)) return 'fight'
+  // Mere narrative use of words such as "march" must not create a Remaining
+  // Moves task. Require an actual movement instruction, modifier or named move.
+  if (/\bReserve Move\b|\bremaining moves?\b|\bnormal moves?\b|\bmovement (?:allowance|characteristic)\b/i.test(text)
+    || /\b(?:may|can|must|cannot|may not|is able to|is unable to)\b[^.]{0,120}\b(?:move|march|marching)\b/i.test(text)
+    || /\b(?:increase|decrease|add|subtract|double|halve|re-?roll|modifier|bonus|penalty)\b[^.]{0,120}\b(?:movement|move|march)\b/i.test(text)) return 'remaining-moves'
+  if (/\b(?:shooting attack|missile weapon|to hit roll when shooting|fires? a missile)\b/i.test(text)
+    || /\b(?:may|can|must|cannot|may not)\b[^.]{0,120}\b(?:shoot|fire|make a shooting attack)\b/i.test(text)) return 'shooting'
+  if (/\b(?:in initiative order|when this combat is chosen|when a combat is chosen|close combat attack)\b/i.test(text)
+    || /\b(?:may|can|must|cannot|may not)\b[^.]{0,120}\b(?:attack|make attacks?|fight)\b/i.test(text)) return 'fight'
   return ''
 }
 
@@ -140,19 +146,23 @@ function genericPhaseStep(phase: string, semantic: MatchActionStep | '', text: s
   if (phase === 'movement') {
     if (semantic && ['required-charges', 'declare-charges', 'charge-moves', 'compulsory-moves', 'remaining-moves'].includes(semantic)) return semantic
     if (/\b(?:at|during) (?:the )?(?:start|beginning) of (?:the )?movement phase\b/i.test(text)) return 'required-charges'
-    if (/\b(?:move|moves|moving|march(?:ed|es|ing)?|movement allowance|movement characteristic)\b/i.test(text)) return 'remaining-moves'
+    if (/\bReserve Move\b|\bmovement (?:allowance|characteristic)\b/i.test(text)
+      || /\b(?:may|can|must|cannot|may not|is able to|is unable to)\b[^.]{0,120}\b(?:move|march|marching)\b/i.test(text)
+      || /\b(?:increase|decrease|add|subtract|double|halve|modifier|bonus|penalty)\b[^.]{0,120}\b(?:movement|move|march)\b/i.test(text)) return 'remaining-moves'
     return ''
   }
   if (phase === 'shooting') {
     if (semantic && ['special-shooting', 'shooting'].includes(semantic)) return semantic
     if (/\b(?:at|during) (?:the )?(?:start|beginning) of (?:the )?shooting phase\b/i.test(text)) return 'special-shooting'
-    if (/\b(?:shoot|shoots|shooting|shooting attack|missile|ranged attack|to hit roll|to wound roll)\b/i.test(text)) return 'shooting'
+    if (/\b(?:shooting attack|missile weapon|ranged attack|to hit roll|to wound roll)\b/i.test(text)
+      || /\b(?:may|can|must|cannot|may not)\b[^.]{0,120}\b(?:shoot|fire|make a shooting attack)\b/i.test(text)) return 'shooting'
     return ''
   }
   if (phase === 'combat') {
     if (semantic && ['fight', 'combat-result', 'break-test', 'follow-up'].includes(semantic)) return semantic
     if (/\b(?:at|during) (?:the )?(?:start|beginning) of (?:the )?combat phase\b/i.test(text)) return 'fight'
-    if (/\b(?:attack|attacks|to hit roll|to wound roll|initiative|weapon skill|melee)\b/i.test(text)) return 'fight'
+    if (/\b(?:to hit roll|to wound roll|initiative order|close combat attack)\b/i.test(text)
+      || /\b(?:may|can|must|cannot|may not)\b[^.]{0,120}\b(?:attack|make attacks?|fight)\b/i.test(text)) return 'fight'
     return ''
   }
   return semantic

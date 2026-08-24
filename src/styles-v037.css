@@ -1,0 +1,150 @@
+/* Old.dex Alpha Build 0.37 — match presentation, rule-text cleanup and control polish. */
+
+/* Generic pill UI keeps the same light, high-contrast treatment in dark mode.
+   Semantic red/green roster state surfaces are intentionally not targeted. */
+html[data-theme="dark"] :is(
+  .value-chip,
+  .rule-kind-pill,
+  .match-option-chips > span,
+  .joined-character-pills > span,
+  .required-charge-flag,
+  .legacy-pill,
+  .legacy-army-pill
+) {
+  background: #e9eef5 !important;
+  border-color: #8293a8 !important;
+  color: #000 !important;
+}
+html[data-theme="dark"] :is(
+  .value-chip,
+  .rule-kind-pill,
+  .match-option-chips > span,
+  .joined-character-pills > span,
+  .required-charge-flag,
+  .legacy-pill,
+  .legacy-army-pill
+) :is(strong, span, small, em) { color: #000 !important; }
+
+/* Other pill/chip variants keep their semantic background but never inherit the
+   grey/white Dark Mode foreground that made their labels unreadable. */
+html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"], [class*="-chip "]) { color: #000 !important; }
+html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"], [class*="-chip "]) :is(strong, span, small, em) { color: inherit !important; }
+
+/* Phase rails: protect the last label from the clipping edge and do not render
+   arrow gutters for a phase that has only one step. */
+.match-tab-scroll-shell .game-phase-tabs,
+.match-tab-scroll-shell .game-subphase-tabs {
+  box-sizing: border-box;
+  padding-inline: 4px;
+  scroll-padding-inline: 14px;
+}
+.match-tab-scroll-shell .game-phase-tabs > button,
+.match-tab-scroll-shell .game-subphase-tabs > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.match-tab-scroll-shell.single-step { grid-template-columns: minmax(0, 1fr); }
+.match-tab-scroll-shell.single-step .game-subphase-tabs { justify-content: flex-start; }
+.match-tab-scroll-shell.single-step .game-subphase-tabs > button { max-width: 100%; }
+
+/* Rule-card unit pills need breathing room above the divider. */
+.required-charge-rule-details .turn-rule-unit-list,
+.turn-rule-details .turn-rule-unit-list {
+  margin-top: 12px;
+  padding-top: 10px;
+  padding-bottom: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 74%, transparent);
+}
+
+/* Checkbox labels scale with the user's Text Size setting. */
+.charge-test-controls label,
+.charge-test-controls label span,
+.charge-sequence-controls label,
+.charge-sequence-controls label span,
+.movement-unit-checklist label,
+.movement-unit-checklist label span,
+.remaining-move-unit label,
+.remaining-move-unit label span,
+.command-loss-options label,
+.command-loss-options label span,
+.break-result-checks label,
+.break-result-checks label span,
+.follow-up-checks label,
+.follow-up-checks label span {
+  font-size: calc(10px + var(--font-offset));
+}
+
+/* Notes are optional and collapsed by default. */
+.game-step-note-panel {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper-2);
+  overflow: clip;
+}
+.game-step-note-panel > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 11px 13px;
+  font-weight: 900;
+}
+.game-step-note-panel > summary::-webkit-details-marker { display: none; }
+.game-step-note-panel > summary::after { content: '⌄'; float: right; }
+.game-step-note-panel[open] > summary::after { transform: rotate(180deg); }
+.game-step-note-panel .game-step-notes { display: block; padding: 0 12px 12px; }
+.game-step-note-panel .game-step-notes textarea { width: 100%; box-sizing: border-box; }
+
+/* Deployment join controls are intentionally conservative and readable. */
+.deployment-character-join select { font-size: calc(10px + var(--font-offset)); }
+
+/* Combat entries remain independent even when a Character is joined. */
+.combat-profile-roster-link {
+  color: var(--link, var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.combat-profile-roster-link:hover { text-decoration-thickness: 2px; }
+.combat-joined-note { color: var(--ink-soft); font-size: calc(8px + var(--font-offset)); font-weight: 700; }
+
+/* Break Test / winner follow-up use direct mutually-exclusive checkbox rows. */
+.break-result-checks,
+.follow-up-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.break-result-checks legend,
+.follow-up-checks legend {
+  padding: 0 5px;
+  font-size: calc(8px + var(--font-offset));
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.break-result-checks label,
+.follow-up-checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+}
+
+/* Complete rule bodies can be longer than the timing sentence; keep them
+   readable without forcing the card or phase rail wider than its container. */
+.phase-rule-details > p,
+.turn-rule-details > p {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.48;
+}
+
+@media (max-width: 700px) {
+  .match-tab-scroll-shell .game-phase-tabs,
+  .match-tab-scroll-shell .game-subphase-tabs { padding-inline: 2px; }
+  .break-result-checks,
+  .follow-up-checks { display: grid; }
+}

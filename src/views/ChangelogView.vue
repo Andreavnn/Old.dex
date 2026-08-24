@@ -5,8 +5,9 @@ import { changelogV033 } from '../data/changelog-v033'
 import { changelogV034 } from '../data/changelog-v034'
 import { changelogV035 } from '../data/changelog-v035'
 import { changelogV036 } from '../data/changelog-v036'
+import { changelogV037 } from '../data/changelog-v037'
 
-const visibleChangelogEntries = [changelogV036, changelogV035, changelogV034, changelogV033, ...changelogEntries]
+const visibleChangelogEntries = [changelogV037, changelogV036, changelogV035, changelogV034, changelogV033, ...changelogEntries]
 </script>
 
 <template>

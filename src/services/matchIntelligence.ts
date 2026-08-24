@@ -91,26 +91,84 @@ function stableRuleId(parts: Array<string | number | undefined>) {
   return parts.map((part) => compact(String(part ?? '')).toLowerCase()).join('|')
 }
 
-function mechanicalPageText(html: string) {
-  const extracted = compact(extractMechanicalRuleText(html) || '')
-  if (typeof DOMParser === 'undefined') return extracted
-  const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
-  dom.querySelectorAll('script,style,nav,header,footer').forEach((node) => node.remove())
-  const rows = Array.from(dom.querySelectorAll<HTMLElement>('p,li,td'))
-    .map((node) => compact(node.textContent || ''))
-    .filter((row) => row.length >= 8)
-    .filter((row) => !/^(?:URL Copied!|Cross-Reference Links|Previous\b|Next\b|Source:)/i.test(row))
+function cleanRuleText(value: string) {
+  let text = compact(value)
+  if (!text) return ''
+  text = text
+    .replace(/\bURL Copied!\b/gi, ' ')
+    .replace(/\bCross-Reference Links\b/gi, ' ')
+    .replace(/\bTable of Contents\b/gi, ' ')
+    .replace(/\bLast update:\s*\d{4}\s+[A-Za-z]+\s+\d{1,2}\b/gi, ' ')
+    .replace(/\b(?:Rulebook|Ravening Hordes|Forces of Fantasy|Arcane Journal(?:\s*[-–—:]?\s*[^,.]+)?),?\s*p\.\s*\d+\b/gi, ' ')
+    .replace(/^(?:\d{1,3}\s+)(?=[A-Z])/g, '')
   const seen = new Set<string>()
-  // Keep the resolver's high-quality mechanical extraction, but do not stop
-  // there: timing can live in a different paragraph than the effect. Combining
-  // the cleaned page blocks is what lets one source rule compile into multiple
-  // legitimate operational events without relying on phase-name keyword hits.
-  return [extracted, ...rows].filter(Boolean).filter((row) => {
-    const key = row.toLowerCase()
-    if (seen.has(key)) return false
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map(compact).filter(Boolean) || []
+  return sentences.filter((row) => {
+    if (/^(?:Previous|Next|Source:|Contents|Home|Search)\b/i.test(row)) return false
+    if (/^(?:Last update|Rulebook|Ravening Hordes|Forces of Fantasy)\b/i.test(row)) return false
+    const key = row.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    if (!key || seen.has(key)) return false
     seen.add(key)
     return true
-  }).join(' ')
+  }).join(' ').trim()
+}
+
+function normalizedHeading(value: string) {
+  return compact(value).toLowerCase().replace(/\s*\([^)]*\)\s*$/, '').replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function labelledSectionText(dom: Document, label: string) {
+  const wanted = normalizedHeading(label)
+  if (!wanted) return ''
+  const headings = Array.from(dom.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6'))
+  const heading = headings.find((node) => {
+    const value = normalizedHeading(node.textContent || '')
+    return value === wanted || (wanted.length >= 6 && (value.startsWith(`${wanted} `) || wanted.startsWith(`${value} `)))
+  })
+  if (!heading) return ''
+  const level = Number(heading.tagName.slice(1))
+  const rows: string[] = []
+  let cursor: Element | null = heading.nextElementSibling
+  while (cursor) {
+    if (/^H[1-6]$/.test(cursor.tagName) && Number(cursor.tagName.slice(1)) <= level) break
+    if (!cursor.matches('nav,header,footer,aside,script,style')) {
+      const value = cleanRuleText(cursor.textContent || '')
+      if (value && value.length >= 8) rows.push(value)
+    }
+    cursor = cursor.nextElementSibling
+  }
+  return cleanRuleText(rows.join(' '))
+}
+
+function mechanicalPageText(html: string, label = '') {
+  const extracted = cleanRuleText(extractMechanicalRuleText(html) || '')
+  if (typeof DOMParser === 'undefined') return extracted
+  const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
+  dom.querySelectorAll('script,style,nav,header,footer,aside').forEach((node) => node.remove())
+
+  // Prefer the section whose heading actually names the roster rule/item. This
+  // prevents a page-level extractor from returning a nearby rule such as Warband
+  // when the roster entry is Mob Rule.
+  const labelled = labelledSectionText(dom, label)
+  if (labelled) return labelled
+
+  let rows = Array.from(dom.querySelectorAll<HTMLElement>('p,li,blockquote,dd'))
+    .map((node) => compact(node.textContent || ''))
+  if (!rows.length) rows = Array.from(dom.querySelectorAll<HTMLElement>('td')).map((node) => compact(node.textContent || ''))
+  rows = rows
+    .filter((row) => row.length >= 8 && row.length <= 5000)
+    .filter((row) => !/^(?:URL Copied!|Cross-Reference Links|Previous\b|Next\b|Source:|Table of Contents|Last update:)/i.test(row))
+    .filter((row) => !(row.length > 180 && /\bTable of Contents\b/i.test(row) && /\bLast update:/i.test(row)))
+    .map(cleanRuleText)
+    .filter(Boolean)
+  const seen = new Set<string>()
+  const candidates = [extracted, ...rows].filter(Boolean).filter((row) => {
+    const key = row.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  return cleanRuleText(candidates.join(' '))
 }
 
 function ruleText(path: string, fallback: string) {
@@ -120,7 +178,7 @@ function ruleText(path: string, fallback: string) {
   const pending = (async () => {
     try {
       const document = await fetchRuleDocument(path)
-      return mechanicalPageText(document.html) || compact(fallback)
+      return mechanicalPageText(document.html, fallback) || compact(fallback)
     } catch {
       return compact(fallback)
     }
@@ -174,14 +232,17 @@ function ruleEventRows(input: {
   text: string
   unitRefs?: MatchUnitRef[]
 }) {
-  return analyzeMatchRuleTiming(input.label, input.text).map((timing) => ({
+  const fullRuleText = cleanRuleText(input.text)
+  return analyzeMatchRuleTiming(input.label, fullRuleText).map((timing) => ({
     id: stableRuleId([input.side, input.sourceKind, input.label, input.path, timing.step, timing.intent, input.unitRefs?.map((row) => row.instanceId).join(',')]),
     side: input.side,
     sourceKind: input.sourceKind,
     source: input.source,
     label: input.label,
     path: input.path,
-    summary: timing.text,
+    // Timing analysis decides WHERE a rule belongs; the card should still show
+    // the complete cleaned mechanical rule rather than one matching sentence.
+    summary: fullRuleText || cleanRuleText(timing.text),
     unitRefs: input.unitRefs ? [...input.unitRefs] : undefined,
     action: timing.intent === 'required-charge-test' ? 'required-charge-test' as const : 'rule' as const,
     intent: timing.intent,
@@ -314,13 +375,17 @@ function fingerprint(game: SavedGame) {
 function groupCompiledEvents(rows: CompiledRuleEvent[]) {
   const grouped = new Map<string, CompiledRuleEvent>()
   for (const row of rows) {
-    const key = stableRuleId([row.side, row.sourceKind, row.label, row.path, row.step, row.intent, row.summary])
+    // Canonical rule identity, not a truncated sentence, controls deduplication.
+    // This prevents a joined Character and its host unit from producing two cards
+    // for the same Individual rule while still retaining every affected model.
+    const key = stableRuleId([row.side, row.sourceKind, row.label, row.path, row.step, row.intent])
     const prior = grouped.get(key)
     if (!prior) { grouped.set(key, { ...row, unitRefs: row.unitRefs ? [...row.unitRefs] : undefined }); continue }
+    if ((row.summary || '').length > (prior.summary || '').length) prior.summary = row.summary
     const refs = new Map((prior.unitRefs || []).map((ref) => [ref.instanceId, ref]))
     for (const ref of row.unitRefs || []) refs.set(ref.instanceId, ref)
     prior.unitRefs = refs.size ? [...refs.values()] : undefined
-    if (prior.unitRefs && prior.unitRefs.length > 1 && prior.sourceKind === 'unit') prior.source = 'Affected units'
+    if (prior.unitRefs && prior.unitRefs.length > 1 && (prior.sourceKind === 'unit' || prior.sourceKind === 'magic-item')) prior.source = 'Affected units'
   }
   return [...grouped.values()].sort((a, b) => {
     const kindPriority: Record<MatchRuleSourceKind, number> = { scenario: 0, battlefield: 1, 'battle-composition': 2, 'army-composition': 3, spell: 4, 'magic-item': 5, unit: 6, core: 7 }

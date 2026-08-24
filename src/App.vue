@@ -43,6 +43,7 @@ function syncRulesIntroPatch() {
 }
 watch(() => route.name, syncRulesIntroPatch, { immediate: true })
 const launchSceneVisible = ref(false)
+const launchAudioElement = ref<HTMLAudioElement | null>(null)
 let launchSceneTimer = 0
 let launchAudio: HTMLAudioElement | null = null
 let launchAudioRetryArmed = false
@@ -74,19 +75,19 @@ function armLaunchAudioRetry() {
 
 function startInstalledLaunchScene() {
   if (!isStandaloneLaunch() || typeof window === 'undefined') return
-  const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
-  if (navigation?.type === 'reload') return
-  const sessionKey = 'olddex.launch-scene.v036'
-  if (window.sessionStorage.getItem(sessionKey)) return
-  window.sessionStorage.setItem(sessionKey, '1')
+  // The launch scene is itself the trigger: whenever an installed-app load shows
+  // this screen, the selected boot audio is attempted at the same time. Do not
+  // suppress later standalone launches with sessionStorage/reload heuristics.
   launchSceneVisible.value = true
-  if (bootAudioEnabled.value) {
-    launchAudio = new Audio('/audio/ready_for_murderin_orc.mp3')
+  void nextTick(() => {
+    if (!bootAudioEnabled.value) return
+    launchAudio = launchAudioElement.value || new Audio('/audio/ready_for_murderin_orc.mp3')
     launchAudio.preload = 'auto'
     launchAudio.volume = 0.9
+    launchAudio.currentTime = 0
     void launchAudio.play().catch(() => armLaunchAudioRetry())
-  }
-  launchSceneTimer = window.setTimeout(() => { launchSceneVisible.value = false; disarmLaunchAudioRetry() }, 2150)
+  })
+  launchSceneTimer = window.setTimeout(() => { launchSceneVisible.value = false; disarmLaunchAudioRetry() }, 2300)
 }
 
 onBeforeUnmount(() => {
@@ -119,8 +120,9 @@ onMounted(() => {
   <div class="app-shell">
     <Transition name="olddex-launch-fade">
       <section v-if="launchSceneVisible" class="olddex-launch-scene" aria-label="Old.dex launching">
+        <audio v-if="bootAudioEnabled" ref="launchAudioElement" src="/audio/ready_for_murderin_orc.mp3" preload="auto" autoplay playsinline></audio>
         <img src="/icons/icon-192.png" alt="" aria-hidden="true" />
-        <div><strong>OLD.DEX</strong><small>ALPHA BUILD 0.36</small></div>
+        <div><strong>OLD.DEX</strong><small>ALPHA BUILD 0.37</small></div>
       </section>
     </Transition>
 
@@ -135,7 +137,7 @@ onMounted(() => {
     </section>
 
     <footer v-if="showGlobalPageTools" class="app-footer olddex-legal-footer">
-      <span>Old.dex Alpha Build 0.36</span>
+      <span>Old.dex Alpha Build 0.37</span>
       <span>Olddex is not affiliated with Games Workshop. It displays data from BSData.</span>
     </footer>
   </div>

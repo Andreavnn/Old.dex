@@ -1,4 +1,4 @@
-const CACHE_NAME = 'olddex-shell-v036-sequential-match-tracking'
+const CACHE_NAME = 'olddex-shell-v037-match-rule-display-and-ux'
 const CORE = ['/', '/manifest.webmanifest', '/icons/favicon-64.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/audio/ready_for_murderin_orc.mp3']
 
 self.addEventListener('install', (event) => {
