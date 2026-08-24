@@ -1054,6 +1054,7 @@ function saveCurrentRosterConfiguration() {
     cannotBeGeneral: prototypeUnit.value?.cannotBeGeneral,
     troopType: prototypeUnit.value?.details.troopType,
     leadership: Number.parseInt(profileRows.value[0]?.profile.Ld || '', 10) || undefined,
+    movement: profileRows.value.map((row) => Number.parseInt(row.profile.M || '', 10)).find((value) => Number.isFinite(value) && value > 0) || undefined,
     generalEligible: Boolean(prototypeUnit.value?.equipmentOptions.some((option) => option.kind === 'role' && /^General$/i.test(canonicalOptionName(option)))),
     hierophantEligible: Boolean(prototypeUnit.value?.equipmentOptions.some((option) => option.kind === 'role' && /^The Hierophant$/i.test(canonicalOptionName(option)))),
     options: rosterOptionLabels.value,

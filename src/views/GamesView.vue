@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
-import { getSavedGames, type SavedGame } from '../services/games'
+import { deleteSavedGame, getSavedGames, type SavedGame } from '../services/games'
+import { clearGameLock, lockedGameIds, setGameLocked } from '../services/gameLocksV034'
 
 const games = ref<SavedGame[]>([])
+const lockedIds = ref(new Set<string>())
 const openFilter = ref('all')
 const historyFilter = ref('all')
 const openSearch = ref('')
@@ -11,7 +13,10 @@ const historySearch = ref('')
 const openSearchVisible = ref(false)
 const historySearchVisible = ref(false)
 
-function refreshGames() { games.value = getSavedGames() }
+function refreshGames() {
+  games.value = getSavedGames()
+  lockedIds.value = lockedGameIds()
+}
 onMounted(refreshGames)
 
 const openGames = computed(() => games.value.filter((game) => game.status === 'open'))
@@ -40,19 +45,7 @@ function matchesFilter(game: SavedGame, filter: string) {
 function matchesSearch(game: SavedGame, query: string) {
   const wanted = query.trim().toLowerCase()
   if (!wanted) return true
-  return [
-    game.name,
-    game.playerName,
-    game.playerListName,
-    game.opponentListName,
-    game.opponentName,
-    game.playerArmyName,
-    game.opponentArmyName,
-    game.scenario,
-    String(game.playerPoints || ''),
-    String(game.opponentPoints || ''),
-    String(game.points),
-  ].some((value) => String(value || '').toLowerCase().includes(wanted))
+  return [game.name, game.playerName, game.playerListName, game.opponentListName, game.opponentName, game.playerArmyName, game.opponentArmyName, game.scenario, String(game.playerPoints || ''), String(game.opponentPoints || ''), String(game.points)].some((value) => String(value || '').toLowerCase().includes(wanted))
 }
 function visibleRows(rows: SavedGame[], filter: string, query: string) {
   const filtered = rows.filter((game) => matchesFilter(game, filter) && matchesSearch(game, query))
@@ -64,13 +57,8 @@ const openOptions = computed(() => filterOptions(openGames.value))
 const historyOptions = computed(() => filterOptions(history.value))
 
 function toggleSearch(kind: 'open' | 'history') {
-  if (kind === 'open') {
-    openSearchVisible.value = !openSearchVisible.value
-    if (!openSearchVisible.value) openSearch.value = ''
-  } else {
-    historySearchVisible.value = !historySearchVisible.value
-    if (!historySearchVisible.value) historySearch.value = ''
-  }
+  if (kind === 'open') { openSearchVisible.value = !openSearchVisible.value; if (!openSearchVisible.value) openSearch.value = '' }
+  else { historySearchVisible.value = !historySearchVisible.value; if (!historySearchVisible.value) historySearch.value = '' }
 }
 function resultLabel(game: SavedGame) {
   if (game.outcome === 'conceded') return 'Conceded'
@@ -81,6 +69,20 @@ function resultLabel(game: SavedGame) {
 }
 function matchupName(game: SavedGame) { return `${game.playerName} - ${game.opponentName}` }
 function matchupPoints(game: SavedGame) { const friendly = Number(game.playerPoints || game.points || 0); const enemy = Number(game.opponentPoints || (game.opponentListName ? game.points : 0)); return `${friendly || 0} pts - ${enemy > 0 ? `${enemy} pts` : '—'}` }
+function isLocked(game: SavedGame) { return lockedIds.value.has(game.id) }
+function toggleGameLock(game: SavedGame) {
+  const next = !isLocked(game)
+  setGameLocked(game.id, next)
+  const ids = new Set(lockedIds.value)
+  if (next) ids.add(game.id); else ids.delete(game.id)
+  lockedIds.value = ids
+}
+function deleteOpenGame(game: SavedGame) {
+  if (typeof window !== 'undefined' && !window.confirm(`Delete the open match “${matchupName(game)}”? This cannot be undone.`)) return
+  deleteSavedGame(game.id)
+  clearGameLock(game.id)
+  refreshGames()
+}
 </script>
 
 <template>
@@ -109,10 +111,18 @@ function matchupPoints(game: SavedGame) { const friendly = Number(game.playerPoi
       </div>
       <label v-if="openSearchVisible" class="games-inline-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><input v-model="openSearch" type="search" placeholder="Search name, roster, faction or points" /></label>
       <div v-if="openVisible.length" class="game-list">
-        <RouterLink v-for="game in openVisible" :key="game.id" :to="`/games/${game.id}`" class="game-list-row">
-          <span><strong>{{ matchupName(game) }}</strong><small>{{ game.playerArmyName }} - {{ game.opponentArmyName || game.opponentName }} · {{ game.scenario }} · Round {{ game.round }} / {{ game.roundLimit || 6 }}</small></span>
-          <span class="game-list-meta"><strong>{{ matchupPoints(game) }}</strong><small>Continue</small></span>
-        </RouterLink>
+        <article v-for="game in openVisible" :key="game.id" class="game-list-row game-manage-row" :class="{ locked: isLocked(game) }">
+          <RouterLink :to="`/games/${game.id}`" class="game-row-link">
+            <span><strong>{{ matchupName(game) }}</strong><small>{{ game.playerArmyName }} - {{ game.opponentArmyName || game.opponentName }} · {{ game.scenario }} · Round {{ game.round }} / {{ game.roundLimit || 6 }}</small></span>
+            <span class="game-list-meta"><strong>{{ matchupPoints(game) }}</strong><small>{{ isLocked(game) ? 'Locked · Review' : 'Continue' }}</small></span>
+          </RouterLink>
+          <div class="game-row-actions" aria-label="Open match actions">
+            <button type="button" class="game-row-action" :class="{ active: isLocked(game) }" :aria-label="isLocked(game) ? 'Unlock match' : 'Lock match'" :title="isLocked(game) ? 'Unlock match' : 'Lock match'" @click="toggleGameLock(game)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path :d="isLocked(game) ? 'M8 10V7a4 4 0 0 1 8 0v3' : 'M8 10V7a4 4 0 0 1 7.5-2'"/></svg>
+            </button>
+            <button type="button" class="game-row-action danger" aria-label="Delete match" title="Delete match" @click="deleteOpenGame(game)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button>
+          </div>
+        </article>
       </div>
       <div v-else class="games-empty-inline">No matching open matches.</div>
       <div v-if="openGames.length > 3 && openFilter === 'all' && !openSearch.trim()" class="games-truncated-note">Showing the 3 most recent. Use Filter or Search to see more.</div>
@@ -121,18 +131,11 @@ function matchupPoints(game: SavedGame) { const friendly = Number(game.playerPoi
     <section class="games-section card-surface">
       <div class="games-section-heading">
         <h2>Match History</h2>
-        <div class="games-section-tools">
-          <span class="section-count">{{ history.length }}</span>
-          <details class="games-filter-menu"><summary aria-label="Filter matches" title="Filter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg></summary><label class="games-filter-control"><span class="sr-only">Filter</span><select v-model="historyFilter" @click.stop><option v-for="option in historyOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label></details>
-          <button type="button" class="games-search-toggle" :class="{ active: historySearchVisible }" aria-label="Search match history" @click="toggleSearch('history')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></button>
-        </div>
+        <div class="games-section-tools"><span class="section-count">{{ history.length }}</span><details class="games-filter-menu"><summary aria-label="Filter matches" title="Filter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg></summary><label class="games-filter-control"><span class="sr-only">Filter</span><select v-model="historyFilter" @click.stop><option v-for="option in historyOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label></details><button type="button" class="games-search-toggle" :class="{ active: historySearchVisible }" aria-label="Search match history" @click="toggleSearch('history')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></button></div>
       </div>
       <label v-if="historySearchVisible" class="games-inline-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><input v-model="historySearch" type="search" placeholder="Search name, roster, faction or points" /></label>
       <div v-if="historyVisible.length" class="game-list history-list">
-        <RouterLink v-for="game in historyVisible" :key="game.id" :to="`/games/${game.id}`" class="game-list-row">
-          <span><strong>{{ matchupName(game) }}</strong><small>{{ game.playerArmyName }} - {{ game.opponentArmyName || game.opponentName }} · {{ game.scenario }} · {{ new Date(game.completedAt || game.updatedAt).toLocaleDateString() }}</small></span>
-          <span class="game-list-meta"><strong>{{ matchupPoints(game) }}</strong><small>{{ resultLabel(game) }} · Review</small></span>
-        </RouterLink>
+        <RouterLink v-for="game in historyVisible" :key="game.id" :to="`/games/${game.id}`" class="game-list-row"><span><strong>{{ matchupName(game) }}</strong><small>{{ game.playerArmyName }} - {{ game.opponentArmyName || game.opponentName }} · {{ game.scenario }} · {{ new Date(game.completedAt || game.updatedAt).toLocaleDateString() }}</small></span><span class="game-list-meta"><strong>{{ matchupPoints(game) }}</strong><small>{{ resultLabel(game) }} · Review</small></span></RouterLink>
       </div>
       <div v-else class="games-empty-inline">No matching completed matches.</div>
       <div v-if="history.length > 3 && historyFilter === 'all' && !historySearch.trim()" class="games-truncated-note">Showing the 3 most recent. Use Filter or Search to see more.</div>

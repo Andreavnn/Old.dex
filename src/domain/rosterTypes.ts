@@ -36,6 +36,8 @@ export type BuilderRosterSelection = {
   cannotBeGeneral?: boolean
   troopType?: string
   leadership?: number
+  /** Effective movement snapshot used by match tools such as maximum charge range. */
+  movement?: number
   generalEligible?: boolean
   hierophantEligible?: boolean
   options: string[]

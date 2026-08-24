@@ -6,6 +6,7 @@ import { initializeInstallApp } from './services/installApp'
 import './services/language'
 import './styles.css'
 import './styles-v033.css'
+import './styles-v034.css'
 
 initializeInstallApp()
 

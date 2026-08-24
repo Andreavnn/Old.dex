@@ -1,0 +1,151 @@
+/* Old.dex Alpha Build 0.34 — match workflow corrections and theme contrast. */
+
+/* Light pill/chip surfaces keep readable text regardless of the selected theme. */
+.value-chip,
+.app-option-label,
+.rule-kind-pill,
+.match-option-chips > span,
+.profile-loadout-chip,
+.legacy-roster-label,
+.required-charge-flag,
+.match-locked-pill {
+  color: #111 !important;
+}
+
+/* Open-match management. */
+.game-manage-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 0;
+  gap: 0;
+}
+.game-row-link {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 16px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.game-row-link > span:first-child { display: grid; gap: 3px; min-width: 0; }
+.game-row-link small { color: var(--ink-soft); font-size: calc(9px + var(--font-offset)); line-height: 1.35; }
+.game-manage-row.locked .game-row-link { opacity: .78; }
+.game-row-actions {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 8px 0;
+}
+.game-row-action {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+.game-row-action:hover,
+.game-row-action.active { border-color: var(--accent); background: var(--accent-wash); }
+.game-row-action.danger:hover { border-color: var(--danger); color: var(--danger); }
+.game-row-action svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Match shell has enough bottom room for sticky navigation, lifecycle buttons and the global footer. */
+.game-match-page { padding-bottom: 96px; }
+.game-match-shell { padding-bottom: 34px; }
+.game-step-card { overflow: visible; }
+.match-sticky-nav {
+  bottom: max(8px, env(safe-area-inset-bottom));
+  margin: 18px 0 0;
+  padding: 12px 0 max(10px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+}
+.match-lifecycle-actions {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 26px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.match-readonly-actions {
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 26px;
+  padding: 13px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.match-lock-note { color: var(--ink-soft); line-height: 1.4; }
+.match-locked-pill {
+  justify-self: end;
+  align-self: start;
+  padding: 6px 10px;
+  border: 1px solid var(--line-dark);
+  border-radius: 999px;
+  background: var(--paper-2);
+  font-weight: 900;
+  letter-spacing: .08em;
+  font-size: calc(8px + var(--font-offset));
+}
+
+/* Deployment state controls stay beside one another. */
+.deployment-unit-status-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  align-items: center;
+  justify-content: start;
+  gap: 8px 14px;
+}
+.deployment-unit-status-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.deployment-unit-status-controls label.unavailable { opacity: .45; }
+
+/* Charge declaration returns to the older, direct unit checklist pattern. */
+.declare-charge-list { display: grid; gap: 9px; margin-top: 10px; }
+.declare-charge-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(118px, auto);
+  align-items: center;
+  gap: 11px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  cursor: pointer;
+}
+.declare-charge-row.required { border-color: color-mix(in srgb, var(--danger) 55%, var(--line)); }
+.declare-charge-row.complete { opacity: .68; }
+.declare-charge-copy { display: grid; gap: 3px; min-width: 0; }
+.declare-charge-copy small { color: var(--ink-soft); line-height: 1.35; }
+.declare-charge-range { display: grid; justify-items: end; gap: 1px; text-align: right; }
+.declare-charge-range small { color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; font-size: calc(7px + var(--font-offset)); }
+.declare-charge-range strong { font-size: calc(16px + var(--font-offset)); }
+.declare-charge-range em { max-width: 250px; color: var(--ink-soft); font-size: calc(8px + var(--font-offset)); font-style: normal; line-height: 1.25; }
+
+.battle-step-tip { margin-bottom: 0; }
+.turn-guidance-panel .setup-section-heading { align-items: flex-start; }
+
+@media (max-width: 700px) {
+  .game-match-page { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+  .game-row-link { grid-template-columns: 1fr; gap: 6px; }
+  .game-row-link .game-list-meta { justify-items: start; }
+  .game-row-actions { padding-right: 10px; }
+  .deployment-unit-status-controls { grid-template-columns: 1fr 1fr; width: 100%; }
+  .declare-charge-row { grid-template-columns: auto minmax(0, 1fr); }
+  .declare-charge-range { grid-column: 2; justify-items: start; text-align: left; }
+  .match-lifecycle-actions { padding: 14px; margin-bottom: 38px; }
+  .match-lifecycle-actions > button { flex: 1 1 145px; min-height: 44px; }
+  .match-readonly-actions { align-items: stretch; }
+  .match-readonly-actions > button { width: 100%; }
+}

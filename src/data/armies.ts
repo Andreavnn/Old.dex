@@ -1,4 +1,4 @@
-export type ArmyFamily = 'Forces of Fantasy' | 'Powers of Chaos' | 'Legions of Undead' | 'Ravening Hordes'
+export type ArmyFamily = 'Forces of Fantasy' | 'Powers of Chaos' | 'Legions of Undead' | 'Ravening Hordes' | 'Legends of Legacy'
 
 export type ArmyComposition = {
   id: string
@@ -72,7 +72,7 @@ export const armies: Army[] = [
     ],
   },
   {
-    slug: 'lizardmen', name: 'Lizardmen', family: 'Forces of Fantasy', dataKey: 'lizardmen', legacy: true,
+    slug: 'lizardmen', name: 'Lizardmen', family: 'Legends of Legacy', dataKey: 'lizardmen', legacy: true,
     compositions: [
       { id: 'lizardmen', name: 'Grand Army' },
       { id: 'lm-renegade', name: 'Renegade' },
@@ -87,7 +87,7 @@ export const armies: Army[] = [
     ],
   },
   {
-    slug: 'dark-elves', name: 'Dark Elves', family: 'Forces of Fantasy', dataKey: 'dark-elves', legacy: true,
+    slug: 'dark-elves', name: 'Dark Elves', family: 'Legends of Legacy', dataKey: 'dark-elves', legacy: true,
     compositions: [
       { id: 'dark-elves', name: 'Grand Army' },
       { id: 'de-renegade', name: 'Renegade' },
@@ -103,14 +103,14 @@ export const armies: Army[] = [
     ],
   },
   {
-    slug: 'chaos-dwarfs', name: 'Chaos Dwarfs', family: 'Powers of Chaos', dataKey: 'chaos-dwarfs', legacy: true,
+    slug: 'chaos-dwarfs', name: 'Chaos Dwarfs', family: 'Legends of Legacy', dataKey: 'chaos-dwarfs', legacy: true,
     compositions: [
       { id: 'chaos-dwarfs', name: 'Grand Army' },
       { id: 'cd-renegade', name: 'Renegade' },
     ],
   },
   {
-    slug: 'daemons-of-chaos', name: 'Daemons of Chaos', family: 'Powers of Chaos', dataKey: 'daemons-of-chaos', legacy: true,
+    slug: 'daemons-of-chaos', name: 'Daemons of Chaos', family: 'Legends of Legacy', dataKey: 'daemons-of-chaos', legacy: true,
     compositions: [
       { id: 'daemons-of-chaos', name: 'Grand Army' },
       { id: 'doc-renegade', name: 'Renegade' },
@@ -123,7 +123,7 @@ export const armies: Army[] = [
     ],
   },
   {
-    slug: 'skaven', name: 'Skaven', family: 'Powers of Chaos', dataKey: 'skaven', legacy: true,
+    slug: 'skaven', name: 'Skaven', family: 'Legends of Legacy', dataKey: 'skaven', legacy: true,
     compositions: [
       { id: 'skaven', name: 'Grand Army' },
       { id: 'sk-renegade', name: 'Renegade' },
@@ -147,7 +147,7 @@ export const armies: Army[] = [
     ],
   },
   {
-    slug: 'vampire-counts', name: 'Vampire Counts', family: 'Legions of Undead', dataKey: 'vampire-counts', legacy: true,
+    slug: 'vampire-counts', name: 'Vampire Counts', family: 'Legends of Legacy', dataKey: 'vampire-counts', legacy: true,
     compositions: [
       { id: 'vampire-counts', name: 'Grand Army' },
       { id: 'vc-renegade', name: 'Renegade' },
@@ -155,7 +155,7 @@ export const armies: Army[] = [
   },
 
   {
-    slug: 'ogre-kingdoms', name: 'Ogre Kingdoms', family: 'Ravening Hordes', dataKey: 'ogre-kingdoms', legacy: true,
+    slug: 'ogre-kingdoms', name: 'Ogre Kingdoms', family: 'Legends of Legacy', dataKey: 'ogre-kingdoms', legacy: true,
     compositions: [
       { id: 'ogre-kingdoms', name: 'Grand Army' },
       { id: 'ok-renegade', name: 'Renegade' },
@@ -177,7 +177,7 @@ export const armies: Army[] = [
   },
 ]
 
-export const armyFamilyOrder: ArmyFamily[] = ['Forces of Fantasy', 'Powers of Chaos', 'Legions of Undead', 'Ravening Hordes']
+export const armyFamilyOrder: ArmyFamily[] = ['Forces of Fantasy', 'Powers of Chaos', 'Legions of Undead', 'Ravening Hordes', 'Legends of Legacy']
 export const selectableArmies = armies.filter((army) => army.selectable !== false)
 export const officialArmies = selectableArmies.filter((army) => !army.legacy)
 export const legacyArmies = selectableArmies.filter((army) => army.legacy)

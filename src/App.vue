@@ -72,7 +72,7 @@ onMounted(() => {
     </section>
 
     <footer v-if="showGlobalPageTools" class="app-footer olddex-legal-footer">
-      <span>Old.dex Alpha Build 0.33</span>
+      <span>Old.dex Alpha Build 0.34</span>
       <span>Olddex is not affiliated with Games Workshop. It displays data from BSData.</span>
     </footer>
   </div>
