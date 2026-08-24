@@ -7,6 +7,7 @@ import './services/language'
 import './styles.css'
 import './styles-v033.css'
 import './styles-v034.css'
+import './styles-v035.css'
 
 initializeInstallApp()
 

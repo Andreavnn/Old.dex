@@ -1,5 +1,5 @@
-const CACHE_NAME = 'olddex-shell-v034-match-workflow'
-const CORE = ['/', '/manifest.webmanifest', '/icons/favicon-64.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png']
+const CACHE_NAME = 'olddex-shell-v035-match-intelligence-boot-audio'
+const CORE = ['/', '/manifest.webmanifest', '/icons/favicon-64.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/audio/ready_for_murderin_orc.mp3']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE)).then(() => self.skipWaiting()))

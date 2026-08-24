@@ -13,9 +13,10 @@ type SettingsState = {
   boldText: boolean
   visualTheme: VisualTheme
   backgroundImage: BackgroundChoice
+  bootAudioEnabled: boolean
 }
 
-const storageKey = 'olddex.settings.v0.12'
+const storageKey = 'olddex.settings.v0.13'
 
 const defaults: SettingsState = {
   darkMode: false,
@@ -24,6 +25,7 @@ const defaults: SettingsState = {
   boldText: false,
   visualTheme: 'default',
   backgroundImage: 'none',
+  bootAudioEnabled: true,
 }
 
 function normalizeFontSize(value: unknown): FontSize {
@@ -45,7 +47,7 @@ function loadSettings(): SettingsState {
   if (typeof window === 'undefined') return { ...defaults }
   try {
     const current = JSON.parse(readStorage(storageKey) || '{}')
-    const legacy = JSON.parse(readStorage('olddex.settings.v0.11') || readStorage('olddex.settings.v0.10') || readStorage('olddex.settings.v0.9') || readStorage('olddex.settings.v0.8') || readStorage('olddex.settings.v0.7') || readStorage('olddex.settings.v0.6') || readStorage('olddex.settings.v0.4') || '{}')
+    const legacy = JSON.parse(readStorage('olddex.settings.v0.12') || readStorage('olddex.settings.v0.11') || readStorage('olddex.settings.v0.10') || readStorage('olddex.settings.v0.9') || readStorage('olddex.settings.v0.8') || readStorage('olddex.settings.v0.7') || readStorage('olddex.settings.v0.6') || readStorage('olddex.settings.v0.4') || '{}')
     const saved = Object.keys(current).length ? current : legacy
     return {
       darkMode: Boolean(saved.darkMode),
@@ -54,6 +56,7 @@ function loadSettings(): SettingsState {
       boldText: Boolean(saved.boldText),
       visualTheme: normalizeVisualTheme(saved.visualTheme),
       backgroundImage: normalizeBackgroundChoice(saved.backgroundImage),
+      bootAudioEnabled: saved.bootAudioEnabled !== false,
     }
   } catch (error) {
     reportAppError(error, 'SETTINGS_DATA_INVALID')
@@ -77,9 +80,7 @@ watch(
   state,
   () => {
     applySettings()
-    if (typeof window !== 'undefined') {
-      writeStorage(storageKey, JSON.stringify(state))
-    }
+    if (typeof window !== 'undefined') writeStorage(storageKey, JSON.stringify(state))
   },
   { deep: true, immediate: true },
 )
@@ -92,6 +93,7 @@ export function useSettings() {
     boldText: toRef(state, 'boldText'),
     visualTheme: toRef(state, 'visualTheme'),
     backgroundImage: toRef(state, 'backgroundImage'),
+    bootAudioEnabled: toRef(state, 'bootAudioEnabled'),
     toggleTheme: () => { state.darkMode = !state.darkMode },
     reset: () => Object.assign(state, defaults),
   }

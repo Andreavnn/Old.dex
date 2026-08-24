@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useSettings } from './settings'
 import { initializeBuilderData } from './services/armyData'
 import { reportAppError } from './services/appErrors'
 import { useInstallApp } from './services/installApp'
 import { loadOwbRuleCatalog } from './services/owbRuleResolver'
+import BootAudioSetting from './components/BootAudioSetting.vue'
 
-useSettings()
+const { bootAudioEnabled } = useSettings()
 const route = useRoute()
 const { installedApp, requestInstall } = useInstallApp()
 const showGlobalPageTools = computed(() => route.name !== 'welcome')
@@ -41,7 +42,60 @@ function syncRulesIntroPatch() {
   })
 }
 watch(() => route.name, syncRulesIntroPatch, { immediate: true })
-onBeforeUnmount(() => rulesObserver?.disconnect())
+const launchSceneVisible = ref(false)
+let launchSceneTimer = 0
+let launchAudio: HTMLAudioElement | null = null
+let launchAudioRetryArmed = false
+
+function isStandaloneLaunch() {
+  if (typeof window === 'undefined') return false
+  const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean }
+  return window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone === true
+}
+
+function disarmLaunchAudioRetry() {
+  if (!launchAudioRetryArmed || typeof window === 'undefined') return
+  launchAudioRetryArmed = false
+  window.removeEventListener('pointerdown', retryLaunchAudio)
+  window.removeEventListener('keydown', retryLaunchAudio)
+}
+
+function retryLaunchAudio() {
+  if (!launchSceneVisible.value || !bootAudioEnabled.value || !launchAudio) { disarmLaunchAudioRetry(); return }
+  void launchAudio.play().then(disarmLaunchAudioRetry).catch(() => { /* A later user gesture may still unlock audio. */ })
+}
+
+function armLaunchAudioRetry() {
+  if (launchAudioRetryArmed || typeof window === 'undefined') return
+  launchAudioRetryArmed = true
+  window.addEventListener('pointerdown', retryLaunchAudio, { passive: true })
+  window.addEventListener('keydown', retryLaunchAudio)
+}
+
+function startInstalledLaunchScene() {
+  if (!isStandaloneLaunch() || typeof window === 'undefined') return
+  const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+  if (navigation?.type === 'reload') return
+  const sessionKey = 'olddex.launch-scene.v035'
+  if (window.sessionStorage.getItem(sessionKey)) return
+  window.sessionStorage.setItem(sessionKey, '1')
+  launchSceneVisible.value = true
+  if (bootAudioEnabled.value) {
+    launchAudio = new Audio('/audio/ready_for_murderin_orc.mp3')
+    launchAudio.preload = 'auto'
+    launchAudio.volume = 0.9
+    void launchAudio.play().catch(() => armLaunchAudioRetry())
+  }
+  launchSceneTimer = window.setTimeout(() => { launchSceneVisible.value = false; disarmLaunchAudioRetry() }, 2150)
+}
+
+onBeforeUnmount(() => {
+  rulesObserver?.disconnect()
+  if (launchSceneTimer) window.clearTimeout(launchSceneTimer)
+  disarmLaunchAudioRetry()
+  launchAudio?.pause()
+  launchAudio = null
+})
 
 async function installFromFooter() {
   const result = await requestInstall()
@@ -54,6 +108,7 @@ function reportPlaceholder() {
 }
 
 onMounted(() => {
+  startInstalledLaunchScene()
   Promise.all([initializeBuilderData(), loadOwbRuleCatalog()]).catch((error) => {
     reportAppError(error, 'BUILDER_STARTUP_FAILED')
   })
@@ -62,7 +117,15 @@ onMounted(() => {
 
 <template>
   <div class="app-shell">
+    <Transition name="olddex-launch-fade">
+      <section v-if="launchSceneVisible" class="olddex-launch-scene" aria-label="Old.dex launching">
+        <img src="/icons/icon-192.png" alt="" aria-hidden="true" />
+        <div><strong>OLD.DEX</strong><small>ALPHA BUILD 0.35</small></div>
+      </section>
+    </Transition>
+
     <RouterView />
+    <BootAudioSetting v-if="route.name === 'settings'" />
 
     <section v-if="showGlobalPageTools" class="page-utility-shell" aria-label="Old.dex page tools">
       <div class="page-utility-actions">
@@ -72,7 +135,7 @@ onMounted(() => {
     </section>
 
     <footer v-if="showGlobalPageTools" class="app-footer olddex-legal-footer">
-      <span>Old.dex Alpha Build 0.34</span>
+      <span>Old.dex Alpha Build 0.35</span>
       <span>Olddex is not affiliated with Games Workshop. It displays data from BSData.</span>
     </footer>
   </div>

@@ -2,7 +2,7 @@
 
 **Old.dex** is an unofficial companion web app for **Warhammer: The Old World** focused on army building, rules reference, roster validation, and guided match play.
 
-Current public version: **Alpha Build 0.34**
+Current public version: **Alpha Build 0.35**
 
 ## What Old.dex Does
 
@@ -26,7 +26,7 @@ Old.dex combines several tools into one browser-based application:
 - Install as a Progressive Web App on supported desktop and mobile browsers.
 
 
-Alpha Build 0.34 refines guided match play with lock/delete controls for open matches, task-only Start of Round panels, corrected subphase timing, complete required-charge guidance, simplified charge declaration tracking with maximum charge ranges, phase-appropriate spell display, battlefield-rule routing, and improved dark-theme pill contrast. Legacy army rules are grouped under **Legends of Legacy**.
+Alpha Build 0.35 rebuilds guided match play around a compiled match-intelligence model. Roster rules, magical items, scenario/battlefield effects, compositions, and prepared magic are converted into operational timing events before they are displayed, so phase names inside descriptive or duration text no longer cause duplicate tasks. Required Charge Test providers and modifiers are distinguished, failed tests carry forward into Declare Charges, and maximum declaration range uses Movement + 6 plus explicit range increases. Installed Old.dex launches also include an optional boot-audio scene, with a Settings switch to disable the sound.
 
 ## Current Alpha Focus
 
@@ -36,7 +36,7 @@ Old.dex is still under active development. Current work is focused primarily on:
 2. Reliable army-composition validation.
 3. Canonical model/profile identity and upgrade scope.
 4. Better handling of mounts, equipment, saves, magical-item allowances, and persistent modifiers.
-5. Guided phase/subphase match-flow tools.
+5. Compiled rule timing and guided phase/subphase match-flow tools.
 6. Official/Legacy army organization.
 7. Mobile and tablet usability.
 
