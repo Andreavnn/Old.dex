@@ -2,7 +2,7 @@
 
 **Old.dex** is an unofficial companion web app for **Warhammer: The Old World** focused on army building, rules reference, roster validation, and guided match play.
 
-Current public version: **Alpha Build 0.37**
+Current public version: **Alpha Build 0.38**
 
 ## What Old.dex Does
 
@@ -26,7 +26,7 @@ Old.dex combines several tools into one browser-based application:
 - Install as a Progressive Web App on supported desktop and mobile browsers.
 
 
-Alpha Build 0.37 tightens match presentation and source-rule interpretation. Pill UI keeps its readable light treatment in dark mode, installed-app launch audio is tied directly to the launch scene, normal game length defaults to four rounds unless a scenario supplies its own explicit length, single-step phase rails no longer show useless scroll arrows, character joining uses conservative troop-type and mount compatibility, Notes are collapsed by default, rule cards show cleaned/full mechanical text without source-page metadata, shared joined-unit rules are deduplicated, Combat profile names open the roster-equivalent unit reference, and Break Test / winner follow-up results use direct checkbox choices.
+Alpha Build 0.38 rebuilds rule retrieval and display around Old World Builder’s canonical rule mapping and minimal rules-index requests. Shared rule parsing now rejects source-site chrome and broken-page text, Old World Builder’s canonical rule map is bundled as a local fallback, magic items can recover missing details from their collection pages, and shield selections reliably improve the owning model’s armour save.
 
 ## Current Alpha Focus
 

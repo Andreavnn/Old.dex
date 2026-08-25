@@ -14,6 +14,7 @@ function characteristicEffectiveNumber(value: string) { const parenthesized = va
 export function formatCharacteristicBonus(value: string, amount: number) { const current = characteristicEffectiveNumber(value); if (current === null || !amount) return value; const base = value.replace(/\s*\(-?\d+\)\s*$/, '').trim(); return `${base}(${current + amount})` }
 export function normalizedModelName(value: string) { return value.toLowerCase().replace(/\s*\([^)]*\)\s*/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim() }
 export function isMountProfileName(name: string) { return /\b(boar|horse|steed|wolf|spider|squig|dragon|wyvern|griffon|griffin|pegasus|eagle|unicorn|manticore|chariot|carpet|throne|palanquin|stag|cold one|demigryph|warhawk)\b/i.test(name) }
+function isShieldOption(option: PrototypeEquipmentOption) { return isShieldName(option.sourceName || option.name) || /\/shield(?:$|[?#/])/i.test(String(option.referencePath || '')) }
 
 const championPattern = /\b(?:champion|boss|captain|sergeant|champ|championess)\b/i
 const specialModelPattern = /\b(?:musician|standard bearer|crew|bully|handler|master moulder|team|loader|spotter)\b/i
@@ -88,7 +89,7 @@ export function applyProfileEffects(input: ProfileEffectInput) {
   const applicableEquipment = input.selectedEquipment.filter((option) => optionAppliesToProfile(input.unit, option, input.profileName) && (!isPerModelEquipmentSelection(option) || input.equipmentCount(option) >= input.modelCount))
   let saveModifier = 0
   for (const option of applicableEquipment) {
-    const shield = isShieldName(option.sourceName || option.name)
+    const shield = isShieldOption(option)
     if (!shield) for (const [key, value] of Object.entries(saveOnlyProfileOverride(option.profileOverride))) profile[key as ProfileKey] = String(value)
     if (shield) saveModifier += Math.max(1, Number(option.saveModifier) || 0)
     else saveModifier += Math.max(0, Number(option.saveModifier) || 0)

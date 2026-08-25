@@ -229,27 +229,10 @@ function matchingPath(map: Map<string, string>, name: string, fallback: string) 
 }
 
 
-function fallbackReferenceText(html: string, title = '') {
-  const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
-  dom.querySelectorAll('script,style,nav,header,footer,table').forEach((node) => node.remove())
-  const wantedTitle = title.toLowerCase().trim()
-  const rows = Array.from(dom.querySelectorAll('p, li'))
-    .map((node) => node.textContent?.replace(/\s+/g, ' ').trim() || '')
-    .filter((value) => value.length >= 18 && value.toLowerCase() !== wantedTitle)
-    .filter((value) => !/^(publication|source|page|last update|url copied|back source)\b/i.test(value))
-  const seen = new Set<string>()
-  const unique = rows.filter((value) => { const key = value.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true })
-  // Never promote flavour simply because it is the last paragraph. A fallback
-  // sentence must still look like game mechanics; otherwise leave the summary
-  // empty and let the linked source page remain the authority.
-  const mechanical = unique.filter((value) => /\b(?:may|must|can(?:not|'t)?|cannot|cause|causes|fear|terror|panic|test|roll|re-?roll|save|attack|attacks|wound|wounds|phase|turn|special rule|characteristic|modifier|within|range)\b/i.test(value))
-  return mechanical.slice(-2).join(' ').slice(0, 1800)
-}
-
 function ruleSummaryLooksIncomplete(value: string) {
   const text = String(value || '').trim()
   if (!text) return true
-  return /(?:last update\s*:|back source\s*:|url copied|warhammer:\s*the old world|ravening hordes,?\s*p\.|forces of fantasy,?\s*p\.|arcane journal[^.]*,?\s*p\.)/i.test(text)
+  return /(?:last update\s*:|back source\s*:|url copied|table of contents|page is (?:still )?not loading properly|verify the url in the address bar|bug report feature|warhammer:\s*the old world|ravening hordes,?\s*p\.|forces of fantasy,?\s*p\.|arcane journal[^.]*,?\s*p\.)/i.test(text)
 }
 
 async function enrichSpecialRule(rule: PrototypeUnit['specialRules'][number]) {
@@ -266,7 +249,6 @@ async function enrichSpecialRule(rule: PrototypeUnit['specialRules'][number]) {
         reportAppError(error, 'UNIT_RULE_REFERENCE_REFRESH', { rule: rule.name, path: rule.path })
       }
     }
-    if (ruleSummaryLooksIncomplete(summary)) summary = fallbackReferenceText(document.html, rule.name)
     return { ...rule, summary: ruleSummaryLooksIncomplete(summary) ? rule.summary : summary }
   } catch (error) {
     reportAppError(error, 'UNIT_RULE_REFERENCE', { rule: rule.name, path: rule.path })

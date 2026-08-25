@@ -10,6 +10,7 @@ import './styles-v034.css'
 import './styles-v035.css'
 import './styles-v036.css'
 import './styles-v037.css'
+import './styles-v038.css'
 
 initializeInstallApp()
 

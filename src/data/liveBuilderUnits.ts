@@ -396,6 +396,8 @@ function equipmentOptions(raw: RawBuilderUnit, catalog: OwbRuleCatalog, composit
     if (row.exclusiveGroup && /^must choose\b.*\bor\b/i.test(String(row.note || '').trim())) row.note = ''
     const ward = `${sourceName} ${noteText(item.notes)}`.match(/(?:Ward\s+save(?:\s+of)?\s*\(?\s*(2\+|3\+|4\+|5\+|6\+)\s*\)?|(2\+|3\+|4\+|5\+|6\+)\s+Ward\s+save)/i)
     if (ward) row.profileOverride = { ...(row.profileOverride || {}), Ward: ward[1] || ward[2] }
+    const resolvedAsShield = /\bshields?\b/i.test(sourceName) || /\/shield(?:$|[?#/])/i.test(String(row.referencePath || ''))
+    if (resolvedAsShield) { row.saveModifier = Math.max(1, Number(row.saveModifier) || 0); row.selectionMode = 'unit-toggle'; row.stackable = false; row.allocationGroup = undefined }
     rows.push(row)
     return row
   }

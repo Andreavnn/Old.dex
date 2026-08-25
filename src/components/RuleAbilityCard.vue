@@ -13,26 +13,12 @@ const displayRule = computed(() => splitRuleCallout(props.rule.name))
 const ownRulePath = computed(() => props.rule.path || props.rule.keywords[0]?.path || '')
 const loadedSummary = ref('')
 
-function fallbackDocumentText(html: string) {
-  const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
-  dom.querySelectorAll('script,style,nav,header,footer,table').forEach((node) => node.remove())
-  const title = displayRule.value.title.toLowerCase()
-  const rows = Array.from(dom.querySelectorAll('p, li'))
-    .map((node) => node.textContent?.replace(/\s+/g, ' ').trim() || '')
-    .filter((text) => text.length >= 18 && text.toLowerCase() !== title)
-    .filter((text) => !/^(publication|source|page|last update|url copied|back source)\b/i.test(text))
-  const seen = new Set<string>()
-  const unique = rows.filter((text) => { const key = text.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true })
-  const mechanical = unique.filter((text) => /\b(?:may|must|can(?:not|'t)?|cannot|cause|causes|fear|terror|panic|test|roll|re-?roll|save|attack|attacks|wound|wounds|phase|turn|special rule|characteristic|modifier|within|range)\b/i.test(text))
-  return mechanical.slice(-2).join(' ').slice(0, 1800)
-}
-
 watch(() => [props.rule.summary, ownRulePath.value], async () => {
   loadedSummary.value = ''
   if (props.rule.summary || !ownRulePath.value) return
   try {
     const document = await fetchRuleDocument(ownRulePath.value)
-    loadedSummary.value = extractMechanicalRuleText(document.html) || fallbackDocumentText(document.html)
+    loadedSummary.value = extractMechanicalRuleText(document.html)
   } catch (error) {
     reportAppError(error, 'RULE_CARD_DETAIL', { rule: props.rule.name, path: ownRulePath.value })
   }

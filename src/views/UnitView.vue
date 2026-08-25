@@ -9,6 +9,7 @@ import { prototypeUnitsForArmy, type ProfileKey, type PrototypeEquipmentOption, 
 import { loadLiveUnitProfileProgressively } from '../data/liveBuilderUnits'
 import { loadArmyData } from '../services/armyData'
 import { fetchRuleDocument } from '../services/ruleContent'
+import { loadMagicItemReferenceV038 } from '../services/magicItemReferenceV038'
 import { extractMechanicalRuleText } from '../services/ruleText'
 import { findBuilderRosterSelection, loadBuilderRoster, updateBuilderRosterSelection, type BuilderRosterMagicItem } from '../services/builderRoster'
 import { isFavoriteUnit, setFavoriteUnit } from '../services/favorites'
@@ -139,7 +140,7 @@ watch(() => [army.value?.slug, unitId.value, compositionId.value, language.value
 const selectedWeaponIds = ref(new Set<string>())
 const selectedEquipmentIds = ref(new Set<string>())
 
-type MagicItem = { id: string; baseId: string; ownerId: string; ownerLabel: string; poolMaxPoints: number; name: string; sourceName: string; points: number; type: 'weapon' | 'armor' | 'talisman' | 'enchanted-item' | 'arcane-item' | 'banner'; source: string; stackable: boolean; maximum?: number; onePerArmy: boolean; slug: string; fluff?: string; magicStandardLimit?: { maxUnits: number; perPoints: number } }
+type MagicItem = { id: string; baseId: string; ownerId: string; ownerLabel: string; poolMaxPoints: number; name: string; sourceName: string; points: number; type: 'weapon' | 'armor' | 'talisman' | 'enchanted-item' | 'arcane-item' | 'banner'; source: string; collectionPath?: string; stackable: boolean; maximum?: number; onePerArmy: boolean; slug: string; fluff?: string; magicStandardLimit?: { maxUnits: number; perPoints: number } }
 type MagicItemDetail = { kind?: 'melee' | 'missile'; range?: string; strength?: string; ap?: string; rules?: string[]; summary?: string; fluff?: string; profileOverride?: Partial<Record<ProfileKey, string>>; shield?: boolean }
 
 const magicItems = ref<MagicItem[]>([])
@@ -544,7 +545,8 @@ function magicShieldSaveModifierFor(profileName: string) {
   const profileKey = normalizedModelName(profileName)
   return selectedMagicEntries.value.some(({ item }) => {
     const detail = magicItemDetails.value.get(item.id)
-    if (!detail?.shield) return false
+    const shield = Boolean(detail?.shield || /\bshield\b/i.test(item.sourceName) || /\bshield\b/i.test(item.name))
+    if (!shield) return false
     if (item.ownerId === 'unit') return true
     const ownerKey = normalizedModelName(item.ownerLabel)
     return Boolean(ownerKey && (profileKey.includes(ownerKey) || ownerKey.includes(profileKey)))
@@ -734,7 +736,7 @@ const activeSpecialRules = computed(() => {
 })
 const magicItemCards = computed(() => selectedMagicEntries.value.map(({ item, count }) => {
   const detail = magicItemDetails.value.get(item.id)
-  return { item, count, rule: { name: `${item.ownerId === 'unit' ? '' : `${item.ownerLabel} — `}${count > 1 ? `${item.name} ×${count}` : item.name}`, path: `/magic-item/${item.slug}`, timing: magicTypeLabel(item.type), tone: 'magic' as RuleTone, summary: detail?.summary || (magicItemDetails.value.has(item.id) ? 'Open this magical item for its full rule text.' : ''), fluff: detail?.fluff, keywords: [{ label: item.name, path: `/magic-item/${item.slug}` }, { label: 'Magic Items', path: '/magic-items' }] } }
+  return { item, count, rule: { name: `${item.ownerId === 'unit' ? '' : `${item.ownerLabel} — `}${count > 1 ? `${item.name} ×${count}` : item.name}`, path: `/magic-item/${item.slug}`, timing: magicTypeLabel(item.type), tone: 'magic' as RuleTone, summary: detail?.summary || detail?.rules?.join(', ') || (magicItemDetails.value.has(item.id) ? 'No additional rule text is published on the canonical item page.' : ''), fluff: detail?.fluff, keywords: [{ label: item.name, path: `/magic-item/${item.slug}` }, { label: 'Magic Items', path: '/magic-items' }] } }
 }))
 const packedSpecialRules = computed(() => [...activeSpecialRules.value].sort((a, b) => (b.summary.length + b.name.length * 2) - (a.summary.length + a.name.length * 2)))
 const canAdjustModelCount = computed(() => isEditing.value && Boolean(prototypeUnit.value) && prototypeUnit.value?.unitSize !== '1 model' && (Number(prototypeUnit.value?.maximumModels || 0) !== 1 || Number(prototypeUnit.value?.minimumModels || 1) !== 1))
@@ -887,14 +889,6 @@ function optionCost(points: number) { return points > 0 ? `+${points} pts` : '' 
 const magicTypeOrder: MagicItem['type'][] = ['weapon', 'armor', 'talisman', 'enchanted-item', 'arcane-item', 'banner']
 function magicTypeLabel(type: MagicItem['type']) { return ({ weapon: 'Magic Weapon', armor: 'Magic Armour', talisman: 'Talisman', 'enchanted-item': 'Enchanted Item', 'arcane-item': 'Arcane Item', banner: 'Magic Banner' } as const)[type] }
 function magicSlug(name: string) { return name.toLowerCase().replace(/\*/g, '').replace(/[’']/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') }
-function fallbackMagicItemText(html: string, itemName: string) {
-  const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
-  dom.querySelectorAll('script,style,nav,header,footer,table').forEach((node) => node.remove())
-  const wanted = itemName.toLowerCase().trim()
-  const rows = Array.from(dom.querySelectorAll('p, li')).map((node) => node.textContent?.replace(/\s+/g, ' ').trim() || '').filter((value) => value.length >= 18 && value.toLowerCase() !== wanted && !/^(publication|source|page)\b/i.test(value))
-  const seen = new Set<string>()
-  return rows.filter((value) => { const key = value.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true }).slice(0, 4).join(' ').slice(0, 1800)
-}
 const magicPickerPool = computed(() => selectedMagicPool.value)
 const magicPickerTabs = computed(() => magicTypeOrder.filter((type) => magicPickerPool.value?.types.includes(type)))
 const magicPickerItems = computed(() => {
@@ -947,6 +941,24 @@ async function finishMagicPicker() {
   applyMagicSupersession()
 }
 
+function commonMagicCollectionPath(type: MagicItem['type']) {
+  const paths: Record<MagicItem['type'], string> = {
+    weapon: '/magic-items/magic-weapons',
+    armor: '/magic-items/magic-armour',
+    talisman: '/magic-items/talismans',
+    'enchanted-item': '/magic-items/enchanted-items',
+    'arcane-item': '/magic-items/arcane-items',
+    banner: '/magic-items/magic-standards',
+  }
+  return paths[type]
+}
+function armyMagicCollectionPath() {
+  const key = String(army.value?.dataKey || '').trim()
+  if (!key) return ''
+  const overrides: Record<string, string> = { 'grand-cathay': 'empire-of-grand-cathay-magic-items' }
+  return `/magic-items/${overrides[key] || `${key}-magic-items`}`
+}
+
 async function loadMagicItemChoices() {
   const activePools = activeMagicPools.value
   if (!activePools.length || !army.value) { magicItems.value = []; return }
@@ -970,7 +982,7 @@ async function loadMagicItemChoices() {
       const localizedFluff = raw[`fluff_${languageCode}`] ?? raw[`flavour_${languageCode}`] ?? raw[`flavor_${languageCode}`] ?? raw.fluff_en ?? raw.fluff ?? raw.flavour_en ?? raw.flavour ?? raw.flavor_en ?? raw.flavor ?? ''
       activePools.filter((pool) => pool.types.includes(type)).forEach((pool) => rows.push({
         id: `${pool.id}::${baseId}`, baseId, ownerId: pool.id, ownerLabel: pool.label, poolMaxPoints: pool.maxPoints,
-        name, sourceName, points: itemPoints, type, source, stackable: Boolean(raw.stackable), maximum: Number(raw.maximum || 0) > 0 ? Number(raw.maximum) : undefined,
+        name, sourceName, points: itemPoints, type, source, collectionPath: source === 'Common Magic Items' ? commonMagicCollectionPath(type) : armyMagicCollectionPath(), stackable: Boolean(raw.stackable), maximum: Number(raw.maximum || 0) > 0 ? Number(raw.maximum) : undefined,
         magicStandardLimit: pool.magicStandardLimit ? { ...pool.magicStandardLimit } : undefined,
         onePerArmy: raw.onePerArmy !== false, slug: magicSlug(String(raw.name || sourceName)), fluff: String(localizedFluff).replace(/\s+/g, ' ').trim() || undefined,
       }))
@@ -1001,25 +1013,50 @@ function canAddMagicItem(item: MagicItem) {
 async function loadMagicItemDetail(item: MagicItem) {
   if (magicItemDetails.value.has(item.id)) return
   try {
-    const document = await fetchRuleDocument(`/magic-item/${item.slug}`)
-    const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
-    const rows = Array.from(dom.querySelectorAll('table tr')).slice(1)
-    const cells = rows.map((row) => Array.from(row.querySelectorAll('td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() || '')).find((row) => row.length >= 4)
-    const detail: MagicItemDetail = { summary: extractMechanicalRuleText(document.html) || fallbackMagicItemText(document.html, item.name), fluff: item.fluff }
-    const fluffNode = dom.querySelector<HTMLElement>('.fluff, .flavour, .flavor, p em, p i')
-    const fluffText = fluffNode?.textContent?.replace(/\s+/g, ' ').trim() || ''
-    if (fluffText && fluffText !== detail.summary && fluffText.length > 12) detail.fluff = fluffText
-    if (item.type === 'weapon' && cells) { detail.range = cells[0] || 'Combat'; detail.strength = cells[1] || 'See rule'; detail.ap = cells[2] || 'See rule'; detail.rules = cells[3] && !/^[-—]$/.test(cells[3]) ? cells[3].split(/,\s*/).filter(Boolean) : ['Magic Weapon']; detail.kind = detail.range.toLowerCase() === 'combat' ? 'melee' : 'missile' }
-    const body = dom.body.textContent?.replace(/\s+/g, ' ').trim() || ''
+    const reference = await loadMagicItemReferenceV038({
+      name: item.name,
+      sourceName: item.sourceName,
+      type: item.type,
+      itemPath: `/magic-item/${item.slug}`,
+      collectionPath: item.collectionPath,
+    })
+    const detail: MagicItemDetail = {
+      summary: reference.summary,
+      fluff: item.fluff || reference.fluff,
+      range: reference.range,
+      strength: reference.strength,
+      ap: reference.ap,
+      rules: reference.rules,
+    }
+    if (item.type === 'weapon') {
+      detail.range = detail.range || 'Combat'
+      detail.strength = detail.strength || 'See rule'
+      detail.ap = detail.ap || 'See rule'
+      detail.rules = [...new Set(['Magical Attacks', ...(detail.rules || [])])]
+      detail.kind = String(detail.range).toLowerCase() === 'combat' ? 'melee' : 'missile'
+    }
+    const body = reference.bodyText
     const override: Partial<Record<ProfileKey, string>> = {}
-    if (item.type === 'armor') { detail.shield = /\bshield\b/i.test(item.sourceName) || /\bshield\b/i.test(body); if (/full plate armour/i.test(body)) override.Sv = '4+'; else if (/heavy armour/i.test(body)) override.Sv = '5+'; else if (/light armour/i.test(body)) override.Sv = '6+' }
+    if (item.type === 'armor') {
+      detail.shield = /\bshield\b/i.test(item.sourceName) || /\bshield\b/i.test(item.name) || /\bshield\b/i.test(body)
+      if (/full plate armour/i.test(body)) override.Sv = '4+'
+      else if (/heavy armour/i.test(body)) override.Sv = '5+'
+      else if (/light armour/i.test(body)) override.Sv = '6+'
+    }
     const ward = body.match(/(?:Ward\s+save(?:\s+of)?\s*\(?\s*(2\+|3\+|4\+|5\+|6\+)\s*\)?|(2\+|3\+|4\+|5\+|6\+)\s+Ward\s+save)/i); if (ward) override.Ward = ward[1] || ward[2]
     const regeneration = body.match(/Regeneration\s*\(?\s*([2-6]\+)\s*\)?/i); if (regeneration) override.Rn = regeneration[1]
     const persistent = persistentModelCharacteristicModifiers(body)
     for (const [key, amount] of Object.entries(persistent) as Array<[ProfileKey, number]>) { const base = prototypeUnit.value?.profile[key] || '—'; override[key] = incrementCharacteristic(base, amount) }
     if (Object.keys(override).length) detail.profileOverride = override
     magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, detail)
-  } catch (error) { reportAppError(error, 'MAGIC_ITEM_DETAIL', { itemId: item.id, unitId: unitId.value }); magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, { fluff: item.fluff }) }
+  } catch (error) {
+    reportAppError(error, 'MAGIC_ITEM_DETAIL', { itemId: item.id, unitId: unitId.value })
+    magicItemDetails.value = new Map(magicItemDetails.value).set(item.id, {
+      fluff: item.fluff,
+      shield: item.type === 'armor' && (/\bshield\b/i.test(item.sourceName) || /\bshield\b/i.test(item.name)),
+      rules: item.type === 'weapon' ? ['Magical Attacks'] : [],
+    })
+  }
 }
 watch(() => [magicPickerOpen.value, magicPickerTab.value, magicPickerItems.value.map((item) => item.id).join('|')], () => { if (magicPickerOpen.value) void preloadMagicPickerDetails() })
 async function adjustMagicItem(id: string, delta: number) {
@@ -1220,13 +1257,21 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
               <article v-for="item in magicPickerItems" :key="item.id" class="magic-picker-item" :class="{ selected: magicPickerCount(item.id) > 0 }">
                 <div class="magic-picker-item-main">
                   <input :id="`magic-picker-${item.id}`" type="checkbox" :checked="magicPickerCount(item.id) > 0" :disabled="!magicPickerCanSelect(item)" @change="handleMagicPickerCheckbox(item, $event)" />
-                  <label class="magic-picker-item-copy" :for="`magic-picker-${item.id}`"><strong>{{ item.name }}</strong><small>{{ magicPickerDetail(item)?.summary || magicPickerDetail(item)?.fluff || item.source }}</small></label>
+                  <label class="magic-picker-item-copy" :for="`magic-picker-${item.id}`"><strong>{{ item.name }}</strong><small>{{ magicPickerDetail(item)?.summary || magicPickerDetail(item)?.rules?.join(', ') || 'No additional mechanical text.' }}</small></label>
                   <b>{{ item.points }} pts</b>
                   <button type="button" class="magic-picker-expand" :aria-expanded="magicPickerExpanded.has(item.id)" :aria-label="`${magicPickerExpanded.has(item.id) ? 'Hide' : 'Show'} ${item.name} details`" @click="toggleMagicPickerDescription(item)"><span class="magic-picker-chevron" :class="{ open: magicPickerExpanded.has(item.id) }">⌄</span></button>
                 </div>
                 <div v-if="magicPickerExpanded.has(item.id)" class="magic-picker-description">
                   <p v-if="magicPickerDetail(item)?.fluff" class="magic-picker-fluff">{{ magicPickerDetail(item)?.fluff }}</p>
-                  <p>{{ magicPickerDetail(item)?.summary || magicPickerDetail(item)?.fluff || 'Rule information is still loading.' }}</p>
+                  <div v-if="item.type === 'weapon' && magicPickerDetail(item)" class="magic-picker-weapon-profile">
+                    <span><small>Range</small><strong>{{ magicPickerDetail(item)?.range || 'Combat' }}</strong></span>
+                    <span><small>Strength</small><strong>{{ magicPickerDetail(item)?.strength || 'See rule' }}</strong></span>
+                    <span><small>AP</small><strong>{{ magicPickerDetail(item)?.ap || 'See rule' }}</strong></span>
+                    <span><small>Special Rules</small><strong>{{ magicPickerDetail(item)?.rules?.join(', ') || 'Magical Attacks' }}</strong></span>
+                  </div>
+                  <p v-if="magicPickerDetail(item)?.summary">{{ magicPickerDetail(item)?.summary }}</p>
+                  <p v-else-if="magicPickerDetail(item)" class="magic-picker-source-note">No additional mechanical rule text is published on the resolved canonical item entry.</p>
+                  <p v-else>Rule information is still loading.</p>
                   <div v-if="maxMagicCopies(item) > 1 && magicPickerCount(item.id) > 0" class="magic-picker-quantity option-stepper"><button type="button" :disabled="magicPickerCount(item.id) <= 1" @click.stop="adjustMagicPickerCount(item, -1)">−</button><strong>{{ magicPickerCount(item.id) }}</strong><button type="button" :disabled="magicPickerCount(item.id) >= maxMagicCopies(item) || item.points > magicPickerRemaining()" @click.stop="adjustMagicPickerCount(item, 1)">+</button></div>
                 </div>
               </article>

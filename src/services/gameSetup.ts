@@ -391,12 +391,10 @@ const startRoundTextPattern = /\b(?:at|during) the (?:very )?(?:start|beginning)
 function compactText(value: string) { return String(value || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim() }
 function sentenceRows(value: string) { return compactText(value).match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map(compactText).filter(Boolean) || [] }
 function pageSentences(html: string, pattern: RegExp) {
-  const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
-  dom.querySelectorAll('script,style,nav,header,footer').forEach((node) => node.remove())
-  const blocks = Array.from(dom.querySelectorAll<HTMLElement>('p,li,td')).map((node) => compactText(node.textContent || '')).filter(Boolean)
-  const source = blocks.length ? blocks : [compactText(dom.body.textContent || '')]
+  const mechanical = extractMechanicalRuleText(html)
+  if (!mechanical) return [] as string[]
   const seen = new Set<string>()
-  return source.flatMap(sentenceRows).filter((row) => pattern.test(row)).filter((row) => {
+  return sentenceRows(mechanical).filter((row) => pattern.test(row)).filter((row) => {
     const key = row.toLowerCase()
     if (seen.has(key)) return false
     seen.add(key)
@@ -573,14 +571,9 @@ function turnRuleSentences(path: string) {
   const pending = (async () => {
     try {
       const document = await fetchRuleDocument(path)
-      const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
-      dom.querySelectorAll('script,style,nav,header,footer').forEach((node) => node.remove())
-      const blocks = Array.from(dom.querySelectorAll<HTMLElement>('p,li,td'))
-        .map((node) => compactText(node.textContent || ''))
-        .filter(Boolean)
-      const source = blocks.length ? blocks : [compactText(dom.body.textContent || '')]
+      const mechanical = extractMechanicalRuleText(document.html)
       const seen = new Set<string>()
-      return source.flatMap(sentenceRows).filter((row) => {
+      return sentenceRows(mechanical).filter((row) => {
         const key = row.toLowerCase()
         if (!row || seen.has(key)) return false
         seen.add(key)

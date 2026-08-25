@@ -7,7 +7,7 @@ import {
   type MatchRuleIntent,
   type MatchTurnAffinity,
 } from '../domain/matchTiming'
-import { extractMechanicalRuleText } from './ruleText'
+import { extractMechanicalRuleText, extractMechanicalRuleTextFromPlainText } from './ruleText'
 import { fetchRuleDocument } from './ruleContent'
 import { getSavedArmyList } from './savedLists'
 import { loadMagicChoices, randomHappeningOptions } from './gameSetup'
@@ -144,31 +144,15 @@ function mechanicalPageText(html: string, label = '') {
   const extracted = cleanRuleText(extractMechanicalRuleText(html) || '')
   if (typeof DOMParser === 'undefined') return extracted
   const dom = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
-  dom.querySelectorAll('script,style,nav,header,footer,aside').forEach((node) => node.remove())
+  dom.querySelectorAll('script,style,nav,header,footer,aside,.metadata').forEach((node) => node.remove())
 
-  // Prefer the section whose heading actually names the roster rule/item. This
-  // prevents a page-level extractor from returning a nearby rule such as Warband
-  // when the roster entry is Mob Rule.
+  // A correctly named section can still contain flavour, update metadata or
+  // source navigation. Route it through the central mechanical-text extractor
+  // before match timing sees it, then fall back to the whole-page extraction.
   const labelled = labelledSectionText(dom, label)
-  if (labelled) return labelled
-
-  let rows = Array.from(dom.querySelectorAll<HTMLElement>('p,li,blockquote,dd'))
-    .map((node) => compact(node.textContent || ''))
-  if (!rows.length) rows = Array.from(dom.querySelectorAll<HTMLElement>('td')).map((node) => compact(node.textContent || ''))
-  rows = rows
-    .filter((row) => row.length >= 8 && row.length <= 5000)
-    .filter((row) => !/^(?:URL Copied!|Cross-Reference Links|Previous\b|Next\b|Source:|Table of Contents|Last update:)/i.test(row))
-    .filter((row) => !(row.length > 180 && /\bTable of Contents\b/i.test(row) && /\bLast update:/i.test(row)))
-    .map(cleanRuleText)
-    .filter(Boolean)
-  const seen = new Set<string>()
-  const candidates = [extracted, ...rows].filter(Boolean).filter((row) => {
-    const key = row.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-    if (!key || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-  return cleanRuleText(candidates.join(' '))
+  const labelledMechanical = extractMechanicalRuleTextFromPlainText(labelled)
+  if (labelledMechanical) return cleanRuleText(labelledMechanical)
+  return extracted
 }
 
 function ruleText(path: string, fallback: string) {

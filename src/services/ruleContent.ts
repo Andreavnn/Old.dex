@@ -14,9 +14,9 @@ import {
 
 export type { RuleDocument, RuleIndexEntry, RuleIndexGroup } from '../domain/ruleTypes'
 
-const CACHE_PREFIX = 'olddex.rule-content.v16:'
+const CACHE_PREFIX = 'olddex.rule-content.v17:'
 const LEGACY_CACHE_PREFIXES = [
-  'olddex.rule-content.v15:', 'olddex.rule-content.v14:', 'olddex.rule-content.v13:', 'olddex.rule-content.v12:', 'olddex.rule-content.v11:',
+  'olddex.rule-content.v16:', 'olddex.rule-content.v15:', 'olddex.rule-content.v14:', 'olddex.rule-content.v13:', 'olddex.rule-content.v12:', 'olddex.rule-content.v11:',
   'olddex.rule-content.v10:', 'olddex.rule-content.v9:', 'olddex.rule-content.v8:', 'olddex.rule-content.v7:',
   'olddex.rule-content.v6:', 'olddex.rule-content.v5:', 'olddex.rule-content.v4:', 'olddex.rule-content.v3:',
   'olddex.rule-content.v2:', 'olddex.rule-content.v1:',
@@ -37,8 +37,13 @@ function writeCache(document: RuleDocument) {
   return writeJson(cacheKey(document.sourcePath), document)
 }
 
+function minimalSourceUrl(root: string, sourcePath: string) {
+  const separator = sourcePath.includes('?') ? '&' : '?'
+  return `${root}${sourcePath}${separator}minimal=true`
+}
+
 async function fetchViaProxy(sourcePath: string, force: boolean) {
-  const response = await fetchWithTimeout(`${RULE_PROXY_PREFIX}${sourcePath}`, {
+  const response = await fetchWithTimeout(minimalSourceUrl(RULE_PROXY_PREFIX, sourcePath), {
     source: `rules-proxy:${sourcePath}`,
     cache: force ? 'reload' : 'default',
     headers: { Accept: 'text/html' },
@@ -49,7 +54,7 @@ async function fetchViaProxy(sourcePath: string, force: boolean) {
 }
 
 async function fetchDirect(sourcePath: string, force: boolean) {
-  const response = await fetchWithTimeout(`${RULE_REPOSITORY_ROOT}${sourcePath}`, {
+  const response = await fetchWithTimeout(minimalSourceUrl(RULE_REPOSITORY_ROOT, sourcePath), {
     source: `rules-direct:${sourcePath}`,
     cache: force ? 'reload' : 'default',
     headers: { Accept: 'text/html' },
@@ -60,7 +65,7 @@ async function fetchDirect(sourcePath: string, force: boolean) {
 }
 
 async function fetchViaReader(sourcePath: string, force: boolean) {
-  const sourceUrl = `${RULE_REPOSITORY_ROOT}${sourcePath}`
+  const sourceUrl = minimalSourceUrl(RULE_REPOSITORY_ROOT, sourcePath)
   const response = await fetchWithTimeout(`https://r.jina.ai/${sourceUrl}`, {
     source: `rules-reader:${sourcePath}`,
     cache: 'no-store',
@@ -108,7 +113,7 @@ async function fetchRawVersionFromPath(sourcePath: string, force: boolean) {
 
   if (typeof window !== 'undefined' && window.location.protocol !== 'file:') {
     attempts.push(async () => {
-      const response = await fetchWithTimeout(`${RULE_PROXY_PREFIX}${sourcePath}`, {
+      const response = await fetchWithTimeout(minimalSourceUrl(RULE_PROXY_PREFIX, sourcePath), {
         source: `rules-version-proxy:${sourcePath}`,
         cache: force ? 'reload' : 'default',
         headers: { Accept: 'text/html' },
@@ -118,7 +123,7 @@ async function fetchRawVersionFromPath(sourcePath: string, force: boolean) {
   }
 
   attempts.push(async () => {
-    const response = await fetchWithTimeout(`${RULE_REPOSITORY_ROOT}${sourcePath}`, {
+    const response = await fetchWithTimeout(minimalSourceUrl(RULE_REPOSITORY_ROOT, sourcePath), {
       source: `rules-version-direct:${sourcePath}`,
       cache: force ? 'reload' : 'default',
       headers: { Accept: 'text/html' },

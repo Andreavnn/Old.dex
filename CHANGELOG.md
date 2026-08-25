@@ -1,3 +1,13 @@
+# Alpha Build 0.38 — Canonical rule-content pipeline and shield save repair
+
+- Rebuilt rule retrieval around canonical minimal rules-index pages, matching Old World Builder’s source-request pattern and preventing source-site navigation/update chrome from contaminating Old.dex rule text.
+- Centralized mechanical rule extraction across Rules, profiles, match intelligence and inline cards; broken-page messages and unrelated flavour no longer substitute for missing mechanics.
+- Added magical-item collection-page recovery for incomplete individual item entries, including weapon profile values, Notes and linked special rules.
+- Guaranteed Magical Attacks for magic weapons and added resolved Range, Strength, AP and Special Rules to expanded magical-item picker entries.
+- Repaired mundane and magical shield handling so selected shields reliably improve Armour Save on eligible model profiles.
+- Bundled Old World Builder’s current rule-index/synonym catalog into the app as a resilient local resolver, with live OWB refreshes retained when available.
+- Invalidated stale rule-content caches and bumped the app/PWA shell to Alpha Build 0.38.
+
 # Old.dex Changelog
 
 ## Alpha Build 0.32 — Roster-rule fixes, integrated custom units, and mobile polish
