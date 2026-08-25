@@ -9,7 +9,7 @@ import { prototypeUnitsForArmy, type ProfileKey, type PrototypeEquipmentOption, 
 import { loadLiveUnitProfileProgressively } from '../data/liveBuilderUnits'
 import { loadArmyData } from '../services/armyData'
 import { fetchRuleDocument } from '../services/ruleContent'
-import { loadMagicItemReferenceV038 } from '../services/magicItemReferenceV038'
+import { loadMagicItemReference } from '../services/magicItemReference'
 import { extractMechanicalRuleText } from '../services/ruleText'
 import { findBuilderRosterSelection, loadBuilderRoster, updateBuilderRosterSelection, type BuilderRosterMagicItem } from '../services/builderRoster'
 import { isFavoriteUnit, setFavoriteUnit } from '../services/favorites'
@@ -1013,7 +1013,7 @@ function canAddMagicItem(item: MagicItem) {
 async function loadMagicItemDetail(item: MagicItem) {
   if (magicItemDetails.value.has(item.id)) return
   try {
-    const reference = await loadMagicItemReferenceV038({
+    const reference = await loadMagicItemReference({
       name: item.name,
       sourceName: item.sourceName,
       type: item.type,

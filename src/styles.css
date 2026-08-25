@@ -2850,7 +2850,7 @@ html[data-background]:not([data-background="none"]) .roster-list-heading-panel{b
 .round-start-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;overflow:hidden}.round-start-summary>div{display:grid;gap:4px;padding:13px;border-right:1px solid var(--line)}.round-start-summary>div:last-child{border-right:0}.round-start-summary .eyebrow{margin:0}.round-start-summary>div>strong{font-size:calc(13px + var(--font-offset));line-height:1.35}
 @media(max-width:700px){.deployment-roster-grid,.deployment-side-actions,.round-start-summary{grid-template-columns:1fr}.round-start-summary>div{border-right:0;border-bottom:1px solid var(--line)}.round-start-summary>div:last-child{border-bottom:0}}
 
-/* v0.64 match setup, deployment and round-start guidance */
+/* Consolidated legacy styling retained during the core rebuild. */
 .match-roster-issue-panel{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:12px;padding:13px 14px;border:1px solid color-mix(in srgb,#9b2e28 58%,var(--line));border-radius:14px;background:color-mix(in srgb,#f4d9d6 58%,var(--paper));color:var(--ink)}
 .match-roster-issue-panel>div{display:grid;gap:6px}.match-roster-issue-panel ul{margin:0;padding-left:18px;display:grid;gap:5px}.match-roster-issue-panel li.severity-error{color:color-mix(in srgb,#8c1f1a 88%,var(--ink))}.match-roster-issue-panel li.severity-warning{color:color-mix(in srgb,#8a6515 88%,var(--ink))}
 .setup-round-limit-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;padding:13px 14px}.setup-round-limit-card h3{margin:0 0 3px;font-family:Georgia,'Times New Roman',serif;font-size:calc(17px + var(--font-offset))}.setup-round-limit-card p:not(.eyebrow){margin:0;color:var(--ink-soft);line-height:1.45}.round-limit-input{display:grid;gap:4px;min-width:110px;font-weight:700}.round-limit-input input{width:100%;min-height:42px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font:inherit;padding:8px 10px;text-align:center}
@@ -2931,3 +2931,878 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .turn-action-row{grid-template-columns:auto minmax(0,1fr);align-items:start;gap:10px}.turn-action-row.complete{opacity:.66}.turn-action-row.complete .turn-action-copy>div>a,.turn-action-row.complete .turn-action-copy>div>span{text-decoration:line-through}.turn-action-check{display:grid;place-items:center;width:28px;height:28px;margin-top:1px;cursor:pointer}.turn-action-check input{position:absolute;opacity:0;pointer-events:none}.turn-action-check>span{display:grid;place-items:center;width:20px;height:20px;border:2px solid var(--line-dark);border-radius:5px;background:var(--paper)}.turn-action-check input:checked+span{border-color:var(--accent-dark);background:var(--accent)}.turn-action-check input:checked+span::after{content:'✓';color:#fff;font-size:13px;font-weight:900;line-height:1}.turn-action-check input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}.turn-action-copy{min-width:0}.turn-rule-unit-list{display:grid;gap:6px;margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}.turn-rule-unit{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2)}.turn-rule-unit>strong{font-size:calc(9px + var(--font-offset))}.charge-test-controls{display:flex;align-items:center;gap:5px}.charge-test-controls label{display:inline-flex;align-items:center;gap:4px;min-height:28px;padding:0 8px;border:1px solid var(--line-dark);border-radius:999px;background:var(--paper);font-size:calc(8px + var(--font-offset));font-weight:800;cursor:pointer}.charge-test-controls input{margin:0}.required-charge-row{border-color:color-mix(in srgb,var(--danger) 42%,var(--line))}.required-charge-flag,.required-charge-unit-note{display:inline-flex;margin-left:7px;padding:2px 6px;border-radius:999px;background:color-mix(in srgb,var(--danger) 12%,var(--paper));color:var(--danger);font-size:calc(7px + var(--font-offset));font-style:normal;font-weight:900;letter-spacing:.03em}.required-charge-unit-note{margin-left:auto}.turn-guidance-panel .start-round-rule-row.turn-action-row{display:grid}
 @media(max-width:620px){.turn-rule-unit{align-items:flex-start;flex-direction:column}.charge-test-controls{width:100%}.charge-test-controls label{flex:1;justify-content:center}.required-charge-unit-note{margin-left:0}.turn-action-row{gap:7px}}
 
+
+
+/* Consolidated legacy override. */
+/* Old.dex Alpha Build 0.33 — in-match navigation, spacing, roster approvals. */
+
+.legacy-roster-label {
+  font-weight: 850;
+  letter-spacing: .08em;
+  border-style: dashed;
+}
+
+.builder-allowance-approval {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.builder-allowance-approval p { margin: 0; min-width: 0; line-height: 1.45; }
+.builder-allowance-approval .secondary-button { flex: 0 0 auto; }
+
+.olddex-legal-footer {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+  line-height: 1.35;
+}
+.olddex-legal-footer small { max-width: 720px; opacity: .78; }
+
+.game-match-shell,
+.game-step-card,
+.game-setup-content,
+.game-overview-dashboard,
+.deployment-step-content,
+.round-start-content,
+.turn-guidance-shell {
+  min-width: 0;
+}
+
+.game-phase-tabs,
+.game-subphase-tabs {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+.game-phase-tabs > button,
+.game-subphase-tabs > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.game-subphase-tabs {
+  margin-top: 10px;
+  padding: 12px 2px 5px;
+}
+.game-subphase-tabs > button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 11px;
+}
+.game-subphase-tabs > button > span {
+  width: 25px;
+  height: 25px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 25px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: .78em;
+  opacity: .78;
+}
+.game-subphase-tabs > button.active > span { opacity: 1; }
+
+.game-step-card { margin-top: 14px; }
+.game-step-heading {
+  align-items: flex-start;
+  gap: 18px;
+}
+.game-step-heading > div:first-child { min-width: 0; }
+.game-step-heading p,
+.game-step-heading h2 { overflow-wrap: anywhere; }
+.game-step-heading-tools { gap: 10px; flex-wrap: wrap; }
+.game-step-counter { white-space: nowrap; }
+.game-step-sequence-label { margin-bottom: 5px; }
+
+.turn-guidance-shell {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+.turn-guidance-panel,
+.start-round-rule-panel,
+.setup-scenario-card,
+.combat-unit-panel,
+.required-charge-test-panel {
+  min-width: 0;
+}
+.setup-section-heading { gap: 12px; }
+.setup-section-heading > div { min-width: 0; }
+
+.phase-rule-details {
+  margin-top: 9px;
+  border: 1px solid color-mix(in srgb, currentColor 17%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.phase-rule-details > summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 43px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px 12px;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+.phase-rule-details > summary::-webkit-details-marker { display: none; }
+.phase-rule-details > summary::after {
+  content: '⌄';
+  margin-left: auto;
+  transition: transform .15s ease;
+}
+.phase-rule-details[open] > summary::after { transform: rotate(180deg); }
+.phase-rule-details > p,
+.phase-rule-details > div:not(.charge-test-controls) {
+  margin: 0;
+  padding: 0 12px 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.turn-rule-details { flex: 1 1 340px; margin-top: 0; }
+.turn-action-row { gap: 10px; align-items: flex-start; }
+.turn-action-copy { min-width: 0; line-height: 1.5; }
+.turn-action-copy > div { gap: 7px 10px; flex-wrap: wrap; }
+
+.scenario-priority-panel {
+  order: -10;
+  border-width: 1px;
+}
+.scenario-priority-panel .phase-rule-details:first-of-type { margin-top: 0; }
+
+.required-charge-rule-details { margin-bottom: 9px; }
+.required-charge-unit-grid,
+.combat-unit-checklist {
+  display: grid;
+  gap: 9px;
+}
+.required-charge-test-unit,
+.combat-unit-checklist > label {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 10px;
+}
+.required-charge-test-unit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.charge-test-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.charge-test-controls label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+.combat-unit-checklist > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.combat-unit-checklist > label > span { min-width: 0; display: grid; gap: 2px; }
+.combat-unit-checklist > label.complete { opacity: .68; }
+.combat-spell-panel .phase-rule-details summary strong { min-width: max-content; }
+
+.match-sticky-nav {
+  position: sticky;
+  bottom: 0;
+  z-index: 18;
+  margin: 18px -2px -2px;
+  padding: 10px 2px 2px;
+  background: color-mix(in srgb, var(--paper, Canvas) 92%, transparent);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+}
+.match-sticky-nav > button { min-height: 48px; }
+
+.game-step-notes { margin-top: 18px; }
+.game-step-notes textarea { line-height: 1.45; }
+.game-finish-row { gap: 9px; flex-wrap: wrap; }
+
+@media (max-width: 760px) {
+  .game-phase-tabs,
+  .game-subphase-tabs {
+    margin-inline: -6px;
+    padding-inline: 6px;
+    scroll-padding-inline: 6px;
+  }
+  .game-phase-tabs > button { min-height: 45px; padding-inline: 16px; }
+  .game-subphase-tabs > button { max-width: none; }
+  .game-step-heading { display: grid; gap: 10px; }
+  .game-step-heading-tools { justify-content: space-between; width: 100%; }
+  .compact-turn-context { min-width: 0; }
+  .required-charge-test-unit { align-items: flex-start; }
+  .match-sticky-nav {
+    display: grid;
+    grid-template-columns: minmax(110px, .55fr) minmax(0, 1.45fr);
+    gap: 10px;
+  }
+  .match-sticky-nav > button { width: 100%; min-width: 0; white-space: normal; line-height: 1.2; }
+  .builder-allowance-approval { align-items: stretch; }
+  .builder-allowance-approval .secondary-button { width: 100%; }
+}
+
+
+/* Consolidated legacy override. */
+/* Old.dex Alpha Build 0.34 — match workflow corrections and theme contrast. */
+
+/* Light pill/chip surfaces keep readable text regardless of the selected theme. */
+.value-chip,
+.app-option-label,
+.rule-kind-pill,
+.match-option-chips > span,
+.profile-loadout-chip,
+.legacy-roster-label,
+.required-charge-flag,
+.match-locked-pill {
+  color: #111 !important;
+}
+
+/* Open-match management. */
+.game-manage-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 0;
+  gap: 0;
+}
+.game-row-link {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 16px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.game-row-link > span:first-child { display: grid; gap: 3px; min-width: 0; }
+.game-row-link small { color: var(--ink-soft); font-size: calc(9px + var(--font-offset)); line-height: 1.35; }
+.game-manage-row.locked .game-row-link { opacity: .78; }
+.game-row-actions {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 8px 0;
+}
+.game-row-action {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+.game-row-action:hover,
+.game-row-action.active { border-color: var(--accent); background: var(--accent-wash); }
+.game-row-action.danger:hover { border-color: var(--danger); color: var(--danger); }
+.game-row-action svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Match shell has enough bottom room for sticky navigation, lifecycle buttons and the global footer. */
+.game-match-page { padding-bottom: 96px; }
+.game-match-shell { padding-bottom: 34px; }
+.game-step-card { overflow: visible; }
+.match-sticky-nav {
+  bottom: max(8px, env(safe-area-inset-bottom));
+  margin: 18px 0 0;
+  padding: 12px 0 max(10px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+}
+.match-lifecycle-actions {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 26px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.match-readonly-actions {
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 26px;
+  padding: 13px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.match-lock-note { color: var(--ink-soft); line-height: 1.4; }
+.match-locked-pill {
+  justify-self: end;
+  align-self: start;
+  padding: 6px 10px;
+  border: 1px solid var(--line-dark);
+  border-radius: 999px;
+  background: var(--paper-2);
+  font-weight: 900;
+  letter-spacing: .08em;
+  font-size: calc(8px + var(--font-offset));
+}
+
+/* Deployment state controls stay beside one another. */
+.deployment-unit-status-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  align-items: center;
+  justify-content: start;
+  gap: 8px 14px;
+}
+.deployment-unit-status-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.deployment-unit-status-controls label.unavailable { opacity: .45; }
+
+/* Charge declaration returns to the older, direct unit checklist pattern. */
+.declare-charge-list { display: grid; gap: 9px; margin-top: 10px; }
+.declare-charge-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(118px, auto);
+  align-items: center;
+  gap: 11px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  cursor: pointer;
+}
+.declare-charge-row.required { border-color: color-mix(in srgb, var(--danger) 55%, var(--line)); }
+.declare-charge-row.complete { opacity: .68; }
+.declare-charge-copy { display: grid; gap: 3px; min-width: 0; }
+.declare-charge-copy small { color: var(--ink-soft); line-height: 1.35; }
+.declare-charge-range { display: grid; justify-items: end; gap: 1px; text-align: right; }
+.declare-charge-range small { color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; font-size: calc(7px + var(--font-offset)); }
+.declare-charge-range strong { font-size: calc(16px + var(--font-offset)); }
+.declare-charge-range em { max-width: 250px; color: var(--ink-soft); font-size: calc(8px + var(--font-offset)); font-style: normal; line-height: 1.25; }
+
+.battle-step-tip { margin-bottom: 0; }
+.turn-guidance-panel .setup-section-heading { align-items: flex-start; }
+
+@media (max-width: 700px) {
+  .game-match-page { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+  .game-row-link { grid-template-columns: 1fr; gap: 6px; }
+  .game-row-link .game-list-meta { justify-items: start; }
+  .game-row-actions { padding-right: 10px; }
+  .deployment-unit-status-controls { grid-template-columns: 1fr 1fr; width: 100%; }
+  .declare-charge-row { grid-template-columns: auto minmax(0, 1fr); }
+  .declare-charge-range { grid-column: 2; justify-items: start; text-align: left; }
+  .match-lifecycle-actions { padding: 14px; margin-bottom: 38px; }
+  .match-lifecycle-actions > button { flex: 1 1 145px; min-height: 44px; }
+  .match-readonly-actions { align-items: stretch; }
+  .match-readonly-actions > button { width: 100%; }
+}
+
+
+/* Consolidated legacy override. */
+/* Old.dex Alpha Build 0.35 — compiled match intelligence and installed-app boot audio. */
+
+/* Installed application launch scene. Browser-tab launches never render it. */
+.olddex-launch-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--accent) 19%, transparent) 0, transparent 42%),
+    var(--paper);
+  color: var(--ink);
+  text-align: center;
+  user-select: none;
+}
+.olddex-launch-scene::after {
+  content: '';
+  position: absolute;
+  inset: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: 20px;
+  pointer-events: none;
+}
+.olddex-launch-scene img {
+  width: clamp(104px, 18vw, 164px);
+  height: auto;
+  filter: drop-shadow(0 12px 22px rgb(0 0 0 / .22));
+}
+.olddex-launch-scene > div { display: grid; gap: 5px; }
+.olddex-launch-scene strong {
+  font-family: var(--display-font, Georgia, serif);
+  font-size: clamp(34px, 8vw, 62px);
+  letter-spacing: .08em;
+  line-height: 1;
+}
+.olddex-launch-scene small {
+  font-weight: 900;
+  letter-spacing: .16em;
+  font-size: 11px;
+}
+.olddex-launch-fade-enter-active,
+.olddex-launch-fade-leave-active { transition: opacity .28s ease; }
+.olddex-launch-fade-enter-from,
+.olddex-launch-fade-leave-to { opacity: 0; }
+
+/* The audio preference is injected into the existing Install settings card. */
+.boot-audio-setting-row { border-top: 1px solid var(--line); }
+
+/* Required Charge Tests distinguish the rule that creates a test from modifiers
+   that merely alter it. Affected models remain readable beneath each rule card. */
+.required-charge-rule-details .turn-rule-unit-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 2px;
+}
+.required-charge-rule-details .turn-rule-unit {
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--ink);
+}
+.required-charge-test-panel { margin-top: 12px; }
+.required-charge-test-panel .required-charge-unit-grid { margin-top: 10px; }
+
+/* Match knowledge is deliberately presented as one operational task stream.
+   Long rules wrap rather than forcing narrow phase cards wider than the page. */
+.turn-guidance-shell,
+.turn-guidance-panel,
+.phase-rule-details,
+.turn-rule-unit-list { min-width: 0; }
+.phase-rule-details summary,
+.phase-rule-details p,
+.turn-rule-unit { overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: reduce) {
+  .olddex-launch-fade-enter-active,
+  .olddex-launch-fade-leave-active { transition: none; }
+}
+
+
+/* Consolidated legacy override. */
+/* Old.dex Alpha Build 0.36 — sequential charge/combat workflow and match tracking. */
+
+/* Start New Match: composition options are compact pills rather than detail cards. */
+.game-create-page .battle-composition-option-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.game-create-page .battle-composition-option-list li {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  min-height: 30px;
+  margin: 0;
+  padding: 6px 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, white);
+  color: #000;
+  line-height: 1.1;
+}
+.game-create-page .battle-composition-option-list li strong { color: #000; font-size: calc(9px + var(--font-offset)); }
+.game-create-page .battle-composition-option-list li span { display: none; }
+
+/* Replace exposed horizontal scrollbars on the match phase controls with explicit arrows. */
+.match-tab-scroll-shell {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 38px;
+  align-items: stretch;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+}
+.match-tab-scroll-shell + .match-tab-scroll-shell { margin-top: 8px; }
+.match-tab-scroll-shell .game-phase-tabs,
+.match-tab-scroll-shell .game-subphase-tabs {
+  min-width: 0;
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+}
+.match-tab-scroll-shell .game-phase-tabs::-webkit-scrollbar,
+.match-tab-scroll-shell .game-subphase-tabs::-webkit-scrollbar { display: none; }
+.match-tab-scroll-arrow {
+  display: grid;
+  place-items: center;
+  min-width: 38px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+.match-tab-scroll-arrow:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--paper-2)); }
+.match-tab-scroll-arrow svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Scenario images belong at the bottom of the expandable scenario rule content. */
+.scenario-inline-details .scenario-rules-bottom-image {
+  display: block;
+  width: min(100%, 720px);
+  max-height: 520px;
+  object-fit: contain;
+  margin: 16px auto 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+/* Spell selection stays compact on multi-caster rosters. */
+.caster-collapse-panel {
+  padding: 0;
+  overflow: clip;
+}
+.caster-collapse-panel > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 16px;
+}
+.caster-collapse-panel > summary::-webkit-details-marker { display: none; }
+.caster-collapse-panel > summary::after {
+  content: '⌄';
+  margin-left: 12px;
+  font-size: 16px;
+  transform-origin: center;
+  transition: transform .16s ease;
+}
+.caster-collapse-panel[open] > summary::after { transform: rotate(180deg); }
+.spell-caster-collapse-body { padding: 0 16px 16px; border-top: 1px solid var(--line); }
+
+/* Character attachments are table-state, not roster edits. */
+.deployment-character-join {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 1fr);
+  align-items: center;
+  gap: 9px;
+  margin-top: 9px;
+}
+.deployment-character-join > span,
+.joined-character-leave-list > .deployment-detail-label { font-size: calc(8px + var(--font-offset)); font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+.deployment-character-join select,
+.break-follow-unit-list select {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 9px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.joined-character-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.joined-character-pills > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, white);
+  color: #000;
+  font-size: calc(8px + var(--font-offset));
+  font-weight: 800;
+}
+
+/* Charges are resolved as a sequential operation rather than two artificial pages. */
+.charge-sequence-list { display: grid; gap: 10px; }
+.charge-sequence-card {
+  display: grid;
+  gap: 11px;
+  grid-template-columns: 1fr;
+  padding: 12px;
+}
+.charge-sequence-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: start; }
+.charge-sequence-card.required { box-shadow: inset 3px 0 0 var(--danger); }
+.charge-sequence-card.complete { opacity: .72; }
+.charge-sequence-controls { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.charge-sequence-controls label,
+.command-loss-options label,
+.joined-character-casualties label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  font-weight: 700;
+}
+.charge-related-rules { margin: 0; }
+.charge-related-rules > div { display: grid; gap: 9px; padding-top: 8px; }
+.charge-related-rules article { padding-top: 8px; border-top: 1px solid var(--line); }
+.charge-related-rules article:first-child { border-top: 0; padding-top: 0; }
+.charge-related-rules article p { margin: 4px 0; }
+
+/* Compulsory/remaining movement unit tracking. */
+.movement-unit-checklist { display: grid; gap: 9px; margin-top: 10px; }
+.movement-unit-checklist > label,
+.remaining-move-unit {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper-2);
+}
+.movement-unit-checklist > label,
+.remaining-move-unit > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+}
+.movement-unit-checklist > label > span,
+.remaining-move-unit > label > span { display: grid; gap: 2px; min-width: 0; }
+.movement-unit-checklist .complete,
+.remaining-move-unit.complete { opacity: .68; }
+.joined-character-leave-list { display: grid; gap: 7px; padding: 0 12px 12px 42px; }
+.joined-character-leave-list > div { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.joined-character-leave-list .secondary-button { min-height: 30px; padding: 5px 10px; }
+
+/* Expandable combat profile reference. */
+.combat-profile-list { display: grid; gap: 9px; margin-top: 10px; }
+.combat-profile-unit { border: 1px solid var(--line); border-radius: 10px; overflow: clip; background: var(--paper-2); }
+.combat-profile-unit.complete { opacity: .76; }
+.combat-profile-unit > summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.combat-profile-unit > summary::-webkit-details-marker { display: none; }
+.combat-profile-summary-copy { display: grid; gap: 2px; min-width: 0; }
+.combat-profile-cue { color: var(--ink-soft); font-size: calc(8px + var(--font-offset)); font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.combat-profile-body { display: grid; gap: 12px; padding: 12px; border-top: 1px solid var(--line); }
+.combat-profile-table-wrap { overflow-x: auto; }
+.combat-profile-table-wrap table { width: max-content; min-width: 100%; border-collapse: collapse; }
+.combat-profile-table-wrap th,
+.combat-profile-table-wrap td { min-width: 46px; padding: 7px 8px; border: 1px solid var(--line); text-align: center; white-space: nowrap; }
+.combat-profile-table-wrap th:first-child { text-align: left; min-width: 120px; }
+.combat-profile-type { margin: 0; color: var(--ink-soft); font-weight: 700; }
+.combat-profile-equipment { display: grid; gap: 4px; }
+.joined-character-profile { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.joined-character-profile h4 { margin: 0; }
+.joined-character-profile h4 small { color: var(--ink-soft); font-weight: 700; }
+
+/* Combat result and Break Test / pursuit tracking. */
+.combat-result-unit-list,
+.break-follow-unit-list { display: grid; gap: 10px; margin-top: 10px; }
+.combat-result-unit,
+.break-follow-unit-list > article { display: grid; gap: 11px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper-2); }
+.combat-result-unit > header,
+.break-follow-unit-list > article > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.destroyed-model-input { display: grid; gap: 4px; justify-items: end; color: var(--ink-soft); font-size: calc(8px + var(--font-offset)); font-weight: 800; }
+.destroyed-model-input input { width: 76px; min-height: 34px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--paper); color: var(--ink); text-align: center; }
+.command-loss-options,
+.joined-character-casualties,
+.combat-disposition-actions { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.combat-disposition-actions .secondary-button.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--paper)); }
+.break-follow-unit-list label { display: grid; gap: 5px; }
+.break-follow-unit-list label > span { font-size: calc(8px + var(--font-offset)); font-weight: 900; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-soft); }
+
+@media (max-width: 700px) {
+  .match-tab-scroll-shell { grid-template-columns: 34px minmax(0, 1fr) 34px; }
+  .match-tab-scroll-arrow { min-width: 34px; }
+  .deployment-character-join { grid-template-columns: 1fr; }
+  .charge-sequence-summary { grid-template-columns: 1fr; }
+  .declare-charge-range { justify-items: start; text-align: left; }
+  .combat-result-unit > header,
+  .break-follow-unit-list > article > header { display: grid; }
+  .destroyed-model-input { justify-items: start; }
+  .joined-character-leave-list { padding-left: 12px; }
+}
+
+
+/* Consolidated legacy override. */
+/* Old.dex Alpha Build 0.37 — match presentation, rule-text cleanup and control polish. */
+
+/* Generic pill UI keeps the same light, high-contrast treatment in dark mode.
+   Semantic red/green roster state surfaces are intentionally not targeted. */
+html[data-theme="dark"] :is(
+  .value-chip,
+  .rule-kind-pill,
+  .match-option-chips > span,
+  .joined-character-pills > span,
+  .required-charge-flag,
+  .legacy-pill,
+  .legacy-army-pill
+) {
+  background: #e9eef5 !important;
+  border-color: #8293a8 !important;
+  color: #000 !important;
+}
+html[data-theme="dark"] :is(
+  .value-chip,
+  .rule-kind-pill,
+  .match-option-chips > span,
+  .joined-character-pills > span,
+  .required-charge-flag,
+  .legacy-pill,
+  .legacy-army-pill
+) :is(strong, span, small, em) { color: #000 !important; }
+
+/* Other pill/chip variants keep their semantic background but never inherit the
+   grey/white Dark Mode foreground that made their labels unreadable. */
+html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"], [class*="-chip "]) { color: #000 !important; }
+html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"], [class*="-chip "]) :is(strong, span, small, em) { color: inherit !important; }
+
+/* Phase rails: protect the last label from the clipping edge and do not render
+   arrow gutters for a phase that has only one step. */
+.match-tab-scroll-shell .game-phase-tabs,
+.match-tab-scroll-shell .game-subphase-tabs {
+  box-sizing: border-box;
+  padding-inline: 4px;
+  scroll-padding-inline: 14px;
+}
+.match-tab-scroll-shell .game-phase-tabs > button,
+.match-tab-scroll-shell .game-subphase-tabs > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.match-tab-scroll-shell.single-step { grid-template-columns: minmax(0, 1fr); }
+.match-tab-scroll-shell.single-step .game-subphase-tabs { justify-content: flex-start; }
+.match-tab-scroll-shell.single-step .game-subphase-tabs > button { max-width: 100%; }
+
+/* Rule-card unit pills need breathing room above the divider. */
+.required-charge-rule-details .turn-rule-unit-list,
+.turn-rule-details .turn-rule-unit-list {
+  margin-top: 12px;
+  padding-top: 10px;
+  padding-bottom: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 74%, transparent);
+}
+
+/* Checkbox labels scale with the user's Text Size setting. */
+.charge-test-controls label,
+.charge-test-controls label span,
+.charge-sequence-controls label,
+.charge-sequence-controls label span,
+.movement-unit-checklist label,
+.movement-unit-checklist label span,
+.remaining-move-unit label,
+.remaining-move-unit label span,
+.command-loss-options label,
+.command-loss-options label span,
+.break-result-checks label,
+.break-result-checks label span,
+.follow-up-checks label,
+.follow-up-checks label span {
+  font-size: calc(10px + var(--font-offset));
+}
+
+/* Notes are optional and collapsed by default. */
+.game-step-note-panel {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper-2);
+  overflow: clip;
+}
+.game-step-note-panel > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 11px 13px;
+  font-weight: 900;
+}
+.game-step-note-panel > summary::-webkit-details-marker { display: none; }
+.game-step-note-panel > summary::after { content: '⌄'; float: right; }
+.game-step-note-panel[open] > summary::after { transform: rotate(180deg); }
+.game-step-note-panel .game-step-notes { display: block; padding: 0 12px 12px; }
+.game-step-note-panel .game-step-notes textarea { width: 100%; box-sizing: border-box; }
+
+/* Deployment join controls are intentionally conservative and readable. */
+.deployment-character-join select { font-size: calc(10px + var(--font-offset)); }
+
+/* Combat entries remain independent even when a Character is joined. */
+.combat-profile-roster-link {
+  color: var(--link, var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.combat-profile-roster-link:hover { text-decoration-thickness: 2px; }
+.combat-joined-note { color: var(--ink-soft); font-size: calc(8px + var(--font-offset)); font-weight: 700; }
+
+/* Break Test / winner follow-up use direct mutually-exclusive checkbox rows. */
+.break-result-checks,
+.follow-up-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.break-result-checks legend,
+.follow-up-checks legend {
+  padding: 0 5px;
+  font-size: calc(8px + var(--font-offset));
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.break-result-checks label,
+.follow-up-checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+}
+
+/* Complete rule bodies can be longer than the timing sentence; keep them
+   readable without forcing the card or phase rail wider than its container. */
+.phase-rule-details > p,
+.turn-rule-details > p {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.48;
+}
+
+@media (max-width: 700px) {
+  .match-tab-scroll-shell .game-phase-tabs,
+  .match-tab-scroll-shell .game-subphase-tabs { padding-inline: 2px; }
+  .break-result-checks,
+  .follow-up-checks { display: grid; }
+}
+
+
+/* Consolidated legacy override. */
+/* Old.dex Alpha Build 0.39 — canonical rule data and magic-item reference display. */
+.magic-picker-weapon-profile {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .45rem;
+  margin: .45rem 0 .65rem;
+}
+.magic-picker-weapon-profile > span {
+  display: grid;
+  gap: .15rem;
+  min-width: 0;
+  padding: .42rem .5rem;
+  border: 1px solid var(--border, #c8c0b2);
+  border-radius: .5rem;
+}
+.magic-picker-weapon-profile small { opacity: .72; }
+.magic-picker-weapon-profile strong { overflow-wrap: anywhere; }
+.magic-picker-source-note { opacity: .72; font-style: italic; }
+@media (max-width: 720px) {
+  .magic-picker-weapon-profile { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

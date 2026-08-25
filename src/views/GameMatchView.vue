@@ -7,10 +7,10 @@ import { completeSavedGame, deleteSavedGame, gameWorkflow as baseGameWorkflow, g
 import { getSavedArmyList } from '../services/savedLists'
 import { hydrateFriendlyMagicSetup, loadMagicChoices, loadScenarioGuidance, magicSelectionLimit, randomHappeningOptions } from '../services/gameSetup'
 import { loadMatchDeploymentGuidance, loadMatchStartRoundGuidance, loadMatchTurnGuidance, type MatchDeploymentGuidance, type MatchGuidanceRule, type MatchStartRoundRule } from '../services/matchIntelligence'
-import { isGameLocked } from '../services/gameLocksV034'
+import { isGameLocked } from '../services/gameLocks'
 import type { BuilderRosterSelection } from '../domain/rosterTypes'
-import { clearMatchTrackingV036, loadMatchTrackingV036, saveMatchTrackingV036, type MatchCombatDisposition, type MatchTrackingStateV036, type MatchTurnUnitStateV036 } from '../services/matchTrackingV036'
-import { loadMatchUnitProfileV036, type MatchUnitProfileSnapshotV036 } from '../services/matchUnitProfilesV036'
+import { clearMatchTracking, loadMatchTracking, saveMatchTracking, type MatchCombatDisposition, type MatchTrackingState, type MatchTurnUnitState } from '../services/matchTracking'
+import { loadMatchUnitProfile, type MatchUnitProfileSnapshot } from '../services/matchUnitProfiles'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,8 +30,8 @@ const turnViewSide = ref<GameSide>(game.value?.activeSide || 'player')
 const matchLocked = ref(Boolean(game.value && isGameLocked(game.value.id)))
 const phaseTabsRef = ref<HTMLElement | null>(null)
 const stepTabsRef = ref<HTMLElement | null>(null)
-const matchTracking = ref<MatchTrackingStateV036>(loadMatchTrackingV036(game.value?.id || ''))
-const combatProfiles = ref<Record<string, MatchUnitProfileSnapshotV036 | null>>({})
+const matchTracking = ref<MatchTrackingState>(loadMatchTracking(game.value?.id || ''))
+const combatProfiles = ref<Record<string, MatchUnitProfileSnapshot | null>>({})
 const combatProfileLoading = ref(new Set<string>())
 let turnGuidanceRequest = 0
 
@@ -192,22 +192,22 @@ watch(() => [phase.value?.id, step.value?.id, turnViewSide.value], () => {
 
 function persist(patch: Partial<Omit<SavedGame, 'id' | 'createdAt'>> = {}) { if (!game.value) return; const updated = updateSavedGame(game.value.id, patch); if (updated) game.value = updated }
 
-function saveTracking(next: MatchTrackingStateV036) {
+function saveTracking(next: MatchTrackingState) {
   if (!game.value) return
   matchTracking.value = next
-  saveMatchTrackingV036(game.value.id, next)
+  saveMatchTracking(game.value.id, next)
 }
-function mutateTracking(change: (next: MatchTrackingStateV036) => void) {
-  const next: MatchTrackingStateV036 = JSON.parse(JSON.stringify(matchTracking.value)) as MatchTrackingStateV036
+function mutateTracking(change: (next: MatchTrackingState) => void) {
+  const next: MatchTrackingState = JSON.parse(JSON.stringify(matchTracking.value)) as MatchTrackingState
   change(next)
   saveTracking(next)
 }
 function trackingTurnKey() { return game.value ? `${game.value.round}:${turnViewSide.value}` : '' }
-function unitTurnState(instanceId: string): MatchTurnUnitStateV036 {
+function unitTurnState(instanceId: string): MatchTurnUnitState {
   const key = trackingTurnKey()
   return key ? matchTracking.value.turns[key]?.[instanceId] || {} : {}
 }
-function patchUnitTurnState(instanceId: string, patch: Partial<MatchTurnUnitStateV036>) {
+function patchUnitTurnState(instanceId: string, patch: Partial<MatchTurnUnitState>) {
   if (!game.value || isReadOnly.value) return
   const key = trackingTurnKey()
   if (!key) return
@@ -271,7 +271,7 @@ function setCompulsoryMoved(instanceId: string, checked: boolean) { patchUnitTur
 function remainingMoved(instanceId: string) { return Boolean(unitTurnState(instanceId).remainingMoved) }
 function setRemainingMoved(instanceId: string, checked: boolean) { patchUnitTurnState(instanceId, { remainingMoved: checked }) }
 function setDestroyedModels(instanceId: string, event: Event) { patchUnitTurnState(instanceId, { destroyedModels: Math.max(0, Math.floor(Number((event.target as HTMLInputElement).value) || 0)) }) }
-function setCommandLoss(instanceId: string, field: 'bannerLost' | 'championLost' | 'musicianLost', checked: boolean) { patchUnitTurnState(instanceId, { [field]: checked } as Partial<MatchTurnUnitStateV036>) }
+function setCommandLoss(instanceId: string, field: 'bannerLost' | 'championLost' | 'musicianLost', checked: boolean) { patchUnitTurnState(instanceId, { [field]: checked } as Partial<MatchTurnUnitState>) }
 function setCombatDisposition(instanceId: string, disposition: MatchCombatDisposition) {
   const current = unitTurnState(instanceId).combatDisposition || ''
   patchUnitTurnState(instanceId, { combatDisposition: current === disposition ? '' : disposition, breakResult: '', followUpResult: '' })
@@ -302,7 +302,7 @@ async function ensureCombatProfile(row: BuilderRosterSelection) {
   if (!game.value || Object.prototype.hasOwnProperty.call(combatProfiles.value, row.instanceId) || combatProfileLoading.value.has(row.instanceId)) return
   const loading = new Set(combatProfileLoading.value); loading.add(row.instanceId); combatProfileLoading.value = loading
   try {
-    const profile = await loadMatchUnitProfileV036(game.value, row)
+    const profile = await loadMatchUnitProfile(game.value, row)
     combatProfiles.value = { ...combatProfiles.value, [row.instanceId]: profile }
   } finally {
     const next = new Set(combatProfileLoading.value); next.delete(row.instanceId); combatProfileLoading.value = next
@@ -311,7 +311,7 @@ async function ensureCombatProfile(row: BuilderRosterSelection) {
 function handleCombatProfileToggle(row: BuilderRosterSelection, event: Event) {
   if ((event.currentTarget as HTMLDetailsElement).open) void ensureCombatProfile(row)
 }
-function profileColumns(profile: MatchUnitProfileSnapshotV036 | null | undefined) {
+function profileColumns(profile: MatchUnitProfileSnapshot | null | undefined) {
   if (!profile) return [] as string[]
   const preferred = ['M','WS','BS','S','T','W','I','A','Ld','Armour Save','Ward Save','Regeneration']
   const present = new Set(profile.rows.flatMap((row) => Object.keys(row.profile)))
@@ -342,7 +342,7 @@ function scrollTabs(target: 'phase' | 'step', direction: -1 | 1) {
   if (!element) return
   element.scrollBy({ left: direction * Math.max(240, Math.round(element.clientWidth * .72)), behavior: 'smooth' })
 }
-function migrateWorkflowV036() {
+function migrateWorkflow() {
   if (!game.value || matchTracking.value.workflowMigrated) return
   const sourcePhase = baseGameWorkflow[game.value.phaseIndex]
   let stepIndex = game.value.stepIndex
@@ -413,8 +413,8 @@ function handleRoundLimit(event: Event) { setRoundLimit(Number((event.target as 
 function adjustScore(side: GameSide, delta: number) { if (!game.value || isReadOnly.value) return; if (side === 'player') persist({ playerScore: Math.max(0, game.value.playerScore + delta) }); else persist({ opponentScore: Math.max(0, game.value.opponentScore + delta) }) }
 function saveMatchToOngoing() { if (!game.value || isReadOnly.value) return; saveNotes(); persist({ status: 'open' }) }
 function finishMatch(outcome: GameOutcome = 'completed') { if (!game.value || isReadOnly.value || (outcome === 'completed' && !roundsComplete.value)) return; saveNotes(); const updated = completeSavedGame(game.value.id, outcome); if (updated) game.value = updated }
-function cancelMatch() { if (!game.value || isReadOnly.value || typeof window === 'undefined') return; if (!window.confirm('Cancel this match? The saved match and its recorded setup will be removed from this device.')) return; const id = game.value.id; clearMatchTrackingV036(id); deleteSavedGame(id); void router.push('/games') }
-async function startOver() { if (!game.value || isReadOnly.value || typeof window === 'undefined') return; if (!window.confirm('Start this match over? Scores, round progress, notes, first-turn result and match-specific magic selections will be reset.')) return; const id = game.value.id; clearMatchTrackingV036(id); matchTracking.value = loadMatchTrackingV036(id); const updated = resetSavedGame(id); if (!updated) return; game.value = updated; magicCasters.value = []; await hydrateMagicSetup() }
+function cancelMatch() { if (!game.value || isReadOnly.value || typeof window === 'undefined') return; if (!window.confirm('Cancel this match? The saved match and its recorded setup will be removed from this device.')) return; const id = game.value.id; clearMatchTracking(id); deleteSavedGame(id); void router.push('/games') }
+async function startOver() { if (!game.value || isReadOnly.value || typeof window === 'undefined') return; if (!window.confirm('Start this match over? Scores, round progress, notes, first-turn result and match-specific magic selections will be reset.')) return; const id = game.value.id; clearMatchTracking(id); matchTracking.value = loadMatchTracking(id); const updated = resetSavedGame(id); if (!updated) return; game.value = updated; magicCasters.value = []; await hydrateMagicSetup() }
 function endMatchEarly(outcome: Exclude<GameOutcome, 'completed'>) { if (!game.value || isReadOnly.value || !battleStarted.value || typeof window === 'undefined') return; const label = outcome === 'conceded' ? 'record a concession' : outcome === 'enemy-yielded' ? 'record that the enemy yielded' : 'record this match as a draw'; if (!window.confirm(`End the match and ${label}?`)) return; finishMatch(outcome) }
 function returnToGames() { void router.push('/games') }
 
@@ -469,7 +469,7 @@ const deploymentTip = computed(() => { if (isDeploymentOrderStep.value) return '
 const advanceButtonLabel = computed(() => { if (roundsComplete.value && phase.value?.id === 'end') return 'Round limit reached'; if (isOverviewStep.value) return 'Prepare For Battle! (Next)'; if (phase.value?.id === 'deployment' && game.value?.stepIndex === phase.value.steps.length - 1) return 'To War! - (Start Battle)'; if (isRoundBattleEffectsStep.value) return 'Player Effects (Next)'; if (isRoundPlayerEffectsStep.value) return 'Begin Round'; return step.value && phase.value && game.value?.stepIndex === phase.value.steps.length - 1 ? `Next: ${gameWorkflow[game.value.phaseIndex + 1]?.label || 'Next'}` : `Next: ${phase.value?.steps[(game.value?.stepIndex || 0) + 1]?.label || 'Next'}` })
 const advanceButtonDisabled = computed(() => Boolean((roundsComplete.value && phase.value?.id === 'end') || (phase.value?.id === 'deployment' && game.value?.stepIndex === phase.value.steps.length - 1 && !game.value?.firstPlayerConfirmed)))
 
-onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.value.id)); migrateWorkflowV036(); void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioGuidance()]) })
+onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.value.id)); migrateWorkflow(); void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioGuidance()]) })
 </script>
 
 <template>

@@ -1,4 +1,5 @@
 import { ref, watch } from 'vue'
+import { readStorage, writeStorage } from './storage'
 
 export type OldDexLanguage = 'en' | 'de' | 'fr' | 'es' | 'it' | 'pl' | 'zh'
 
@@ -14,11 +15,8 @@ export const languageOptions: Array<{ code: OldDexLanguage; label: string; short
 
 const KEY = 'olddex.language.v2'
 function initialLanguage(): OldDexLanguage {
-  if (typeof window === 'undefined') return 'en'
-  try {
-    const stored = (window.localStorage.getItem(KEY) || window.localStorage.getItem('olddex.language.v1')) as OldDexLanguage | null
-    return languageOptions.some((option) => option.code === stored) ? stored! : 'en'
-  } catch { return 'en' }
+  const stored = (readStorage(KEY) || readStorage('olddex.language.v1')) as OldDexLanguage | null
+  return languageOptions.some((option) => option.code === stored) ? stored! : 'en'
 }
 
 const language = ref<OldDexLanguage>(initialLanguage())
@@ -27,9 +25,7 @@ watch(language, (value) => {
     document.documentElement.lang = value === 'zh' ? 'zh-CN' : value
     document.documentElement.dataset.language = value
   }
-  if (typeof window !== 'undefined') {
-    try { window.localStorage.setItem(KEY, value) } catch { /* storage may be unavailable */ }
-  }
+  writeStorage(KEY, value)
 }, { immediate: true })
 
 export function currentOldDexLanguage() { return language.value }

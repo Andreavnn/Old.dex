@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
 import { deleteSavedGame, getSavedGames, type SavedGame } from '../services/games'
-import { clearGameLock, lockedGameIds, setGameLocked } from '../services/gameLocksV034'
+import { clearGameLock, lockedGameIds, setGameLocked } from '../services/gameLocks'
 
 const games = ref<SavedGame[]>([])
 const lockedIds = ref(new Set<string>())

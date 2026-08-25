@@ -1,7 +1,7 @@
 {
   "name": "olddex-gui",
   "private": true,
-  "version": "0.38.0",
+  "version": "0.39.0",
   "type": "module",
   "packageManager": "npm@10.9.2",
   "engines": {
@@ -14,9 +14,10 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc -b",
     "lint": "node scripts/static-analysis.mjs",
-    "check": "npm run lint && npm run typecheck && npm run build",
+    "check": "npm run lint && npm run test:core && npm run typecheck && npm run build",
     "build:review": "vue-tsc -b && vite build --config vite.review.config.ts && node scripts/inline-preview.mjs && node scripts/verify-preview.mjs",
-    "verify:review": "node scripts/verify-preview.mjs"
+    "verify:review": "node scripts/verify-preview.mjs",
+    "test:core": "node --experimental-strip-types scripts/core-regression.mjs"
   },
   "dependencies": {
     "vue": "3.5.18",

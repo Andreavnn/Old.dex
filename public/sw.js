@@ -1,5 +1,5 @@
-const CACHE_NAME = 'olddex-shell-v038-canonical-rule-data'
-const CORE = ['/', '/manifest.webmanifest', '/icons/favicon-64.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/audio/ready_for_murderin_orc.mp3', '/data/owb-rule-catalog-v038.json']
+const CACHE_NAME = 'olddex-shell-v039-core-rebuild'
+const CORE = ['/', '/manifest.webmanifest', '/icons/favicon-64.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/audio/ready_for_murderin_orc.mp3', '/data/owb-rule-catalog.json']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE)).then(() => self.skipWaiting()))

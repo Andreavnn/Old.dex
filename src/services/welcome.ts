@@ -1,22 +1,20 @@
+import { readStorage, writeStorage } from './storage'
+
 const WELCOME_KEY = 'olddex.welcome.seen.v1'
 const INSTALL_PROMPT_DISMISSED_KEY = 'olddex.install-prompt.dismissed.v1'
 
 export function hasSeenWelcome() {
-  if (typeof window === 'undefined') return true
-  try { return window.localStorage.getItem(WELCOME_KEY) === '1' } catch { return false }
+  return readStorage(WELCOME_KEY) === '1'
 }
 
 export function markWelcomeSeen() {
-  if (typeof window === 'undefined') return
-  try { window.localStorage.setItem(WELCOME_KEY, '1') } catch { /* continue without persistence */ }
+  writeStorage(WELCOME_KEY, '1')
 }
 
 export function hasDismissedWelcomeInstallPrompt() {
-  if (typeof window === 'undefined') return false
-  try { return window.localStorage.getItem(INSTALL_PROMPT_DISMISSED_KEY) === '1' } catch { return false }
+  return readStorage(INSTALL_PROMPT_DISMISSED_KEY) === '1'
 }
 
 export function dismissWelcomeInstallPromptPermanently() {
-  if (typeof window === 'undefined') return
-  try { window.localStorage.setItem(INSTALL_PROMPT_DISMISSED_KEY, '1') } catch { /* continue without persistence */ }
+  writeStorage(INSTALL_PROMPT_DISMISSED_KEY, '1')
 }

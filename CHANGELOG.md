@@ -1,3 +1,16 @@
+# Alpha Build 0.39 — Core rebuild and canonical source semantics
+
+- Established the canonical Old.dex core architecture and stopped using version-specific downstream patch layers as the normal repair path.
+- Rebuilt Old World Builder selection classification so source semantics and selection names determine weapons, shields, armour, mounts, roles and upgrades; rules URLs are documentation only and cannot turn Shield into a weapon.
+- Moved profile/save mechanics behind the canonical core profile engine. Armour replacement resolves before Shield, Armoured Hide and other persistent save modifiers.
+- Added a permanent Black Orc Bigboss regression: Full Plate Armour is 4+, Shield remains equipment, Shield never appears as a weapon, and selecting it resolves the eligible character profile to a 3+ Armour Save.
+- Removed superseded v0.33/v0.34 match-guidance services and the duplicate deployment/start-round/turn parser from gameSetup; compiled match intelligence is the sole match-guidance engine.
+- Renamed version-suffixed runtime services to canonical service boundaries and consolidated recent changelog/runtime imports.
+- Consolidated the v0.33-v0.38 stylesheet stack into the canonical stylesheet so later builds no longer depend on successive override files.
+- Centralized storage access behind the storage service and added architecture checks preventing direct storage/network bypasses, versioned runtime service files, and versioned runtime stylesheets.
+- Added docs/CORE_ARCHITECTURE.md and a 26-case core regression runner covering source classification, Shield/profile save math, match timing and layering invariants.
+- Bumped package/header/footer/PWA cache metadata to Alpha Build 0.39. This release is delivered as a full replacement-source package so obsolete files are actually removed.
+
 # Alpha Build 0.38 — Canonical rule-content pipeline and shield save repair
 
 - Rebuilt rule retrieval around canonical minimal rules-index pages, matching Old World Builder’s source-request pattern and preventing source-site navigation/update chrome from contaminating Old.dex rule text.

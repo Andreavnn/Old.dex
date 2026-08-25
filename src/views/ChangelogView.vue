@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import AppHeader from '../components/AppHeader.vue'
 import { changelogEntries } from '../data/changelog'
-import { changelogV033 } from '../data/changelog-v033'
-import { changelogV034 } from '../data/changelog-v034'
-import { changelogV035 } from '../data/changelog-v035'
-import { changelogV036 } from '../data/changelog-v036'
-import { changelogV037 } from '../data/changelog-v037'
-import { changelogV038 } from '../data/changelog-v038'
 
-const visibleChangelogEntries = [changelogV038, changelogV037, changelogV036, changelogV035, changelogV034, changelogV033, ...changelogEntries]
+const visibleChangelogEntries = changelogEntries
 </script>
 
 <template>
