@@ -264,6 +264,15 @@ function mergeEvents(events: MatchTimingEvent[]) {
 
 export function analyzeMatchRuleTiming(label: string, text: string): MatchTimingEvent[] {
   const cleanLabel = compact(label)
+  const fullText = compact(text)
+
+  // Canonical reactive rules are anchored to the opponent's action window.
+  // This prevents later sentences describing the reaction's movement from
+  // being misinterpreted as a friendly Remaining Moves task.
+  if (/^Counter Charge(?:\s|\(|$)/i.test(cleanLabel)) {
+    return [{ step: 'declare-charges', intent: 'reaction', text: fullText || cleanLabel, confidence: 125, turn: 'enemy' }]
+  }
+
   const sentences = splitRuleSentences(text)
   const events: MatchTimingEvent[] = []
   let lastEvent: MatchTimingEvent | null = null

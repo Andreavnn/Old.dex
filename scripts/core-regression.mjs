@@ -48,6 +48,13 @@ test('Passive duration reference to Shooting creates no Shooting task', () => {
 test('Conveyance routes to Remaining Moves', () => assert.ok(timing.analyzeMatchRuleTiming('Spell', 'This is a Conveyance spell.').some((row) => row.step === 'remaining-moves')))
 test('Assailment routes to Fight', () => assert.ok(timing.analyzeMatchRuleTiming('Spell', 'This is an Assailment spell.').some((row) => row.step === 'fight')))
 test('Magic Missile routes to Special Shooting', () => assert.ok(timing.analyzeMatchRuleTiming('Spell', 'This is a Magic Missile.').some((row) => row.step === 'special-shooting')))
+test('Counter Charge is an enemy-turn charge reaction only', () => {
+  const rows = timing.analyzeMatchRuleTiming('Counter Charge', 'When a unit with this special rule is charged, it may declare a Counter Charge charge reaction.')
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].step, 'declare-charges')
+  assert.equal(rows[0].turn, 'enemy')
+  assert.equal(rows[0].intent, 'reaction')
+})
 test('Ambushers is recognized as a deployment rule', () => assert.ok(timing.analyzeMatchRuleTiming('Ambushers', 'This unit may be held in reserve.').some((row) => row.step === 'deploy-armies')))
 test('Close Order is recognized as a formation rule', () => assert.equal(timing.isFormationRuleName('Close Order'), true))
 
@@ -65,6 +72,24 @@ test('OWB rule paths cannot classify weapons', () => {
   assert.ok(source.includes('partitionDescriptorParts'))
 })
 test('Profile compatibility facade delegates to canonical core', () => assert.ok(readFileSync(resolve(root, 'src/domain/profileEffects.ts'), 'utf8').includes("export * from '../core/profileEngine'")))
+test('Canonical match workflow combines charge resolution and follow up', () => {
+  const games = readFileSync(resolve(root, 'src/services/games.ts'), 'utf8')
+  assert.equal(/id: 'first-turn'/.test(games), false)
+  assert.equal(/id: 'charge-moves'/.test(games), false)
+  assert.equal(/id: 'follow-up'/.test(games), false)
+  assert.ok(games.includes("label: 'Declare & Resolve Charges'"))
+  assert.ok(games.includes("label: 'Break Tests & Follow Up'"))
+})
+test('Scenario maps are centrally defined for every pitched battle scenario', () => {
+  const maps = readFileSync(resolve(root, 'src/data/scenarioMaps.ts'), 'utf8')
+  for (const slug of ['open-battle','meeting-engagement','flank-attack','command-and-control','mountain-pass','break-point']) assert.ok(maps.includes(`'${slug}'`))
+})
+test('Match tips use one canonical collapsible component', () => {
+  const view = readFileSync(resolve(root, 'src/views/GameMatchView.vue'), 'utf8')
+  assert.ok(view.includes('MatchTipPanel'))
+  assert.ok(view.includes('tipsVisible'))
+  assert.equal(/<aside[^>]+game-tip-card/.test(view), false)
+})
 
 after: {
   let passed = 0

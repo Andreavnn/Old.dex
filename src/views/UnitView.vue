@@ -48,7 +48,7 @@ const equipmentCounts = ref(new Map<string, number>())
 
 const backPath = computed(() => {
   const candidate = String(route.query.return || '')
-  return candidate.startsWith('/lists/builder') ? candidate : (army.value ? `/army/${army.value.slug}` : '/lists')
+  return candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : (army.value ? `/army/${army.value.slug}` : '/lists')
 })
 const compositionId = computed(() => {
   const direct = String(route.query.composition || '')
@@ -1128,7 +1128,7 @@ onMounted(() => { if (prototypeUnit.value) void resetSelections() })
 
     <template v-if="prototypeUnit">
       <section class="warscroll-hero card-surface">
-        <div class="warscroll-hero-actions"><button class="favourite-button warscroll-favourite" type="button" :aria-pressed="favourite" @click="toggleFavourite" aria-label="Favorite unit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.75 5.57 6.15.9-4.45 4.33 1.05 6.12L12 17.03l-5.5 2.89 1.05-6.12L3.1 9.47l6.15-.9L12 3Z" /></svg></button></div>
+        <div class="warscroll-hero-actions warscroll-hero-corner-actions"><RouterLink class="unit-inline-back-button" :to="backPath" aria-label="Back to previous page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5 8.5 12l7 7" /></svg></RouterLink><button class="favourite-button warscroll-favourite" type="button" :aria-pressed="favourite" @click="toggleFavourite" aria-label="Favorite unit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.75 5.57 6.15.9-4.45 4.33 1.05 6.12L12 17.03l-5.5 2.89 1.05-6.12L3.1 9.47l6.15-.9L12 3Z" /></svg></button></div>
         <p class="eyebrow">{{ army?.name || 'OLD WORLD UNIT' }}</p><h1>{{ prettyUnitName }}</h1><span class="warscroll-points-badge">{{ totalPoints }} pts</span>
         <div class="warscroll-unit-size" aria-label="Unit size"><span class="warscroll-unit-size-label">Unit Size</span><strong>{{ formatUnitSize() }}</strong><div v-if="canAdjustModelCount" class="unit-size-controls"><button type="button" :disabled="modelCount <= (prototypeUnit.minimumModels || 1)" @click="adjustModelCount(-1)">−</button><input :value="modelCount" type="number" inputmode="numeric" :min="prototypeUnit.minimumModels || 1" :max="prototypeUnit.maximumModels || 999" @change="handleModelCountEvent" /><button type="button" :disabled="Boolean(prototypeUnit.maximumModels && modelCount >= prototypeUnit.maximumModels)" @click="adjustModelCount(1)">+</button></div><small v-if="canAdjustModelCount">Minimum {{ prototypeUnit.minimumModels || 1 }}<template v-if="prototypeUnit.maximumModels"> · Maximum {{ prototypeUnit.maximumModels }}</template></small><small v-else>{{ startingUnitSize() }}</small></div>
       </section>

@@ -38,6 +38,8 @@ export type MatchGuidanceRule = {
   turn?: MatchTurnAffinity
   requiredCharge?: boolean
   relatedRules?: Array<{ source: string; label: string; path?: string; summary: string }>
+  quantity?: number
+  remainingQuantity?: number
 }
 
 export type MatchDeploymentRule = {
@@ -215,6 +217,7 @@ function ruleEventRows(input: {
   path?: string
   text: string
   unitRefs?: MatchUnitRef[]
+  quantity?: number
 }) {
   const fullRuleText = cleanRuleText(input.text)
   return analyzeMatchRuleTiming(input.label, fullRuleText).map((timing) => ({
@@ -228,6 +231,7 @@ function ruleEventRows(input: {
     // the complete cleaned mechanical rule rather than one matching sentence.
     summary: fullRuleText || cleanRuleText(timing.text),
     unitRefs: input.unitRefs ? [...input.unitRefs] : undefined,
+    quantity: input.quantity && input.quantity > 0 ? Math.floor(input.quantity) : undefined,
     action: timing.intent === 'required-charge-test' ? 'required-charge-test' as const : 'rule' as const,
     intent: timing.intent,
     timingConfidence: timing.confidence,
@@ -252,7 +256,7 @@ async function compileRosterEvents(roster: BuilderRosterSelection[], side: 'play
       const path = `/magic-item/${item.slug}`
       jobs.push((async () => {
         const text = await ruleText(path, item.name)
-        output.push(...ruleEventRows({ side, sourceKind: 'magic-item', source: unit.name, label: item.name, path, text, unitRefs: unitRef }))
+        output.push(...ruleEventRows({ side, sourceKind: 'magic-item', source: unit.name, label: item.name, path, text, unitRefs: unitRef, quantity: Math.max(1, Number(item.count || 1)) }))
       })())
     }
   }
@@ -356,20 +360,43 @@ function fingerprint(game: SavedGame) {
   })
 }
 
+function intentPriority(intent: MatchRuleIntent | undefined) {
+  const priority: Partial<Record<MatchRuleIntent, number>> = {
+    'required-charge-test': 7,
+    'required-charge-modifier': 6,
+    'charge-modifier': 5,
+    reaction: 4,
+    restriction: 3,
+    spell: 3,
+    deployment: 2,
+    reserve: 2,
+    reminder: 1,
+    expiry: 0,
+  }
+  return priority[intent || 'reminder'] ?? 0
+}
+
 function groupCompiledEvents(rows: CompiledRuleEvent[]) {
   const grouped = new Map<string, CompiledRuleEvent>()
   for (const row of rows) {
-    // Canonical rule identity, not a truncated sentence, controls deduplication.
-    // This prevents a joined Character and its host unit from producing two cards
-    // for the same Individual rule while still retaining every affected model.
-    const key = stableRuleId([row.side, row.sourceKind, row.label, row.path, row.step, row.intent])
+    // A canonical rule should render once per operational step. Intent is an
+    // interpretation of that rule, not a second identity. Magic items stay
+    // carrier-specific so per-model quantities remain trackable.
+    const carrier = row.sourceKind === 'magic-item' ? row.source : ''
+    const key = stableRuleId([row.side, row.sourceKind, carrier, row.label, row.path, row.step, row.turn])
     const prior = grouped.get(key)
     if (!prior) { grouped.set(key, { ...row, unitRefs: row.unitRefs ? [...row.unitRefs] : undefined }); continue }
     if ((row.summary || '').length > (prior.summary || '').length) prior.summary = row.summary
+    if (intentPriority(row.intent) > intentPriority(prior.intent)) {
+      prior.intent = row.intent
+      prior.action = row.action
+    }
+    prior.timingConfidence = Math.max(Number(prior.timingConfidence || 0), Number(row.timingConfidence || 0))
+    prior.quantity = Math.max(Number(prior.quantity || 0), Number(row.quantity || 0)) || undefined
     const refs = new Map((prior.unitRefs || []).map((ref) => [ref.instanceId, ref]))
     for (const ref of row.unitRefs || []) refs.set(ref.instanceId, ref)
     prior.unitRefs = refs.size ? [...refs.values()] : undefined
-    if (prior.unitRefs && prior.unitRefs.length > 1 && (prior.sourceKind === 'unit' || prior.sourceKind === 'magic-item')) prior.source = 'Affected units'
+    if (prior.unitRefs && prior.unitRefs.length > 1 && prior.sourceKind === 'unit') prior.source = 'Affected units'
   }
   return [...grouped.values()].sort((a, b) => {
     const kindPriority: Record<MatchRuleSourceKind, number> = { scenario: 0, battlefield: 1, 'battle-composition': 2, 'army-composition': 3, spell: 4, 'magic-item': 5, unit: 6, core: 7 }
@@ -461,6 +488,25 @@ async function fallbackMovement(game: SavedGame, row: BuilderRosterSelection) {
   }
 }
 
+function maximumBonusValue(value: string) {
+  const dice = String(value || '').match(/^D(\d+)$/i)
+  if (dice) return Math.max(0, Number(dice[1]) || 0)
+  return Math.max(0, Number(value) || 0)
+}
+
+function chargeRangeIncreaseFromText(text: string) {
+  const bonus = '(\\d+|D3|D6)'
+  const patterns = [
+    new RegExp(`(?:increases?|increase|increased)\\s+(?:its|the unit'?s|this model'?s)?\\s*(?:maximum (?:possible )?)?charge range\\s+by\\s+${bonus}\\s*[\"”']?`, 'gi'),
+    new RegExp(`(?:maximum (?:possible )?)?charge range\\s+(?:is )?(?:increased|increases?)\\s+by\\s+${bonus}\\s*[\"”']?`, 'gi'),
+    new RegExp(`(?:add|adds|adding)\\s+${bonus}\\s*(?:[\"”']\\s*)?to (?:this model'?s|the unit'?s|its)?\\s*(?:maximum )?charge range`, 'gi'),
+    new RegExp(`(?:add|adds|adding)\\s+${bonus}\\s+to (?:this model'?s|the unit'?s|its)?\\s*charge roll`, 'gi'),
+    new RegExp(`(?:charge roll|charge range)[^.]{0,100}\\+${bonus}`, 'gi'),
+  ]
+  const values = patterns.flatMap((pattern) => [...text.matchAll(pattern)].map((match) => maximumBonusValue(match[1]))).filter((value) => value > 0)
+  return values.length ? Math.max(...values) : 0
+}
+
 async function maximumChargeRangeBonus(row: BuilderRosterSelection) {
   let bonus = (row.specialRules || []).some((rule) => /^Swiftstride(?:\s|\(|$)/i.test(rule.label)) ? 3 : 0
   const seen = new Set<string>()
@@ -472,8 +518,7 @@ async function maximumChargeRangeBonus(row: BuilderRosterSelection) {
     if (!source.path || seen.has(source.path)) continue
     seen.add(source.path)
     const text = await ruleText(source.path, source.fallback)
-    const values = [...text.matchAll(/(?:increases?|increase|increased)\s+(?:its|the unit'?s)?\s*maximum possible charge range\s+by\s+(\d+)\s*["”']?/gi)].map((match) => Number(match[1]) || 0)
-    if (values.length) bonus += Math.max(...values)
+    bonus += chargeRangeIncreaseFromText(text)
   }
   return bonus
 }
@@ -520,8 +565,16 @@ function coreEnemyGuidance(step: MatchActionStep, viewSide: GameSide): MatchGuid
   return []
 }
 
-function toGuidance(rows: CompiledRuleEvent[]) {
-  return rows.map(({ step: _step, turn: _turn, ...row }) => ({ ...row }))
+function toGuidance(rows: CompiledRuleEvent[], round: number) {
+  return rows.map(({ step: _step, turn: _turn, ...row }) => ({
+    ...row,
+    remainingQuantity: row.quantity ? Math.max(0, row.quantity - Math.max(0, round - 1)) : undefined,
+  }))
+}
+
+function guidanceIdentity(row: MatchGuidanceRule) {
+  const units = (row.unitRefs || []).map((unit) => unit.instanceId).sort().join(',')
+  return stableRuleId([row.side, row.sourceKind, row.sourceKind === 'magic-item' ? row.source : '', row.label, row.path, row.summary, units])
 }
 
 export async function loadMatchTurnGuidance(game: SavedGame, stepId: string, viewSide: GameSide): Promise<MatchGuidanceRule[]> {
@@ -535,9 +588,9 @@ export async function loadMatchTurnGuidance(game: SavedGame, stepId: string, vie
   if (step === 'declare-charges' && viewSide === 'player') {
     const playerChargeEvents = knowledge.playerEvents.filter((row) => ['declare-charges', 'charge-moves'].includes(row.step) && visibleForTurn(row, viewSide))
     const battleChargeEvents = knowledge.battleEvents.filter((row) => ['declare-charges', 'charge-moves'].includes(row.step) && visibleForTurn(row, viewSide))
-    const rows = [...toGuidance(battleChargeEvents), ...(await declareChargeRows(game, playerChargeEvents))]
+    const rows = [...toGuidance(battleChargeEvents, game.round), ...(await declareChargeRows(game, playerChargeEvents))]
     const seen = new Set<string>()
-    return rows.filter((row) => { const key = row.id || stableRuleId([row.side,row.source,row.label,row.path,row.summary]); if (seen.has(key)) return false; seen.add(key); return true })
+    return rows.filter((row) => { const key = guidanceIdentity(row); if (seen.has(key)) return false; seen.add(key); return true })
   }
 
   // Break Tests and Follow Up/Pursuit are likewise resolved combat-by-combat.
@@ -546,9 +599,9 @@ export async function loadMatchTurnGuidance(game: SavedGame, stepId: string, vie
   const acceptedSteps: MatchActionStep[] = step === 'break-test' ? ['break-test', 'follow-up'] : [step]
   const sourceRows = [...knowledge.battleEvents, ...knowledge.playerEvents, ...knowledge.opponentEvents]
     .filter((row) => acceptedSteps.includes(row.step) && visibleForTurn(row, viewSide))
-  const rows = [...toGuidance(sourceRows), ...coreEnemyGuidance(step, viewSide)]
+  const rows = [...toGuidance(sourceRows, game.round), ...coreEnemyGuidance(step, viewSide)]
   const seen = new Set<string>()
-  return rows.filter((row) => { const key = row.id || stableRuleId([row.side,row.source,row.label,row.path,row.summary]); if (seen.has(key)) return false; seen.add(key); return true })
+  return rows.filter((row) => { const key = guidanceIdentity(row); if (seen.has(key)) return false; seen.add(key); return true })
 }
 
 export async function loadMatchStartRoundGuidance(game: SavedGame): Promise<MatchStartRoundRule[]> {

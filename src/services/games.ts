@@ -57,8 +57,7 @@ export const gameWorkflow: GameWorkflowPhase[] = [
   ] },
   { id: 'deployment', label: 'Deployment', steps: [
     { id: 'deployment-order', label: 'Deployment Order', description: 'Confirm scenario deployment instructions and record which player begins alternating deployment.' },
-    { id: 'deploy-armies', label: 'Deploy Armies', description: 'Work through the friendly roster, record deployment and reserve status, and review any unit-specific deployment rules.' },
-    { id: 'first-turn', label: 'First Turn', description: 'Resolve and record the first-turn procedure after deployment is complete.' },
+    { id: 'deploy-armies', label: 'Deploy Armies', description: 'Deploy the friendly roster, record reserves and joined Characters, then resolve who takes the first turn.' },
   ] },
   { id: 'round-start', label: 'Start of Round', steps: [
     { id: 'round-battle-effects', label: 'Battle Effects', description: 'Resolve scenario, battlefield, battle-composition and other shared Start of Round effects before either player resolves model-specific effects.' },
@@ -72,8 +71,7 @@ export const gameWorkflow: GameWorkflowPhase[] = [
   ] },
   { id: 'movement', label: 'Movement', steps: [
     { id: 'required-charges', label: 'Required Charge Tests', description: 'Resolve compulsory charge checks such as Impetuous before declaring charges.' },
-    { id: 'declare-charges', label: 'Declare Charges', description: 'Declare eligible charges and record required charge declarations.' },
-    { id: 'charge-moves', label: 'Charge Moves', description: 'Resolve declared charges and record successful or failed charge movement.' },
+    { id: 'declare-charges', label: 'Declare & Resolve Charges', description: 'Declare one charge, roll and resolve it completely, then move to the next eligible charging unit.' },
     { id: 'compulsory-moves', label: 'Compulsory Moves', description: 'Resolve fleeing movement, reserves and other compulsory movement.' },
     { id: 'remaining-moves', label: 'Remaining Moves', description: 'Resolve normal movement, marching and eligible Conveyance spells.' },
   ] },
@@ -83,9 +81,8 @@ export const gameWorkflow: GameWorkflowPhase[] = [
   ] },
   { id: 'combat', label: 'Combat', steps: [
     { id: 'fight', label: 'Choose & Fight Combat', description: 'Resolve attacking and being attacked in Initiative order.' },
-    { id: 'combat-result', label: 'Calculate Combat Result', description: 'Record Combat Result and determine the winning side.' },
-    { id: 'break-test', label: 'Break Test', description: 'Resolve any required Break Test and record the outcome.' },
-    { id: 'follow-up', label: 'Follow Up & Pursuit', description: 'Resolve follow up, pursuit, restraint and fleeing movement.' },
+    { id: 'combat-result', label: 'Calculate Combat Result', description: 'Record casualties and Combat Result, then determine the winning side.' },
+    { id: 'break-test', label: 'Break Tests & Follow Up', description: 'Resolve each Break Test and the resulting follow up, pursuit, restraint or overrun before moving to the next combat.' },
   ] },
   { id: 'end', label: 'End of Round', steps: [
     { id: 'end-effects', label: 'End of Round Effects', description: 'Resolve effects that expire, trigger or must be checked at the end of the round.' },
@@ -174,15 +171,22 @@ function savedGameSidePoints(row: SavedGame, side: GameSide) {
 function parseGames(value: unknown): SavedGame[] {
   if (!Array.isArray(value)) return []
   return value.filter((row): row is SavedGame => Boolean(row && typeof row === 'object' && typeof (row as SavedGame).id === 'string')).map((row) => {
+    const priorWorkflowVersion = Math.max(0, Number(row.workflowVersion || 0))
     const rawPhaseIndex = Math.max(0, Number(row.phaseIndex || 0))
-    const migratedPhaseIndex = Number(row.workflowVersion || 0) >= 2 || rawPhaseIndex < 3 ? rawPhaseIndex : rawPhaseIndex + 1
+    const migratedPhaseIndex = priorWorkflowVersion >= 2 || rawPhaseIndex < 3 ? rawPhaseIndex : rawPhaseIndex + 1
+    const phaseId = gameWorkflow[Math.max(0, Math.min(gameWorkflow.length - 1, migratedPhaseIndex))]?.id || ''
+    let migratedStepIndex = Math.max(0, Number(row.stepIndex || 0))
+    if (priorWorkflowVersion < 5) {
+      if (phaseId === 'deployment' && migratedStepIndex >= 2) migratedStepIndex = 1
+    }
+    const phaseStepCount = gameWorkflow.find((item) => item.id === phaseId)?.steps.length || 1
     return {
       ...row,
       status: row.status === 'complete' ? 'complete' : 'open',
-      workflowVersion: 4,
+      workflowVersion: 5,
       round: Math.max(1, Number(row.round || 1)),
       phaseIndex: Math.max(0, Math.min(gameWorkflow.length - 1, migratedPhaseIndex)),
-      stepIndex: Math.max(0, Number(row.stepIndex || 0)),
+      stepIndex: Math.max(0, Math.min(phaseStepCount - 1, migratedStepIndex)),
       stepNotes: { ...(row.stepNotes || {}) },
       stepChecks: Object.fromEntries(Object.entries(row.stepChecks || {}).map(([key, value]) => [key, { ...(value || {}) }])),
       chargeTests: { ...(row.chargeTests || {}) },
@@ -191,7 +195,7 @@ function parseGames(value: unknown): SavedGame[] {
       firstPlayerConfirmed: typeof row.firstPlayerConfirmed === 'boolean' ? row.firstPlayerConfirmed : true,
       playerPoints: savedGameSidePoints(row, 'player'),
       opponentPoints: savedGameSidePoints(row, 'opponent'),
-      roundLimit: Math.max(1, Number(row.roundLimit || row.scenarioGuidance?.roundLimit || 6)),
+      roundLimit: Math.max(1, Number(row.roundLimit || row.scenarioGuidance?.roundLimit || 4)),
       roundLimitCustomized: Boolean(row.roundLimitCustomized),
       roundsCompleted: Math.max(0, Number(row.roundsCompleted || 0)),
       battleStarted: Boolean(row.battleStarted || Number(row.roundsCompleted || 0) > 0 || Number(row.round || 1) > 1),
@@ -250,7 +254,7 @@ export function createSavedGame(input: {
   const game: SavedGame = {
     id: `game-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     status: 'open',
-    workflowVersion: 4,
+    workflowVersion: 5,
     name: `${playerName} - ${opponentName}`,
     playerListId: input.playerList.id,
     playerListName: input.playerList.name,
@@ -276,7 +280,7 @@ export function createSavedGame(input: {
     points: Math.max(input.playerList.points, input.opponentList?.points || 0),
     scenario: input.scenario || 'Open Battle',
     battlefieldConditions: [],
-    roundLimit: 6,
+    roundLimit: 4,
     roundLimitCustomized: false,
     roundsCompleted: 0,
     battleStarted: false,

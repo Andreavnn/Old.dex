@@ -4,6 +4,7 @@ import { loadArmyData } from './armyData'
 import { fetchRuleDocument } from './ruleContent'
 import { getSavedArmyList } from './savedLists'
 import type { GameMagicCaster, GameMagicChoice, GameScenarioGuidance, SavedGame } from './games'
+import { pitchedBattleScenarioMaps, pitchedBattleScenarioPaths } from '../data/scenarioMaps'
 import { reportAppError } from './appErrors'
 
 function sourceName(value: unknown) {
@@ -278,14 +279,8 @@ export function magicSelectionLimit(caster: GameMagicCaster) {
 }
 
 
-const scenarioPathOverrides: Record<string, string> = {
-  'open-battle': '/warhammer-battles/open-battle',
-  'meeting-engagement': '/warhammer-battles/meeting-engagement',
-  'flank-attack': '/warhammer-battles/flank-attack',
-  'command-and-control': '/warhammer-battles/command-and-control',
-  'mountain-pass': '/warhammer-battles/mountain-pass',
-  'break-point': '/warhammer-battles/break-point',
-}
+const scenarioPathOverrides = pitchedBattleScenarioPaths
+const scenarioMapFallbacks = pitchedBattleScenarioMaps
 
 function sectionBlocks(dom: Document, labels: string[]) {
   const headings = Array.from(dom.querySelectorAll<HTMLElement>('h2,h3,h4,h5,h6'))
@@ -308,13 +303,13 @@ function parseRoundLimit(value: string) {
   if (numeric) return Math.max(1, Number(numeric[1]))
   const words: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 }
   const written = value.match(/(?:last|for)\s+(one|two|three|four|five|six|seven|eight|nine|ten)\s+rounds?/i)
-  return written ? words[written[1].toLowerCase()] : 6
+  return written ? words[written[1].toLowerCase()] : 4
 }
 
 export async function loadScenarioGuidance(scenario: string): Promise<GameScenarioGuidance> {
   const scenarioSlug = slug(scenario)
   const sourcePath = scenarioPathOverrides[scenarioSlug] || `/warhammer-battles/${scenarioSlug}`
-  const fallback: GameScenarioGuidance = { sourcePath, roundLimit: 6, gameLength: 'Most battles last for six rounds.', setupText: '', deploymentText: '', firstTurnText: '', scenarioRules: [], specificTerrain: false, mapImageUrl: undefined }
+  const fallback: GameScenarioGuidance = { sourcePath, roundLimit: 4, gameLength: 'Default match length: four rounds.', setupText: '', deploymentText: '', firstTurnText: '', scenarioRules: [], specificTerrain: false, mapImageUrl: scenarioMapFallbacks[scenarioSlug] }
   try {
     const document = await fetchRuleDocument(sourcePath)
     const dom = new DOMParser().parseFromString(`<main>${document.html}</main>`, 'text/html')
@@ -330,7 +325,7 @@ export async function loadScenarioGuidance(scenario: string): Promise<GameScenar
     const specificTerrain = Boolean(setupText && !/^Place terrain as described\.?$/i.test(setupText) && /(?:terrain|feature|hill|wood|woods|building|road|river|stream|marsh|ruin|tower|objective|impassable|battlefield|centre|center|zone)/i.test(setupText))
     const images = Array.from(dom.querySelectorAll<HTMLImageElement>('img[src]'))
     const mapImage = images.find((image) => /(?:deployment|scenario|battlefield|map|zone)/i.test(`${image.alt} ${image.src}`))
-    const mapImageUrl = mapImage?.src || undefined
+    const mapImageUrl = mapImage?.src || scenarioMapFallbacks[scenarioSlug]
     return {
       sourcePath,
       roundLimit: parseRoundLimit(gameLength),

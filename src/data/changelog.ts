@@ -6,6 +6,18 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.40', title: 'Match workflow, scenario maps, charge state, and combat tracking', notes: [
+    'Reworked match Tips into one canonical collapsible component with a per-match Tips visibility switch in the step heading; Tip panels now stay at the top of their step while charge and Break Test instructions use normal procedure panels.',
+    'Reordered Setup so Scenario precedes Game Length, changed the default match length to four rounds unless the selected scenario states otherwise, and rebuilt spell generation as caster-grouped spell cards with selection checkboxes.',
+    'Centralized pitched-battle scenario paths and deployment maps, displaying the map on scenario rule pages, Setup/Overview and the always-open Deployment Order scenario panel.',
+    'Removed the standalone First Turn deployment step and moved first-turn resolution to the bottom of Deploy Armies after unit deployment and joined-character tracking.',
+    'Expanded and theme-locked Friendly Turn / Enemy Turn controls and renamed Your Turn to Friendly Turn throughout guided match play.',
+    'Added per-round consumable quantity display for match guidance, improved Required Charge Test rule/unit presentation, and increased Pass/Fail control readability.',
+    'Expanded Declare & Resolve Charges with Hold and Successful state, deduplicated per-unit charge rules, broadened detected maximum charge-range bonuses, and routed Counter Charge exclusively as an enemy-turn reaction.',
+    'Rebuilt Remaining Moves around Normal Move, March and Hold choices with calculated movement distances instead of a generic completion checkbox.',
+    'Simplified Choose & Fight Combat to profile links and successful chargers, added capped model/wound casualty steppers to Combat Result, and kept joined-character wounds separate while inheriting the host unit combat result and Break Test/follow-up outcome.',
+    'Formatted long battle/scenario rule bodies into readable paragraphs, strengthened canonical guidance deduplication, fixed note/end-step overflow and added a backdrop to phase/step navigation rails.',
+  ] },
   { version: '0.39', title: 'Core rebuild: canonical source semantics, profiles, rules, and runtime cleanup', notes: [
     'Established a canonical core architecture and stopped treating version-specific downstream patches as the normal way to repair data/profile behavior.',
     'Rebuilt Old World Builder selection classification so source semantics and the selection name determine whether something is a weapon, shield, armour, mount, role or upgrade; documentation URLs are references only and cannot reclassify a Shield as a weapon.',

@@ -13,6 +13,7 @@ import { hiddenRuleSourcePaths, nonReaderRuleSourcePaths } from '../data/rules'
 import { ruleIndexGroupPath, ruleReaderPath } from '../data/ruleRepository'
 import { getCoreFlowNavigation, getSequenceStepNavigation } from '../data/coreSequenceNavigation'
 import { reportAppError } from '../services/appErrors'
+import { pitchedBattleScenarioMaps, pitchedBattleScenarioSlugFromPath } from '../data/scenarioMaps'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,6 +30,11 @@ const sourcePath = computed(() => {
 })
 
 const displayTitle = computed(() => sourcePath.value === '/' ? 'Quick Reference' : (document.value?.title || 'Rules Reference'))
+const scenarioFallbackImage = computed(() => {
+  const slug = pitchedBattleScenarioSlugFromPath(sourcePath.value)
+  if (!slug || /<img\b/i.test(document.value?.html || '')) return ''
+  return pitchedBattleScenarioMaps[slug] || ''
+})
 const breadcrumbs = computed(() => getRuleBreadcrumbs(sourcePath.value, displayTitle.value, indexGroups.value))
 const sequenceStepNavigation = computed(() => getSequenceStepNavigation(sourcePath.value))
 const coreFlowNavigation = computed(() => getCoreFlowNavigation(sourcePath.value))
@@ -143,6 +149,7 @@ onMounted(() => load())
 
       <article class="rule-content-card" @click="handleRuleClick">
         <div class="rule-live-content" v-html="document.html"></div>
+        <img v-if="scenarioFallbackImage" class="rule-imported-image scenario-rule-fallback-image" :src="scenarioFallbackImage" :alt="`${displayTitle} battlefield and deployment map`" loading="lazy" decoding="async" />
 
         <nav v-if="coreNavigationItems.length" class="rule-core-navigation" aria-label="Core rule navigation">
           <RouterLink

@@ -5,8 +5,11 @@ export type MatchCombatDisposition = '' | 'won' | 'failed-break'
 export type MatchTurnUnitState = {
   chargeDeclared?: boolean
   chargeResolved?: boolean
+  chargeHeld?: boolean
+  chargeSuccessful?: boolean
   compulsoryMoved?: boolean
   remainingMoved?: boolean
+  remainingMoveMode?: 'normal' | 'march' | 'hold' | ''
   destroyedModels?: number
   bannerLost?: boolean
   championLost?: boolean
@@ -21,6 +24,8 @@ export type MatchTrackingState = {
   joinedCharacters: Record<string, string>
   turns: Record<string, Record<string, MatchTurnUnitState>>
   workflowMigrated?: boolean
+  tipsHidden?: boolean
+  collapsedTips?: Record<string, boolean>
 }
 
 const PREFIX = 'olddex.match-tracking.v036.'
@@ -49,8 +54,11 @@ function normalizeState(value: unknown): MatchTrackingState {
         turns[turnKey][unitId] = {
           chargeDeclared: Boolean(source.chargeDeclared),
           chargeResolved: Boolean(source.chargeResolved),
+          chargeHeld: Boolean(source.chargeHeld),
+          chargeSuccessful: Boolean(source.chargeSuccessful),
           compulsoryMoved: Boolean(source.compulsoryMoved),
           remainingMoved: Boolean(source.remainingMoved),
+          remainingMoveMode: ['normal', 'march', 'hold'].includes(String(source.remainingMoveMode)) ? source.remainingMoveMode : '',
           destroyedModels: Math.max(0, Math.floor(Number(source.destroyedModels || 0))),
           bannerLost: Boolean(source.bannerLost),
           championLost: Boolean(source.championLost),
@@ -62,7 +70,11 @@ function normalizeState(value: unknown): MatchTrackingState {
       }
     }
   }
-  return { version: 1, joinedCharacters, turns, workflowMigrated: Boolean(row.workflowMigrated) }
+  const collapsedTips: Record<string, boolean> = {}
+  if (row.collapsedTips && typeof row.collapsedTips === 'object') {
+    for (const [key, value] of Object.entries(row.collapsedTips)) if (key && value) collapsedTips[key] = true
+  }
+  return { version: 1, joinedCharacters, turns, workflowMigrated: Boolean(row.workflowMigrated), tipsHidden: Boolean(row.tipsHidden), collapsedTips }
 }
 
 export function loadMatchTracking(gameId: string): MatchTrackingState {

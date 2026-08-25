@@ -1,3 +1,15 @@
+# Alpha Build 0.40 — Match workflow, scenario maps, charge state, and combat tracking
+
+- Reworked match Tips into one canonical collapsible component with a per-match Tips visibility switch in the step heading; Tip panels now stay at the top while charge and Break Test instructions use normal procedure panels.
+- Reordered Setup so Scenario precedes Game Length, defaulted normal matches to four rounds unless a scenario says otherwise, and rebuilt spell generation as caster-grouped spell cards with selection checkboxes.
+- Centralized pitched-battle scenario paths/maps and display them in scenario rule pages, Setup/Overview and Deployment Order.
+- Removed the standalone First Turn step and moved first-turn resolution to the bottom of Deploy Armies.
+- Enlarged and theme-locked Friendly Turn / Enemy Turn controls and renamed Your Turn to Friendly Turn.
+- Added per-round consumable quantity tracking, cleaner Required Charge Test presentation, Hold/Successful charge state, charge-rule deduplication and broader maximum charge-range bonus detection.
+- Corrected Counter Charge to enemy-turn reaction timing and rebuilt Remaining Moves around Normal Move, March and Hold with displayed movement distances.
+- Simplified Choose & Fight Combat to successful charging units with profile links, added capped model/wound casualty steppers, and made joined Characters inherit their host unit's combat result while retaining separate wounds.
+- Formatted long battle/scenario rules into readable paragraphs, strengthened guidance deduplication, fixed note/end-step overflow, and added phase/step rail backdrops.
+
 # Alpha Build 0.39 — Core rebuild and canonical source semantics
 
 - Established the canonical Old.dex core architecture and stopped using version-specific downstream patch layers as the normal repair path.
