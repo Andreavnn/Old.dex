@@ -10,6 +10,7 @@ import { loadOwbRuleCatalog, resolveOwbRuleFromCatalog, splitOwbSourceList, type
 import { localizedSourceText } from '../services/language'
 import { canonicalOwbProfileRows, selectCanonicalPrimaryProfile } from '../domain/canonicalProfiles'
 import { customUnitForArmy, customUnitsForArmy } from '../services/customData'
+import { isWeaponSemanticName, partitionDescriptorParts, type OwbSourceSection } from '../core/sourceSemantics'
 
 export type { RawBuilderUnit } from '../domain/rawArmyData'
 
@@ -89,9 +90,7 @@ function armourSaveFromName(name: string) {
   return undefined
 }
 
-function weaponLike(name: string) {
-  return /weapon|spear|pike|glaive|halberd|lance|flail|whip|staff|stave|sword|blade|axe|hammer|mace|maul|club|dagger|knife|cleaver|choppa|stabba|scythe|pick|ironfist|claw|talon|fist|bow|crossbow|longbow|shortbow|warbow|javelin|throwing|sling|pistol|handgun|gun|rifle|firearm|blowpipe|bomb|grenade|bolt thrower|stone thrower|catapult|ballista|trebuchet|mortar|lobber|doom diver|cannon/i.test(name)
-}
+function weaponLike(name: string) { return isWeaponSemanticName(name) }
 
 function missileLike(name: string) {
   return /bow|crossbow|longbow|shortbow|warbow|javelin|throwing|sling|pistol|handgun|gun|rifle|firearm|blowpipe|bomb|grenade|bolt thrower|stone thrower|ballista|trebuchet|mortar|catapult|lobber|cannon|doom diver|rock lobber/i.test(name)
@@ -149,10 +148,9 @@ function descriptorParts(name: string, catalog?: OwbRuleCatalog) {
   return splitOwbSourceList(name, catalog)
 }
 
-function splitWeaponDescriptor(name: string, catalog?: OwbRuleCatalog) {
+function splitWeaponDescriptor(name: string, catalog?: OwbRuleCatalog, source: OwbSourceSection = 'options') {
   const parts = descriptorParts(name, catalog)
-  const isWeapon = (part: string) => resolveOwbRuleFromCatalog(catalog || { rules: {}, synonyms: {} }, part)?.path.startsWith('/weapons-of-war/') || weaponLike(part)
-  return { weaponParts: parts.filter(isWeapon), nonWeaponParts: parts.filter((part) => !isWeapon(part)) }
+  return partitionDescriptorParts(parts, source)
 }
 
 function mountedOnlyNote(value: unknown) {
@@ -183,9 +181,12 @@ function equipmentRows(raw: RawBuilderUnit, catalog: OwbRuleCatalog, composition
     const allParts = descriptorParts(descriptor, catalog)
     const localizedParts = descriptorParts(displayDescriptor)
     const displayForPart = (part: string) => { const index = allParts.indexOf(part); return index >= 0 ? (localizedParts[index] || part) : part }
-    const parsed = splitWeaponDescriptor(descriptor, catalog)
-    const weaponParts = options.forceAllParts ? allParts : parsed.weaponParts
-    const nonWeaponParts = options.forceAllParts ? [] : parsed.nonWeaponParts
+    const parsed = splitWeaponDescriptor(descriptor, catalog, prefix === 'equipment' ? 'equipment' : 'options')
+    // `forceAllParts` historically treated every OWB equipment entry as a weapon.
+    // Keep atomic equipment weapons, but never promote Shields/armour merely because
+    // their documentation lives under /weapons-of-war/.
+    const weaponParts = options.forceAllParts ? allParts.filter(isWeaponSemanticName) : parsed.weaponParts
+    const nonWeaponParts = options.forceAllParts ? allParts.filter((part) => !isWeaponSemanticName(part)) : parsed.nonWeaponParts
     if (!weaponParts.length) return
     const mixedOwner = Boolean(nonWeaponParts.length)
     const selfSelectionId = selectableId(item, prefix)
@@ -254,8 +255,8 @@ function equipmentRows(raw: RawBuilderUnit, catalog: OwbRuleCatalog, composition
       const name = text(item)
       const itemId = selectableId(item, prefix)
       const choiceGroup = item?.exclusive ? `${parentId || prefix}-weapon-choice` : undefined
-      if (splitWeaponDescriptor(name, catalog).weaponParts.length) addWeapon(item, prefix, { fromOption: true, parentId, exclusiveGroup: choiceGroup })
-      const childDescriptor = splitWeaponDescriptor(name, catalog)
+      if (splitWeaponDescriptor(name, catalog, 'options').weaponParts.length) addWeapon(item, prefix, { fromOption: true, parentId, exclusiveGroup: choiceGroup })
+      const childDescriptor = splitWeaponDescriptor(name, catalog, 'options')
       const childParent = childDescriptor.nonWeaponParts.length ? itemId : (childDescriptor.weaponParts.length ? itemId : (name ? itemId : parentId))
       if (Array.isArray(item.options)) walkOptions(item.options, `${itemId}-option`, childParent)
     }
@@ -406,7 +407,7 @@ function equipmentOptions(raw: RawBuilderUnit, catalog: OwbRuleCatalog, composit
       if (!sourceAppliesToComposition(child, compositionId)) continue
       const childName = text(child)
       if (!childName) continue
-      const childDescriptor = splitWeaponDescriptor(childName, catalog)
+      const childDescriptor = splitWeaponDescriptor(childName, catalog, 'options')
       if (childDescriptor.weaponParts.length && !childDescriptor.nonWeaponParts.length) continue
       const optionName = childDescriptor.nonWeaponParts.length ? childDescriptor.nonWeaponParts.join(', ') : childName
       const kind: PrototypeEquipmentOption['kind'] = /shield|armour|armor/i.test(optionName) ? 'equipment' : inheritedKind
@@ -430,10 +431,24 @@ function equipmentOptions(raw: RawBuilderUnit, catalog: OwbRuleCatalog, composit
     })
     if (row && Array.isArray(item.options)) addChildren(item.options, row.id, `${row.id}-option`, frenzy ? 'special' : 'special')
   }
+  // OWB normally stores weapons in `equipment`, but a small number of factions
+  // also place defensive/non-weapon selections there. Preserve those semantics
+  // instead of dropping them or reclassifying them from their rule URL.
+  for (const item of Array.isArray(raw.equipment) ? raw.equipment : []) {
+    const name = text(item)
+    if (!name) continue
+    const descriptor = splitWeaponDescriptor(name, catalog, 'equipment')
+    if (!descriptor.nonWeaponParts.length) continue
+    const optionName = descriptor.nonWeaponParts.join(', ')
+    const row = add({ ...item, name_en: optionName }, /shield/i.test(optionName) ? 'equipment' : 'special', 'equipment-option', {
+      ...(/shield/i.test(optionName) ? { saveModifier: 1 } : {}),
+    })
+    if (row && Array.isArray(item.options)) addChildren(item.options, row.id, `${row.id}-option`)
+  }
   for (const item of Array.isArray(raw.options) ? raw.options : []) {
     const name = text(item)
     if (!name) continue
-    const descriptor = splitWeaponDescriptor(name, catalog)
+    const descriptor = splitWeaponDescriptor(name, catalog, 'options')
     if (descriptor.weaponParts.length && !descriptor.nonWeaponParts.length) continue
     const optionName = descriptor.nonWeaponParts.length ? descriptor.nonWeaponParts.join(', ') : name
     const mixedProfile = descriptor.weaponParts.length && descriptor.nonWeaponParts.length

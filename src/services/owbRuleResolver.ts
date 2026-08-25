@@ -1,11 +1,12 @@
 import { parseDataLiteral } from '../domain/dataLiteral'
 import { fetchWithTimeout } from './http'
 import { reportAppError } from './appErrors'
+import { readStorage, removeStorage, writeStorage } from './storage'
 
 const OWB_ROOT = 'https://raw.githubusercontent.com/nthiebes/old-world-builder/refs/heads/main'
 const RULE_INDEX_URL = `${OWB_ROOT}/src/components/rules-index/rules-index-export.json`
 const RULE_MAP_URL = `${OWB_ROOT}/src/components/rules-index/rules-map.js`
-const BUNDLED_CATALOG_URL = '/data/owb-rule-catalog-v038.json'
+const BUNDLED_CATALOG_URL = '/data/owb-rule-catalog.json'
 
 export type OwbRuleIndexStat = Record<string, string | number | null | undefined> & { Name?: string }
 export type OwbRuleIndexEntry = {
@@ -39,9 +40,8 @@ async function loadBundledCatalog() {
 }
 
 function readPersistedCatalog(allowStale = false) {
-  if (typeof window === 'undefined') return null
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || 'null') as PersistedCatalog | null
+    const parsed = JSON.parse(readStorage(STORAGE_KEY) || 'null') as PersistedCatalog | null
     if (!parsed?.catalog?.rules || !parsed.catalog.synonyms || !Number.isFinite(parsed.savedAt)) return null
     if (!allowStale && Date.now() - parsed.savedAt > STORAGE_TTL_MS) return null
     return parsed.catalog
@@ -49,8 +49,7 @@ function readPersistedCatalog(allowStale = false) {
 }
 
 function persistCatalog(catalog: OwbRuleCatalog) {
-  if (typeof window === 'undefined') return
-  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ savedAt: Date.now(), catalog })) } catch { /* storage is an optional resilience cache */ }
+  writeStorage(STORAGE_KEY, JSON.stringify({ savedAt: Date.now(), catalog }))
 }
 
 /** Exact name normalizer used by Old World Builder's rules index. */
@@ -148,7 +147,7 @@ export async function loadOwbRuleCatalog(force = false): Promise<OwbRuleCatalog>
 
 export function clearOwbRuleCatalog() {
   catalogCache = null
-  if (typeof window !== 'undefined') { try { window.localStorage.removeItem(STORAGE_KEY); window.localStorage.removeItem('olddex.owb-rule-catalog.v2'); window.localStorage.removeItem('olddex.owb-rule-catalog.v1') } catch { /* optional cache */ } }
+  removeStorage(STORAGE_KEY); removeStorage('olddex.owb-rule-catalog.v2'); removeStorage('olddex.owb-rule-catalog.v1')
 }
 
 function candidateNames(value: string) {

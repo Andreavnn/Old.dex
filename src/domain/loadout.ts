@@ -1,14 +1,13 @@
 import type { PrototypeEquipmentOption, PrototypeUnit, PrototypeWeapon, SelectionMode } from '../data/builderPrototype'
 import type { BuilderRosterSelection } from './rosterTypes'
 import { applyMagicalMaelstromSelections, magicalMaelstromWizardLevel, wizardLevelFromName } from './wizard'
+import { isShieldSemanticName } from '../core/sourceSemantics'
 
 export function isHandWeaponName(name: string) {
   return /^hand weapons?$/i.test(String(name || '').trim())
 }
 
-export function isShieldName(name: string) {
-  return /\bshields?\b/i.test(String(name || '').trim())
-}
+export function isShieldName(name: string) { return isShieldSemanticName(name) }
 
 export function selectionModeForWeapon(weapon: PrototypeWeapon): SelectionMode {
   if (isHandWeaponName(weapon.name) && !weapon.requiresSelection) return 'unit-toggle'

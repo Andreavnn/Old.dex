@@ -1,20 +1,19 @@
 import type { BuilderRosterSelection } from '../domain/rosterTypes'
+import { readStorage, writeStorage } from './storage'
 
 const STORAGE_KEY = 'olddex.magic-allowance-approvals.v1'
 
 type ApprovalMap = Record<string, string>
 
 function readApprovals(): ApprovalMap {
-  if (typeof window === 'undefined') return {}
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '{}')
+    const parsed = JSON.parse(readStorage(STORAGE_KEY) || '{}')
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as ApprovalMap : {}
   } catch { return {} }
 }
 
 function writeApprovals(value: ApprovalMap) {
-  if (typeof window === 'undefined') return
-  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value)) } catch { /* local status remains non-blocking */ }
+  writeStorage(STORAGE_KEY, JSON.stringify(value))
 }
 
 export type OpenMagicAllowance = {
