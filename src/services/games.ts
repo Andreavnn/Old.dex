@@ -81,8 +81,7 @@ export const gameWorkflow: GameWorkflowPhase[] = [
   ] },
   { id: 'combat', label: 'Combat', steps: [
     { id: 'fight', label: 'Choose & Fight Combat', description: 'Resolve attacking and being attacked in Initiative order.' },
-    { id: 'combat-result', label: 'Calculate Combat Result', description: 'Record casualties and Combat Result, then determine the winning side.' },
-    { id: 'break-test', label: 'Break Tests & Follow Up', description: 'Resolve each Break Test and the resulting follow up, pursuit, restraint or overrun before moving to the next combat.' },
+    { id: 'combat-result', label: 'Combat Result & Break Tests', description: 'Record persistent casualties or wounds, determine the result of each combat, then resolve Break Tests and follow-up movement.' },
   ] },
   { id: 'end', label: 'End of Round', steps: [
     { id: 'end-effects', label: 'End of Round Effects', description: 'Resolve effects that expire, trigger or must be checked at the end of the round.' },
@@ -119,6 +118,7 @@ export type SavedGame = {
   scenario: string
   scenarioGuidance?: GameScenarioGuidance
   battlefieldConditions?: string[]
+  battlefieldConditionResults?: Record<string, string>
   roundLimit: number
   roundLimitCustomized?: boolean
   roundsCompleted: number
@@ -200,6 +200,7 @@ function parseGames(value: unknown): SavedGame[] {
       roundsCompleted: Math.max(0, Number(row.roundsCompleted || 0)),
       battleStarted: Boolean(row.battleStarted || Number(row.roundsCompleted || 0) > 0 || Number(row.round || 1) > 1),
       battlefieldConditions: Array.isArray(row.battlefieldConditions) ? [...row.battlefieldConditions] : [],
+      battlefieldConditionResults: row.battlefieldConditionResults && typeof row.battlefieldConditionResults === 'object' ? { ...row.battlefieldConditionResults } : {},
       scenarioGuidance: row.scenarioGuidance ? { ...row.scenarioGuidance, scenarioRules: [...(row.scenarioGuidance.scenarioRules || [])] } : undefined,
       outcome: ['completed', 'conceded', 'enemy-yielded', 'draw'].includes(String(row.outcome)) ? row.outcome : undefined,
       playerName: String(row.playerName || 'Friendly General'),
@@ -280,6 +281,7 @@ export function createSavedGame(input: {
     points: Math.max(input.playerList.points, input.opponentList?.points || 0),
     scenario: input.scenario || 'Open Battle',
     battlefieldConditions: [],
+    battlefieldConditionResults: {},
     roundLimit: 4,
     roundLimitCustomized: false,
     roundsCompleted: 0,
@@ -340,6 +342,7 @@ export function resetSavedGame(id: string) {
     deployedPlayerIds: [],
     deployedOpponentIds: [],
     reservePlayerIds: [],
+    battlefieldConditionResults: {},
     activeSide: 'player',
     phaseIndex: 0,
     stepIndex: 0,

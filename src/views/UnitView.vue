@@ -32,6 +32,7 @@ import { ruleDisplayName } from '../domain/rulePresentation'
 import { persistentModelCharacteristicModifiers } from '../domain/canonicalProfiles'
 import { reportAppError } from '../services/appErrors'
 import { localizedSourceText, useLanguagePreference } from '../services/language'
+import { extractChargeMatchEffects } from '../core/matchEffects'
 
 const route = useRoute()
 const { language } = useLanguagePreference()
@@ -141,7 +142,7 @@ const selectedWeaponIds = ref(new Set<string>())
 const selectedEquipmentIds = ref(new Set<string>())
 
 type MagicItem = { id: string; baseId: string; ownerId: string; ownerLabel: string; poolMaxPoints: number; name: string; sourceName: string; points: number; type: 'weapon' | 'armor' | 'talisman' | 'enchanted-item' | 'arcane-item' | 'banner'; source: string; collectionPath?: string; stackable: boolean; maximum?: number; onePerArmy: boolean; slug: string; fluff?: string; magicStandardLimit?: { maxUnits: number; perPoints: number } }
-type MagicItemDetail = { kind?: 'melee' | 'missile'; range?: string; strength?: string; ap?: string; rules?: string[]; summary?: string; fluff?: string; profileOverride?: Partial<Record<ProfileKey, string>>; shield?: boolean }
+type MagicItemDetail = { kind?: 'melee' | 'missile'; range?: string; strength?: string; ap?: string; rules?: string[]; summary?: string; fluff?: string; profileOverride?: Partial<Record<ProfileKey, string>>; shield?: boolean; maximumChargeRangeBonus?: number; chargeRollModifier?: string }
 
 const magicItems = ref<MagicItem[]>([])
 const magicLoading = ref(false)
@@ -1036,6 +1037,9 @@ async function loadMagicItemDetail(item: MagicItem) {
       detail.kind = String(detail.range).toLowerCase() === 'combat' ? 'melee' : 'missile'
     }
     const body = reference.bodyText
+    const chargeEffects = extractChargeMatchEffects(item.name, body)
+    if (chargeEffects.maximumChargeRangeBonus > 0) detail.maximumChargeRangeBonus = chargeEffects.maximumChargeRangeBonus
+    if (chargeEffects.chargeRollModifier) detail.chargeRollModifier = chargeEffects.chargeRollModifier
     const override: Partial<Record<ProfileKey, string>> = {}
     if (item.type === 'armor') {
       detail.shield = /\bshield\b/i.test(item.sourceName) || /\bshield\b/i.test(item.name) || /\bshield\b/i.test(body)
@@ -1077,7 +1081,17 @@ watch(() => activeMagicPools.value.map((pool) => `${pool.id}:${pool.maxPoints}:$
   applyMagicSupersession()
 })
 
-function rosterMagicItems(): BuilderRosterMagicItem[] { return selectedMagicEntries.value.map(({ item, count }) => ({ ...item, count })) }
+function rosterMagicItems(): BuilderRosterMagicItem[] {
+  return selectedMagicEntries.value.map(({ item, count }) => {
+    const detail = magicItemDetails.value.get(item.id)
+    return {
+      ...item,
+      count,
+      maximumChargeRangeBonus: detail?.maximumChargeRangeBonus,
+      chargeRollModifier: detail?.chargeRollModifier,
+    }
+  })
+}
 function saveCurrentRosterConfiguration() {
   if (!isEditing.value || !hydratedFromRoster.value || !instanceId.value) return
   updateBuilderRosterSelection(backPath.value, instanceId.value, {

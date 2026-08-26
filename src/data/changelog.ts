@@ -6,6 +6,19 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.42', title: 'Persistent battle state, deployment sequence, and combat resolution', notes: [
+    'Made destroyed-model and wound tracking persistent per roster entry rather than per turn, so accumulated losses carry across Friendly/Enemy turns and every later round until the match is reset.',
+    'Rebuilt random happenings as structured D6 tables and compile only the result actually rolled into match timing; assigned battle panels retain the full table with the active result highlighted.',
+    'Added rules-aware Deployment ordering for ordinary units, grouped War Machines, Characters and Scouts; joined Characters follow the deployment/reserve state of their host unit while specific unit/scenario exceptions remain authoritative.',
+    'Removed the blanket same-troop-class character join restriction and replaced it with explicit incompatible-rule/troop safeguards, including Lumbering, Skirmisher sub-category and special-rule parity checks.',
+    'Persisted structured magical-item charge effects in roster snapshots. Waaagh! Banner and equivalent rules now contribute their maximum charge-range bonus without relying on a live match-page prose scrape; older snapshots retain a canonical-reference fallback.',
+    'Rebuilt Choose & Fight Combat from the active roster instead of treating successful chargers as the definition of combat participation. Units can be marked as having fought whether they charged, were charged or were already engaged.',
+    'Combined Combat Result, Break Tests and follow-up into one combat-resolution step. Losing units record combat-result difference and receive Leadership-based 2D6 result bands; winning units receive follow-up/pursuit/restrain/overrun choices.',
+    'Kept joined Characters as separate wound trackers while attaching their Combat Result, Break Test and follow-up state to the joined host unit.',
+    'Shortened and contained the collapsible match Note field and added responsive layout rules for D6 tables, deployment rows and combined combat-resolution panels.',
+    'Expanded core regression coverage for structured charge effects, Break Test bands, random-happening table preservation, roster-based Combat participation and persistent casualty state.',
+    'Bumped package/header/footer/PWA cache metadata to Alpha Build 0.42.',
+  ] },
   { version: '0.41', title: 'Turn ownership, ranged weapons, dispels, and charge reactions', notes: [
     'Enforced friendly/enemy turn ownership at the compiled match-intelligence boundary so an inactive roster contributes only explicit opponent-turn/reaction rules; own-turn rules no longer leak into the other side because their prose mentions the same phase or subphase.',
     'Corrected Declare Charges & Charge Reactions wording so the source-book subphase name does not reclassify own-turn rules such as Impetuous as enemy-turn reactions; Counter Charge remains an explicit enemy-turn reaction.',

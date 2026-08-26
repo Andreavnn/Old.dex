@@ -8,6 +8,9 @@ const semantics = await import(pathToFileURL(resolve(root, 'src/core/sourceSeman
 const profile = await import(pathToFileURL(resolve(root, 'src/core/profileMath.ts')).href)
 const timing = await import(pathToFileURL(resolve(root, 'src/core/matchTiming.ts')).href)
 const visibility = await import(pathToFileURL(resolve(root, 'src/core/matchTurnVisibility.ts')).href)
+const matchEffects = await import(pathToFileURL(resolve(root, 'src/core/matchEffects.ts')).href)
+const breakTests = await import(pathToFileURL(resolve(root, 'src/core/breakTest.ts')).href)
+const randomHappenings = await import(pathToFileURL(resolve(root, 'src/core/randomHappeningTable.ts')).href)
 
 const tests = []
 const test = (name, fn) => tests.push([name, fn])
@@ -90,13 +93,43 @@ test('OWB rule paths cannot classify weapons', () => {
   assert.ok(source.includes('partitionDescriptorParts'))
 })
 test('Profile compatibility facade delegates to canonical core', () => assert.ok(readFileSync(resolve(root, 'src/domain/profileEffects.ts'), 'utf8').includes("export * from '../core/profileEngine'")))
-test('Canonical match workflow combines charge resolution and follow up', () => {
+test('Canonical match workflow combines charge resolution and combat-result break resolution', () => {
   const games = readFileSync(resolve(root, 'src/services/games.ts'), 'utf8')
   assert.equal(/id: 'first-turn'/.test(games), false)
   assert.equal(/id: 'charge-moves'/.test(games), false)
   assert.equal(/id: 'follow-up'/.test(games), false)
+  assert.equal(/id: 'break-test'/.test(games), false)
   assert.ok(games.includes("label: 'Declare & Resolve Charges'"))
-  assert.ok(games.includes("label: 'Break Tests & Follow Up'"))
+  assert.ok(games.includes("label: 'Combat Result & Break Tests'"))
+})
+test('Waaagh Banner structured effects add three inches to maximum charge range', () => {
+  const effects = matchEffects.extractChargeMatchEffects('Waaagh! Banner', 'A unit carrying the Waaagh! Banner increases its maximum possible charge range by 3" and adds +D3 to its Charge roll.')
+  assert.equal(effects.maximumChargeRangeBonus, 3)
+  assert.equal(effects.chargeRollModifier, 'D3')
+})
+test('Break Test bands use Leadership and combat-result difference', () => {
+  const bands = breakTests.breakTestBands(8, 2)
+  assert.equal(bands.modifiedThreshold, 6)
+  assert.match(bands.giveGround, /2–6/)
+  assert.match(bands.fallBack, /7–8/)
+  assert.match(bands.breakAndFlee, /9–12/)
+})
+test('Random happenings preserve D6 table rows instead of flattening the page', () => {
+  const parsed = randomHappenings.parseRandomHappeningTable('<h1>Disruptive Weather</h1><table><tr><th>D6</th><th>Result</th></tr><tr><td>1</td><td>Mud: Units suffer -1 M.</td></tr><tr><td>2</td><td>Storm: Roll for lightning.</td></tr></table>', '/random/disruptive-weather')
+  assert.deepEqual(parsed.results.map((row) => [row.roll, row.title]), [['1', 'Mud'], ['2', 'Storm']])
+})
+test('Combat casualties are stored outside per-turn state and persist across rounds', () => {
+  const tracking = readFileSync(resolve(root, 'src/services/matchTracking.ts'), 'utf8')
+  assert.ok(tracking.includes('units: Record<string, MatchPersistentUnitState>'))
+  assert.ok(tracking.includes('casualties?: number'))
+  const view = readFileSync(resolve(root, 'src/views/GameMatchView.vue'), 'utf8')
+  assert.ok(view.includes('next.units[instanceId]'))
+})
+test('Combat fight roster is not limited to successful chargers', () => {
+  const view = readFileSync(resolve(root, 'src/views/GameMatchView.vue'), 'utf8')
+  const line = view.match(/const combatFightUnits[^\n]+/)?.[0] || ''
+  assert.ok(line.includes('playerRoster.value.filter'))
+  assert.equal(line.includes('chargeSuccessful'), false)
 })
 test('Scenario maps are centrally defined for every pitched battle scenario', () => {
   const maps = readFileSync(resolve(root, 'src/data/scenarioMaps.ts'), 'utf8')

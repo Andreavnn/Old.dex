@@ -18,6 +18,9 @@ export type BuilderRosterMagicItem = {
   ownerLabel?: string
   poolMaxPoints?: number
   magicStandardLimit?: { maxUnits: number; perPoints: number }
+  /** Structured match effects captured while the canonical item rule is loaded. */
+  maximumChargeRangeBonus?: number
+  chargeRollModifier?: string
 }
 
 export type BuilderRosterSelection = {

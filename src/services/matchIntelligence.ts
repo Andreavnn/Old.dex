@@ -13,6 +13,9 @@ import { getSavedArmyList } from './savedLists'
 import { hydrateMagicSetupForSide, loadMagicChoices, randomHappeningOptions } from './gameSetup'
 import type { GameMagicChoice, GameSide, SavedGame } from './games'
 import { matchRuleVisibleForTurn } from '../core/matchTurnVisibility'
+import { extractChargeMatchEffects } from '../core/matchEffects'
+import { loadMagicItemReference } from './magicItemReference'
+import { loadRandomHappeningTable } from './randomHappenings'
 
 export type MatchRuleSide = 'player' | 'opponent' | 'battle'
 export type MatchRuleSourceKind = 'unit' | 'magic-item' | 'scenario' | 'battlefield' | 'army-composition' | 'battle-composition' | 'spell' | 'core'
@@ -325,10 +328,18 @@ async function compileScenarioEvents(game: SavedGame) {
 
 async function compileBattlefieldEvents(game: SavedGame) {
   const selected = new Set(game.battlefieldConditions || [])
+  const chosenResults = game.battlefieldConditionResults || {}
   const output: CompiledRuleEvent[] = []
   await Promise.allSettled(randomHappeningOptions.filter((row) => selected.has(row.id)).map(async (row) => {
-    const text = await ruleText(row.path, row.label)
-    output.push(...ruleEventRows({ side: 'battle', sourceKind: 'battlefield', source: 'Battlefield', label: row.label, path: row.path, text }))
+    const table = await loadRandomHappeningTable(row.path)
+    const chosenRoll = String(chosenResults[row.id] || '')
+    const chosen = table.results.find((result) => result.roll === chosenRoll)
+    // A random-happening table is not itself a phase action. Only the result
+    // actually rolled is compiled into operational match events. The UI can
+    // still render the complete D6 table for reference inside the battle panel.
+    if (!chosen) return
+    const label = `${row.label} — ${chosen.roll}: ${chosen.title}`
+    output.push(...ruleEventRows({ side: 'battle', sourceKind: 'battlefield', source: 'Battlefield', label, path: row.path, text: chosen.text }))
   }))
   return output
 }
@@ -370,7 +381,7 @@ function fingerprint(game: SavedGame) {
     id: game.id,
     p: rosterBits('player'), o: rosterBits('opponent'),
     s: game.scenarioGuidance?.scenarioRules || [], sp: game.scenarioGuidance?.sourcePath || '',
-    b: [...(game.battlefieldConditions || [])].sort(),
+    b: [...(game.battlefieldConditions || [])].sort(), br: { ...(game.battlefieldConditionResults || {}) },
     pc: [game.playerArmyId, game.playerCompositionName, game.playerCompositionRule],
     oc: [game.opponentArmyId, game.opponentCompositionName, game.opponentCompositionRule],
     magic: (game.magicSetup || []).map((caster) => ({ id: caster.instanceId, lore: caster.selectedLore, selected: [...(caster.selectedSpellIds || [])].sort(), choices: (caster.choices || []).map((choice) => `${choice.id}|${choice.type || ''}|${choice.summary || ''}`) })),
@@ -491,38 +502,35 @@ async function fallbackMovement(game: SavedGame, row: BuilderRosterSelection) {
   }
 }
 
-function maximumBonusValue(value: string) {
-  const dice = String(value || '').match(/^D(\d+)$/i)
-  if (dice) return Math.max(0, Number(dice[1]) || 0)
-  return Math.max(0, Number(value) || 0)
-}
-
-function chargeRangeIncreaseFromText(text: string) {
-  const bonus = '(\\d+|D3|D6)'
-  const patterns = [
-    new RegExp(`(?:increases?|increase|increased)\\s+(?:its|the unit'?s|this model'?s)?\\s*(?:maximum (?:possible )?)?charge range\\s+by\\s+${bonus}\\s*[\"”']?`, 'gi'),
-    new RegExp(`(?:maximum (?:possible )?)?charge range\\s+(?:is )?(?:increased|increases?)\\s+by\\s+${bonus}\\s*[\"”']?`, 'gi'),
-    new RegExp(`(?:add|adds|adding)\\s+${bonus}\\s*(?:[\"”']\\s*)?to (?:this model'?s|the unit'?s|its)?\\s*(?:maximum )?charge range`, 'gi'),
-    new RegExp(`(?:add|adds|adding)\\s+${bonus}\\s+to (?:this model'?s|the unit'?s|its)?\\s*charge roll`, 'gi'),
-    new RegExp(`(?:charge roll|charge range)[^.]{0,100}\\+${bonus}`, 'gi'),
-  ]
-  const values = patterns.flatMap((pattern) => [...text.matchAll(pattern)].map((match) => maximumBonusValue(match[1]))).filter((value) => value > 0)
-  return values.length ? Math.max(...values) : 0
-}
-
 async function maximumChargeRangeBonus(row: BuilderRosterSelection) {
-  let bonus = (row.specialRules || []).some((rule) => /^Swiftstride(?:\s|\(|$)/i.test(rule.label)) ? 3 : 0
+  let bonus = 0
   const seen = new Set<string>()
-  const sources = [
-    ...(row.specialRules || []).filter((rule) => !/^Swiftstride(?:\s|\(|$)/i.test(rule.label)).map((rule) => ({ path: rule.path, fallback: rule.label })),
-    ...(row.magicItems || []).filter((item) => item.slug).map((item) => ({ path: `/magic-item/${item.slug}`, fallback: item.name })),
-  ]
-  for (const source of sources) {
-    if (!source.path || seen.has(source.path)) continue
-    seen.add(source.path)
-    const text = await ruleText(source.path, source.fallback)
-    bonus += chargeRangeIncreaseFromText(text)
+
+  for (const rule of row.specialRules || []) {
+    const key = `rule:${rule.path || rule.label}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    let text = rule.label
+    if (rule.path) text = await ruleText(rule.path, rule.label)
+    bonus += extractChargeMatchEffects(rule.label, text).maximumChargeRangeBonus
   }
+
+  for (const item of row.magicItems || []) {
+    const key = `magic:${item.id || item.slug || item.name}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    const stored = Math.max(0, Number(item.maximumChargeRangeBonus || 0))
+    if (stored > 0) { bonus += stored; continue }
+    if (!item.slug) continue
+    try {
+      const reference = await loadMagicItemReference({ name: item.name, type: item.type, itemPath: `/magic-item/${item.slug}` })
+      bonus += extractChargeMatchEffects(item.name, reference.bodyText || reference.summary || '').maximumChargeRangeBonus
+    } catch {
+      // Older roster snapshots may not contain structured effects. Failing to
+      // refresh one item must not prevent the rest of the charge row loading.
+    }
+  }
+
   return bonus
 }
 
@@ -599,7 +607,7 @@ export async function loadMatchTurnGuidance(game: SavedGame, stepId: string, vie
   // Break Tests and Follow Up/Pursuit are likewise resolved combat-by-combat.
   // The UI presents them together while the compiler keeps the source timing
   // distinct enough to understand each rule correctly.
-  const acceptedSteps: MatchActionStep[] = step === 'break-test' ? ['break-test', 'follow-up'] : [step]
+  const acceptedSteps: MatchActionStep[] = step === 'combat-result' ? ['combat-result', 'break-test', 'follow-up'] : [step]
   const sourceRows = [...knowledge.battleEvents, ...knowledge.playerEvents, ...knowledge.opponentEvents]
     .filter((row) => acceptedSteps.includes(row.step) && visibleForTurn(row, viewSide))
   const rows = [...toGuidance(sourceRows, game.round), ...coreEnemyGuidance(step, viewSide, knowledge.opponentSpellSteps.has(step), Boolean((game.magicSetup || []).some((caster) => caster.kind === 'Wizard')))]
