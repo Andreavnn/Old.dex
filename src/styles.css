@@ -4044,3 +4044,157 @@ html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"
   .break-follow-unit-list > article > header { align-items: flex-start; flex-direction: column; }
   .casualty-stepper { width: 100%; justify-content: space-between; }
 }
+
+/* Alpha 0.41 — match turn ownership, shooting weapons, reactions, and layout hardening */
+.game-match-shell,
+.game-step-card,
+.game-step-card > *,
+.game-setup-content,
+.game-setup-content > *,
+.game-overview-dashboard,
+.game-overview-dashboard > *,
+.deployment-step-content,
+.deployment-step-content > *,
+.round-start-content,
+.round-start-content > *,
+.turn-guidance-shell,
+.turn-guidance-shell > *,
+.turn-guidance-panel,
+.card-inset {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+.game-match-shell * { box-sizing: border-box; }
+.game-step-card > * { width: 100%; }
+.turn-guidance-panel,
+.card-inset { overflow-wrap: anywhere; }
+
+.game-length-card {
+  display: grid;
+  gap: 7px;
+  padding-bottom: 12px;
+  overflow: visible;
+}
+.round-limit-control {
+  display: inline-flex;
+  align-items: center;
+  justify-self: center;
+  gap: 9px;
+  margin: -3px auto 0;
+  padding: 6px 10px;
+  max-width: 220px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper-2);
+  font-weight: 850;
+}
+.round-limit-control input {
+  width: 72px;
+  min-height: 34px;
+  text-align: center;
+}
+
+/* Spell generation uses the same visual language as rule boxes. */
+.spell-generation-card.spell-rule-box {
+  padding: 0;
+  overflow: hidden;
+  background: var(--paper);
+}
+.spell-rule-box .spell-generation-card-select {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-2);
+}
+.spell-rule-box .spell-generation-card-select > input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+.spell-rule-box .spell-generation-card-select > strong {
+  min-width: 0;
+  flex: 1 1 auto;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: calc(13px + var(--font-offset));
+}
+.spell-rule-box .spell-generation-card-select > small { font-weight: 800; }
+.spell-generation-rule-body { display: grid; gap: 8px; padding: 10px 12px 12px; }
+.spell-generation-rule-body > p { margin: 0; line-height: 1.5; }
+.spell-generation-rule-body .spell-rule-meta { margin: 0; padding: 0 0 8px; }
+
+.fated-dispel-used { border-color: #8a6a31; background: #f4ead6; color: #4d3510; }
+.turn-action-row:has(.fated-dispel-used) { opacity: .72; }
+
+.charge-reaction-unit-list,
+.shooting-unit-list { display: grid; gap: 10px; }
+.charge-reaction-unit,
+.shooting-unit-row {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper-2);
+}
+.charge-reaction-unit > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.charge-reaction-unit > header > div { display: grid; gap: 5px; min-width: 0; }
+.charge-reaction-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.charge-reaction-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  font-size: calc(9px + var(--font-offset));
+  font-weight: 850;
+}
+.charge-reaction-options input { width: 18px; height: 18px; margin: 0; }
+
+.shooting-unit-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+.shooting-unit-row.complete { opacity: .67; }
+.shooting-unit-copy { display: grid; gap: 8px; min-width: 0; }
+.shooting-unit-copy > header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 5px 12px; }
+.shooting-unit-copy > header a { font-size: calc(12px + var(--font-offset)); }
+.shooting-weapon-list { display: grid; gap: 6px; }
+.shooting-weapon-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.4fr) minmax(70px, .55fr) minmax(55px, .45fr) minmax(55px, .45fr);
+  gap: 6px 10px;
+  align-items: center;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+.shooting-weapon-row > strong small { font-size: .82em; }
+.shooting-weapon-row > small { grid-column: 1 / -1; color: var(--ink-soft); }
+
+@media (max-width: 700px) {
+  .round-limit-control { margin-top: -1px; }
+  .charge-reaction-unit > header { flex-direction: column; }
+  .shooting-weapon-row { grid-template-columns: 1fr 1fr; }
+  .shooting-weapon-row > strong { grid-column: 1 / -1; }
+  .shooting-weapon-row > small { grid-column: 1 / -1; }
+}

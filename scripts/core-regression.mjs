@@ -7,6 +7,7 @@ const root = process.cwd()
 const semantics = await import(pathToFileURL(resolve(root, 'src/core/sourceSemantics.ts')).href)
 const profile = await import(pathToFileURL(resolve(root, 'src/core/profileMath.ts')).href)
 const timing = await import(pathToFileURL(resolve(root, 'src/core/matchTiming.ts')).href)
+const visibility = await import(pathToFileURL(resolve(root, 'src/core/matchTurnVisibility.ts')).href)
 
 const tests = []
 const test = (name, fn) => tests.push([name, fn])
@@ -18,6 +19,9 @@ test('Full plate armour is armour', () => assert.equal(semantics.canonicalSelect
 test('Great weapon remains a weapon', () => assert.equal(semantics.canonicalSelectionKind('Great weapon', 'equipment'), 'weapon'))
 test('Additional hand weapon remains a weapon', () => assert.equal(semantics.canonicalSelectionKind('Additional hand weapon', 'equipment'), 'weapon'))
 test('Cavalry spear remains a weapon', () => assert.equal(semantics.canonicalSelectionKind('Cavalry spear', 'equipment'), 'weapon'))
+test('Longbow remains a ranged weapon semantic selection', () => assert.equal(semantics.canonicalSelectionKind('Longbow', 'equipment'), 'weapon'))
+test('OWB Warbows remain missile weapon selections', () => { assert.equal(semantics.canonicalSelectionKind('Warbows', 'equipment'), 'weapon'); assert.equal(semantics.isMissileWeaponSemanticName('Warbows'), true) })
+test('OWB Bolt thrower remains a missile weapon selection', () => { assert.equal(semantics.canonicalSelectionKind('Bolt thrower', 'equipment'), 'weapon'); assert.equal(semantics.isMissileWeaponSemanticName('Bolt thrower'), true) })
 test('Compound weapon/shield descriptor is partitioned', () => {
   const row = semantics.partitionDescriptorParts(['Hand weapon', 'Shield'], 'options')
   assert.deepEqual(row.weaponParts, ['Hand weapon'])
@@ -35,6 +39,11 @@ test('Rallying Cry resolves at Command, not Rally', () => {
 test('Impetuous is a Required Charge Test provider', () => {
   const rows = timing.analyzeMatchRuleTiming('Impetuous', 'During the Declare Charges & Charge Reactions sub-phase, this unit must make a Leadership test. If this test is failed, it must declare a charge if possible.')
   assert.ok(rows.some((row) => row.step === 'required-charges' && row.intent === 'required-charge-test'))
+})
+test('Combined Declare Charges & Charge Reactions wording does not flip own-turn Impetuous to enemy turn', () => {
+  const rows = timing.analyzeMatchRuleTiming('Impetuous', 'If during the Declare Charges & Charge Reactions sub-phase of its turn this unit is able to declare a charge, it must make a Leadership test. If failed, it must declare a charge.')
+  assert.ok(rows.some((row) => row.step === 'required-charges' && row.turn === 'own'))
+  assert.equal(rows.some((row) => row.turn === 'enemy'), false)
 })
 test('Required-charge modifier does not create a second semantic phase', () => {
   const rows = timing.analyzeMatchRuleTiming('Quell Impetuosity', 'During the Required Charge Tests step, friendly units within 6 inches may re-roll an Impetuous test.')
@@ -54,6 +63,15 @@ test('Counter Charge is an enemy-turn charge reaction only', () => {
   assert.equal(rows[0].step, 'declare-charges')
   assert.equal(rows[0].turn, 'enemy')
   assert.equal(rows[0].intent, 'reaction')
+})
+test('Own-turn roster rules are hidden while viewing the enemy turn', () => {
+  assert.equal(visibility.matchRuleVisibleForTurn({ ownerSide: 'player', viewSide: 'opponent', turn: 'own', intent: 'required-charge-test', step: 'required-charges' }), false)
+})
+test('Opponent-turn reactions cross the turn boundary', () => {
+  assert.equal(visibility.matchRuleVisibleForTurn({ ownerSide: 'player', viewSide: 'opponent', turn: 'enemy', intent: 'reaction', step: 'declare-charges' }), true)
+})
+test('Untimed friendly rules do not leak into enemy movement', () => {
+  assert.equal(visibility.matchRuleVisibleForTurn({ ownerSide: 'player', viewSide: 'opponent', turn: 'either', intent: 'reminder', step: 'remaining-moves' }), false)
 })
 test('Ambushers is recognized as a deployment rule', () => assert.ok(timing.analyzeMatchRuleTiming('Ambushers', 'This unit may be held in reserve.').some((row) => row.step === 'deploy-armies')))
 test('Close Order is recognized as a formation rule', () => assert.equal(timing.isFormationRuleName('Close Order'), true))
@@ -89,6 +107,14 @@ test('Match tips use one canonical collapsible component', () => {
   assert.ok(view.includes('MatchTipPanel'))
   assert.ok(view.includes('tipsVisible'))
   assert.equal(/<aside[^>]+game-tip-card/.test(view), false)
+})
+test('Match profile snapshot carries selected ranged weapons into Shooting', () => {
+  const source = readFileSync(resolve(root, 'src/services/matchUnitProfiles.ts'), 'utf8')
+  const view = readFileSync(resolve(root, 'src/views/GameMatchView.vue'), 'utf8')
+  assert.ok(source.includes('weaponIsEquipped'))
+  assert.ok(source.includes("kind: 'melee' | 'missile'"))
+  assert.ok(view.includes('Units able to shoot'))
+  assert.ok(view.includes("weapon.kind === 'missile'"))
 })
 
 after: {

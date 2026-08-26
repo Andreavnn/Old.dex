@@ -15,6 +15,7 @@ const rolePattern = /\b(?:general|battle standard bearer|standard bearer|champio
 // Deliberately name-based. This is the canonical semantic vocabulary for actual
 // weapons in OWB source data; it is not inferred from a rule/document path.
 const weaponPattern = /\b(?:weapon|weapons|spear|spears|pike|pikes|glaive|glaives|halberd|halberds|lance|lances|flail|flails|whip|whips|staff|stave|staves|sword|swords|blade|blades|axe|axes|hammer|hammers|mace|maces|maul|mauls|club|clubs|dagger|daggers|knife|knives|cleaver|cleavers|choppa|choppas|stabba|stabbas|scythe|scythes|pick|picks|ironfist|ironfists|claw|claws|talon|talons|fist|fists|bow|bows|crossbow|crossbows|longbow|longbows|shortbow|shortbows|warbow|warbows|javelin|javelins|throwing|sling|slings|pistol|pistols|handgun|handguns|gun|guns|rifle|rifles|firearm|firearms|blowpipe|blowpipes|bomb|bombs|grenade|grenades|bolt thrower|stone thrower|catapult|ballista|trebuchet|mortar|lobber|doom diver|cannon|morning star|blunderbuss|khopesh|khopeshes|fang-filled gob|lamprey'?s bite|sorrow'?s end|tintinnabulation|brazier|ball\s*&\s*chain)\b/i
+const missileWeaponPattern = /\b(?:bow|bows|crossbow|crossbows|longbow|longbows|shortbow|shortbows|warbow|warbows|javelin|javelins|throwing|sling|slings|pistol|pistols|handgun|handguns|gun|guns|rifle|rifles|firearm|firearms|blowpipe|blowpipes|bomb|bombs|grenade|grenades|bolt thrower|stone thrower|ballista|trebuchet|mortar|catapult|lobber|doom diver|rock lobber|cannon|blunderbuss)\b/i
 
 function compact(value: string) {
   return String(value || '').replace(/[’]/g, "'").replace(/\s+/g, ' ').trim()
@@ -33,6 +34,11 @@ export function isWeaponSemanticName(value: string) {
   const name = compact(value)
   if (!name || isShieldSemanticName(name) || isArmourSemanticName(name)) return false
   return weaponPattern.test(name)
+}
+
+export function isMissileWeaponSemanticName(value: string) {
+  const name = compact(value)
+  return isWeaponSemanticName(name) && missileWeaponPattern.test(name)
 }
 
 export function canonicalSelectionKind(name: string, source: OwbSourceSection): CanonicalSelectionKind {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'olddex-shell-v040-match-workflow'
+const CACHE_NAME = 'olddex-shell-v041-match-intelligence'
 const CORE = ['/', '/manifest.webmanifest', '/icons/favicon-64.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/audio/ready_for_murderin_orc.mp3', '/data/owb-rule-catalog.json']
 
 self.addEventListener('install', (event) => {

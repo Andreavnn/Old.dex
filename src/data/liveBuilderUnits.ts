@@ -10,7 +10,7 @@ import { loadOwbRuleCatalog, resolveOwbRuleFromCatalog, splitOwbSourceList, type
 import { localizedSourceText } from '../services/language'
 import { canonicalOwbProfileRows, selectCanonicalPrimaryProfile } from '../domain/canonicalProfiles'
 import { customUnitForArmy, customUnitsForArmy } from '../services/customData'
-import { isWeaponSemanticName, partitionDescriptorParts, type OwbSourceSection } from '../core/sourceSemantics'
+import { isMissileWeaponSemanticName, isWeaponSemanticName, partitionDescriptorParts, type OwbSourceSection } from '../core/sourceSemantics'
 
 export type { RawBuilderUnit } from '../domain/rawArmyData'
 
@@ -92,9 +92,7 @@ function armourSaveFromName(name: string) {
 
 function weaponLike(name: string) { return isWeaponSemanticName(name) }
 
-function missileLike(name: string) {
-  return /bow|crossbow|longbow|shortbow|warbow|javelin|throwing|sling|pistol|handgun|gun|rifle|firearm|blowpipe|bomb|grenade|bolt thrower|stone thrower|ballista|trebuchet|mortar|catapult|lobber|cannon|doom diver|rock lobber/i.test(name)
-}
+function missileLike(name: string) { return isMissileWeaponSemanticName(name) }
 
 function unitWidePerModelRule(name: string) {
   return /^(?:Stubborn|Veteran)$/i.test(name.trim())

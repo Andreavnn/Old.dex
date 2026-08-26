@@ -4,9 +4,9 @@ export type MatchCombatDisposition = '' | 'won' | 'failed-break'
 
 export type MatchTurnUnitState = {
   chargeDeclared?: boolean
-  chargeResolved?: boolean
   chargeHeld?: boolean
   chargeSuccessful?: boolean
+  chargeReaction?: 'hold' | 'stand-shoot' | 'flee' | 'counter-charge' | ''
   compulsoryMoved?: boolean
   remainingMoved?: boolean
   remainingMoveMode?: 'normal' | 'march' | 'hold' | ''
@@ -26,6 +26,7 @@ export type MatchTrackingState = {
   workflowMigrated?: boolean
   tipsHidden?: boolean
   collapsedTips?: Record<string, boolean>
+  fatedDispelUsedRound?: number
 }
 
 const PREFIX = 'olddex.match-tracking.v036.'
@@ -53,9 +54,9 @@ function normalizeState(value: unknown): MatchTrackingState {
         const source = state as MatchTurnUnitState
         turns[turnKey][unitId] = {
           chargeDeclared: Boolean(source.chargeDeclared),
-          chargeResolved: Boolean(source.chargeResolved),
           chargeHeld: Boolean(source.chargeHeld),
           chargeSuccessful: Boolean(source.chargeSuccessful),
+          chargeReaction: ['hold', 'stand-shoot', 'flee', 'counter-charge'].includes(String(source.chargeReaction)) ? source.chargeReaction : '',
           compulsoryMoved: Boolean(source.compulsoryMoved),
           remainingMoved: Boolean(source.remainingMoved),
           remainingMoveMode: ['normal', 'march', 'hold'].includes(String(source.remainingMoveMode)) ? source.remainingMoveMode : '',
@@ -74,7 +75,7 @@ function normalizeState(value: unknown): MatchTrackingState {
   if (row.collapsedTips && typeof row.collapsedTips === 'object') {
     for (const [key, value] of Object.entries(row.collapsedTips)) if (key && value) collapsedTips[key] = true
   }
-  return { version: 1, joinedCharacters, turns, workflowMigrated: Boolean(row.workflowMigrated), tipsHidden: Boolean(row.tipsHidden), collapsedTips }
+  return { version: 1, joinedCharacters, turns, workflowMigrated: Boolean(row.workflowMigrated), tipsHidden: Boolean(row.tipsHidden), collapsedTips, fatedDispelUsedRound: Math.max(0, Math.floor(Number(row.fatedDispelUsedRound || 0))) || undefined }
 }
 
 export function loadMatchTracking(gameId: string): MatchTrackingState {

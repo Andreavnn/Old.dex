@@ -82,8 +82,14 @@ export function splitRuleSentences(value: string) {
 }
 
 function turnAffinity(text: string): MatchTurnAffinity {
-  if (/\b(?:during|in) (?:an?|the) (?:enemy|opponent(?:'s)?) turn\b|\bduring your opponent(?:'s)? turn\b|\bwhen (?:this|the|a) unit is charged\b|\bwhen charged\b|\bcharge reaction\b/i.test(text)) return 'enemy'
-  if (/\b(?:during|in) (?:your|its|their|the controlling player's) turn\b|\bof (?:your|its|their) turn\b/i.test(text)) return 'own'
+  const source = compact(text)
+  // Resolve explicit turn ownership before reaction vocabulary. Source-book
+  // headings such as “Declare Charges & Charge Reactions sub-phase of its
+  // turn” describe the phase name; they do not make an own-turn rule into an
+  // opponent-turn reaction.
+  if (/\b(?:during|in) (?:an?|the) (?:enemy|opponent(?:'s)?) turn\b|\bduring your opponent(?:'s)? turn\b/i.test(source)) return 'enemy'
+  if (/\b(?:during|in) (?:your|its|their|the controlling player's) turn\b|\bof (?:your|its|their) turn\b/i.test(source)) return 'own'
+  if (/\bwhen (?:this|the|a) unit is charged\b|\bwhen charged\b|\bwhen (?:an?|the) enemy (?:unit )?declares? a charge\b|\bas (?:a )?charge reaction\b|\bmay (?:declare|make|choose) (?:a )?[^.]{0,60}charge reaction\b/i.test(source)) return 'enemy'
   return 'either'
 }
 

@@ -3,7 +3,7 @@ import type { RawBuilderItem, RawBuilderUnit } from '../domain/rawArmyData'
 import { loadArmyData } from './armyData'
 import { fetchRuleDocument } from './ruleContent'
 import { getSavedArmyList } from './savedLists'
-import type { GameMagicCaster, GameMagicChoice, GameScenarioGuidance, SavedGame } from './games'
+import type { GameMagicCaster, GameMagicChoice, GameScenarioGuidance, GameSide, SavedGame } from './games'
 import { pitchedBattleScenarioMaps, pitchedBattleScenarioPaths } from '../data/scenarioMaps'
 import { reportAppError } from './appErrors'
 
@@ -90,13 +90,18 @@ function rawLores(raw: RawBuilderUnit | null, row: BuilderRosterSelection) {
   return unique(values)
 }
 
-function armyRosterForGame(game: SavedGame) {
-  if (game.playerRoster?.length) return game.playerRoster
-  return getSavedArmyList(game.playerListId)?.roster || []
+function armyRosterForGame(game: SavedGame, side: GameSide = 'player') {
+  if (side === 'player') {
+    if (game.playerRoster?.length) return game.playerRoster
+    return getSavedArmyList(game.playerListId)?.roster || []
+  }
+  if (game.opponentRoster?.length) return game.opponentRoster
+  return game.opponentListId ? getSavedArmyList(game.opponentListId)?.roster || [] : []
 }
 
-function armyDataKeyForGame(game: SavedGame) {
-  return game.playerArmyId || getSavedArmyList(game.playerListId)?.army || ''
+function armyDataKeyForGame(game: SavedGame, side: GameSide = 'player') {
+  if (side === 'player') return game.playerArmyId || getSavedArmyList(game.playerListId)?.army || ''
+  return game.opponentArmyId || (game.opponentListId ? getSavedArmyList(game.opponentListId)?.army || '' : '')
 }
 
 function rawUnitMap(data: Record<string, unknown>) {
@@ -138,16 +143,17 @@ function rawLooksLikePriest(raw: RawBuilderUnit | null) {
   return values.some((value) => /\b(?:priest|prayers? of|prayer of)\b/i.test(value))
 }
 
-function existingCaster(game: SavedGame, instanceId: string) {
+function existingCaster(game: SavedGame, instanceId: string, side: GameSide) {
+  if (side !== 'player') return undefined
   return (game.magicSetup || []).find((entry) => entry.instanceId === instanceId)
 }
 
-export async function hydrateFriendlyMagicSetup(game: SavedGame): Promise<GameMagicCaster[]> {
-  const roster = armyRosterForGame(game)
+export async function hydrateMagicSetupForSide(game: SavedGame, side: GameSide): Promise<GameMagicCaster[]> {
+  const roster = armyRosterForGame(game, side)
   if (!roster.length) return []
 
   let map = new Map<string, RawBuilderUnit>()
-  const dataKey = armyDataKeyForGame(game)
+  const dataKey = armyDataKeyForGame(game, side)
   if (dataKey) {
     try {
       map = rawUnitMap(await loadArmyData(dataKey) as Record<string, unknown>)
@@ -163,7 +169,7 @@ export async function hydrateFriendlyMagicSetup(game: SavedGame): Promise<GameMa
   if (!candidates.length) return []
 
   return candidates.map((row) => {
-    const prior = existingCaster(game, row.instanceId)
+    const prior = existingCaster(game, row.instanceId, side)
     const raw = map.get(row.unitId) || null
     const level = Math.max(wizardLevel(row), rawWizardLevel(raw), Number(prior?.level || 0))
     const prayers = prayerLoresFromRow(row)
@@ -184,6 +190,10 @@ export async function hydrateFriendlyMagicSetup(game: SavedGame): Promise<GameMa
       sourceLoaded: Boolean(raw),
     }
   })
+}
+
+export async function hydrateFriendlyMagicSetup(game: SavedGame): Promise<GameMagicCaster[]> {
+  return hydrateMagicSetupForSide(game, 'player')
 }
 
 function followingSpellDetails(heading: Element) {

@@ -6,6 +6,19 @@ export type ChangelogEntry = {
 
 // Canonical history mirrored in /CHANGELOG.md. Keep both sources identical.
 export const changelogEntries: ChangelogEntry[] = [
+  { version: '0.41', title: 'Turn ownership, ranged weapons, dispels, and charge reactions', notes: [
+    'Enforced friendly/enemy turn ownership at the compiled match-intelligence boundary so an inactive roster contributes only explicit opponent-turn/reaction rules; own-turn rules no longer leak into the other side because their prose mentions the same phase or subphase.',
+    'Corrected Declare Charges & Charge Reactions wording so the source-book subphase name does not reclassify own-turn rules such as Impetuous as enemy-turn reactions; Counter Charge remains an explicit enemy-turn reaction.',
+    'Added canonical match-profile weapon snapshots and a Shooting roster panel so equipped missile/ranged weapons, quantities, Range, Strength, AP and weapon rules are available during the Shooting step.',
+    'Rebuilt enemy Declare & Resolve Charges as per-unit charge-reaction tracking for every friendly unit, excluding joined Characters as separate entries while retaining their applicable reaction rules on the host unit.',
+    'Removed the obsolete Charge rolled & resolved checkbox from the charge sequence; Hold, Charge declared and Successful are the tracked charge states.',
+    'Made Wizardly Dispel and Fated Dispel conditional on an opposing caster having a spell type that can operate in the current step. Fated Dispel is tracked once per round and shown locked after use until the next round.',
+    'Generalized caster hydration so match intelligence can inspect both friendly and enemy roster magic without creating a second timing pipeline.',
+    'Reworked Setup Step 2 spell choices into rule-style boxes with a checkbox directly beside each generated spell name.',
+    'Centered and raised the Setup round-count control and hardened match-panel box sizing/overflow so inset panels stay inside their parent surfaces across text sizes and viewport widths.',
+    'Expanded core regressions for ranged-weapon semantics, own-turn charge-test timing and Shooting weapon integration.',
+    'Bumped package/header/footer/PWA cache metadata to Alpha Build 0.41.',
+  ] },
   { version: '0.40', title: 'Match workflow, scenario maps, charge state, and combat tracking', notes: [
     'Reworked match Tips into one canonical collapsible component with a per-match Tips visibility switch in the step heading; Tip panels now stay at the top of their step while charge and Break Test instructions use normal procedure panels.',
     'Reordered Setup so Scenario precedes Game Length, changed the default match length to four rounds unless the selected scenario states otherwise, and rebuilt spell generation as caster-grouped spell cards with selection checkboxes.',

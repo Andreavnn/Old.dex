@@ -10,8 +10,9 @@ import {
 import { extractMechanicalRuleText, extractMechanicalRuleTextFromPlainText } from './ruleText'
 import { fetchRuleDocument } from './ruleContent'
 import { getSavedArmyList } from './savedLists'
-import { loadMagicChoices, randomHappeningOptions } from './gameSetup'
+import { hydrateMagicSetupForSide, loadMagicChoices, randomHappeningOptions } from './gameSetup'
 import type { GameMagicChoice, GameSide, SavedGame } from './games'
+import { matchRuleVisibleForTurn } from '../core/matchTurnVisibility'
 
 export type MatchRuleSide = 'player' | 'opponent' | 'battle'
 export type MatchRuleSourceKind = 'unit' | 'magic-item' | 'scenario' | 'battlefield' | 'army-composition' | 'battle-composition' | 'spell' | 'core'
@@ -74,6 +75,7 @@ type CompiledKnowledge = {
   playerEvents: CompiledRuleEvent[]
   opponentEvents: CompiledRuleEvent[]
   battleEvents: CompiledRuleEvent[]
+  opponentSpellSteps: Set<MatchActionStep>
 }
 
 const ruleTextCache = new Map<string, Promise<string>>()
@@ -297,6 +299,20 @@ async function compileSpellEvents(game: SavedGame) {
   return output
 }
 
+async function compilePotentialOpponentSpellSteps(game: SavedGame) {
+  const steps = new Set<MatchActionStep>()
+  const casters = await hydrateMagicSetupForSide(game, 'opponent')
+  await Promise.allSettled(casters.map(async (caster) => {
+    if (!caster.selectedLore) return
+    const choices = caster.choices?.length ? caster.choices : await loadMagicChoices(caster)
+    for (const choice of choices) {
+      const step = spellStep(choice)
+      if (step) steps.add(step)
+    }
+  }))
+  return steps
+}
+
 async function compileScenarioEvents(game: SavedGame) {
   const guidance = game.scenarioGuidance
   if (!guidance?.scenarioRules?.length) return [] as CompiledRuleEvent[]
@@ -348,6 +364,7 @@ function fingerprint(game: SavedGame) {
     m: (row.magicItems || []).map((item) => `${item.name}|${item.slug}|${item.count}`).sort(),
     mv: row.movement,
     e: [...(row.equipmentIds || [])].sort(),
+    l: [...(row.loreSelections || [])].sort(),
   }))
   return JSON.stringify({
     id: game.id,
@@ -410,19 +427,21 @@ async function compileKnowledge(game: SavedGame): Promise<CompiledKnowledge> {
   const cached = knowledgeCache.get(key)
   if (cached) return cached
   const pending = (async () => {
-    const [player, opponent, spells, scenario, battlefield, composition] = await Promise.all([
+    const [player, opponent, spells, scenario, battlefield, composition, opponentSpellSteps] = await Promise.all([
       compileRosterEvents(gameRoster(game, 'player'), 'player'),
       compileRosterEvents(gameRoster(game, 'opponent'), 'opponent'),
       compileSpellEvents(game),
       compileScenarioEvents(game),
       compileBattlefieldEvents(game),
       compileCompositionEvents(game),
+      compilePotentialOpponentSpellSteps(game),
     ])
     return {
       signature,
       playerEvents: groupCompiledEvents([...player, ...spells, ...composition.filter((row) => row.side === 'player')]),
       opponentEvents: groupCompiledEvents([...opponent, ...composition.filter((row) => row.side === 'opponent')]),
       battleEvents: groupCompiledEvents([...scenario, ...battlefield, ...composition.filter((row) => row.side === 'battle')]),
+      opponentSpellSteps,
     }
   })()
   knowledgeCache.set(key, pending)
@@ -434,24 +453,8 @@ async function compileKnowledge(game: SavedGame): Promise<CompiledKnowledge> {
   return pending
 }
 
-function stepDefaultsToOwnTurn(step: MatchActionStep) {
-  return ['start-of-turn','command','conjuration','rally','required-charges','declare-charges','charge-moves','compulsory-moves','remaining-moves','special-shooting','shooting'].includes(step)
-}
-
 function visibleForTurn(row: CompiledRuleEvent, viewSide: GameSide) {
-  if (row.side === 'battle') return row.turn !== (viewSide === 'player' ? 'enemy' : 'own')
-  if (row.side !== 'player' && row.side !== 'opponent') return false
-
-  // Timing words such as "your turn" and "enemy turn" are interpreted from
-  // the owner of the rule, not from the person holding the device. This lets an
-  // imported enemy roster contribute its own actions on Enemy's Turn while the
-  // friendly roster still contributes reactions and opponent-turn triggers.
-  const ownerIsActive = row.side === viewSide
-  if (ownerIsActive) return row.turn !== 'enemy'
-  if (row.turn === 'enemy') return true
-  if (row.intent === 'reaction') return true
-  if (!stepDefaultsToOwnTurn(row.step) && row.turn === 'either') return true
-  return false
+  return matchRuleVisibleForTurn({ ownerSide: row.side, viewSide, turn: row.turn, intent: row.intent, step: row.step })
 }
 
 function chargeTestKey(game: SavedGame, side: 'player' | 'opponent', instanceId: string) {
@@ -552,17 +555,17 @@ async function declareChargeRows(game: SavedGame, relatedEvents: CompiledRuleEve
   }))
 }
 
-function coreEnemyGuidance(step: MatchActionStep, viewSide: GameSide): MatchGuidanceRule[] {
+function coreEnemyGuidance(step: MatchActionStep, viewSide: GameSide, enemyHasSpell: boolean, friendlyHasWizard: boolean): MatchGuidanceRule[] {
   if (viewSide !== 'opponent') return []
   if (step === 'declare-charges') return [{
     id: 'core|enemy-charge-reactions', side: 'player', sourceKind: 'core', source: 'Core Rules', label: 'Charge Reactions',
     path: '/the-movement-phase/charge-reactions', summary: 'When an enemy charge is declared against a friendly unit, choose and resolve its legal charge reaction and any reaction-specific special rules.', action: 'rule', intent: 'reaction',
   }]
-  if (['conjuration','remaining-moves','special-shooting'].includes(step)) return [
-    { id: `core|${step}|wizardly-dispel`, side: 'player', sourceKind: 'core', source: 'Core Rules', label: 'Wizardly Dispel', path: '/magic/dispelling-enemy-spells', summary: 'When the enemy casts an eligible spell, check whether a friendly Wizard can make a Wizardly Dispel attempt.', action: 'rule', intent: 'reaction' },
-    { id: `core|${step}|fated-dispel`, side: 'player', sourceKind: 'core', source: 'Core Rules', label: 'Fated Dispel', path: '/magic/dispelling-enemy-spells', summary: 'A Fated Dispel may be used when the core magic rules permit it. Track its use separately from Wizardly Dispel attempts.', action: 'rule', intent: 'reaction' },
-  ]
-  return []
+  if (!enemyHasSpell || !['conjuration','remaining-moves','special-shooting','fight'].includes(step)) return []
+  const rows: MatchGuidanceRule[] = []
+  if (friendlyHasWizard) rows.push({ id: `core|${step}|wizardly-dispel`, side: 'player', sourceKind: 'core', source: 'Core Rules', label: 'Wizardly Dispel', path: '/magic/dispelling-enemy-spells', summary: 'An enemy spell that can be cast in this step is available. A friendly Wizard may make a Wizardly Dispel attempt if the normal range and eligibility requirements are met.', action: 'rule', intent: 'reaction' })
+  rows.push({ id: `core|${step}|fated-dispel`, side: 'player', sourceKind: 'core', source: 'Core Rules', label: 'Fated Dispel', path: '/magic/dispelling-enemy-spells', summary: 'An enemy spell that can be cast in this step is available. A Fated Dispel may be used if it has not already been spent this round.', action: 'rule', intent: 'reaction' })
+  return rows
 }
 
 function toGuidance(rows: CompiledRuleEvent[], round: number) {
@@ -599,7 +602,7 @@ export async function loadMatchTurnGuidance(game: SavedGame, stepId: string, vie
   const acceptedSteps: MatchActionStep[] = step === 'break-test' ? ['break-test', 'follow-up'] : [step]
   const sourceRows = [...knowledge.battleEvents, ...knowledge.playerEvents, ...knowledge.opponentEvents]
     .filter((row) => acceptedSteps.includes(row.step) && visibleForTurn(row, viewSide))
-  const rows = [...toGuidance(sourceRows, game.round), ...coreEnemyGuidance(step, viewSide)]
+  const rows = [...toGuidance(sourceRows, game.round), ...coreEnemyGuidance(step, viewSide, knowledge.opponentSpellSteps.has(step), Boolean((game.magicSetup || []).some((caster) => caster.kind === 'Wizard')))]
   const seen = new Set<string>()
   return rows.filter((row) => { const key = guidanceIdentity(row); if (seen.has(key)) return false; seen.add(key); return true })
 }

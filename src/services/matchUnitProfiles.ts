@@ -1,7 +1,9 @@
 import { loadLiveUnitProfile } from '../data/liveBuilderUnits'
-import type { ProfileKey, PrototypeEquipmentOption } from '../data/builderPrototype'
+import type { ProfileKey, PrototypeEquipmentOption, PrototypeWeapon } from '../data/builderPrototype'
 import type { BuilderRosterSelection } from '../domain/rosterTypes'
 import { applyProfileEffects, incrementCharacteristic, optionAppliesToProfile, profileRoleForName } from '../domain/profileEffects'
+import { weaponIsEquipped } from '../domain/loadout'
+import { loadMagicItemReference } from './magicItemReference'
 import { getSavedArmyList } from './savedLists'
 import type { SavedGame } from './games'
 
@@ -10,12 +12,24 @@ export type MatchProfileRow = {
   profile: Record<string, string>
 }
 
+export type MatchWeaponSnapshot = {
+  id: string
+  name: string
+  kind: 'melee' | 'missile'
+  range: string
+  strength: string
+  ap: string
+  rules: string[]
+  count: number
+}
+
 export type MatchUnitProfileSnapshot = {
   name: string
   troopType: string
   rows: MatchProfileRow[]
   equipment: string[]
   rules: Array<{ label: string; path: string }>
+  weapons: MatchWeaponSnapshot[]
 }
 
 function gameArmySlug(game: SavedGame) {
@@ -67,6 +81,55 @@ function applyPersistentOptionModifiers(
     }
   }
   return next
+}
+
+function weaponCount(rosterRow: BuilderRosterSelection, weapon: PrototypeWeapon) {
+  const stored = Math.max(0, Number(rosterRow.weaponCounts?.[weapon.id] || 0))
+  if (stored > 0) return stored
+  if (weapon.requiresSelection) return 1
+  return Math.max(1, Number(rosterRow.modelCount || 1))
+}
+
+function selectedWeapons(unit: NonNullable<Awaited<ReturnType<typeof loadLiveUnitProfile>>>, rosterRow: BuilderRosterSelection) {
+  const selectedIds = new Set(rosterRow.weaponIds || [])
+  for (const weapon of unit.weapons) if (weapon.default || weapon.locked || weapon.alwaysIncluded) selectedIds.add(weapon.id)
+  const selectedEquipmentIds = new Set(rosterRow.equipmentIds || [])
+  return unit.weapons
+    .filter((weapon) => !weapon.requiresSelection || selectedEquipmentIds.has(weapon.requiresSelection))
+    .filter((weapon) => weaponIsEquipped(unit, weapon, selectedIds, rosterRow.weaponCounts || {}))
+    .map((weapon) => ({
+      id: weapon.id,
+      name: weapon.name,
+      kind: weapon.kind,
+      range: String(weapon.range || (weapon.kind === 'missile' ? 'See rule' : 'Combat')),
+      strength: String(weapon.strength || 'See rule'),
+      ap: String(weapon.ap || '—'),
+      rules: [...new Set(weapon.rules || [])],
+      count: weaponCount(rosterRow, weapon),
+    }))
+}
+
+async function selectedMagicWeapons(rosterRow: BuilderRosterSelection) {
+  const rows: MatchWeaponSnapshot[] = []
+  await Promise.allSettled((rosterRow.magicItems || []).filter((item) => item.type === 'weapon' && item.slug).map(async (item) => {
+    try {
+      const reference = await loadMagicItemReference({ name: item.name, type: 'weapon', itemPath: `/magic-item/${item.slug}` })
+      const range = String(reference.range || 'Combat')
+      rows.push({
+        id: `magic-${item.id}`,
+        name: item.name,
+        kind: /^combat$/i.test(range) ? 'melee' : 'missile',
+        range,
+        strength: String(reference.strength || 'See rule'),
+        ap: String(reference.ap || 'See rule'),
+        rules: [...new Set(reference.rules || [])],
+        count: Math.max(1, Number(item.count || 1)),
+      })
+    } catch {
+      // The roster still remains usable if a remote magic-weapon reference is unavailable.
+    }
+  }))
+  return rows
 }
 
 export async function loadMatchUnitProfile(game: SavedGame, rosterRow: BuilderRosterSelection): Promise<MatchUnitProfileSnapshot | null> {
@@ -125,11 +188,14 @@ export async function loadMatchUnitProfile(game: SavedGame, rosterRow: BuilderRo
     return { name, profile: cleanProfile(profile) }
   }).filter((entry) => Object.keys(entry.profile).length > 0)
 
+  const weapons = [...selectedWeapons(unit, rosterRow), ...(await selectedMagicWeapons(rosterRow))]
+
   return {
     name: rosterRow.name,
     troopType: String(rosterRow.troopType || unit.details.troopType || ''),
     rows,
     equipment: [...new Set([...(rosterRow.includedEquipment || []), ...(rosterRow.optionalSelections || [])])],
     rules: (rosterRow.specialRules || []).map((rule) => ({ ...rule })),
+    weapons,
   }
 }
