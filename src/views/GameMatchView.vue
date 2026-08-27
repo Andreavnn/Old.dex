@@ -3,17 +3,19 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import MatchTipPanel from '../components/MatchTipPanel.vue'
+import MatchSpellChoiceCard from '../components/MatchSpellChoiceCard.vue'
 import { compositionOptions, compositionRuleLabel } from '../data/listBuilder'
 import { completeSavedGame, deleteSavedGame, gameWorkflow, getSavedGame, resetSavedGame, updateSavedGame, type GameChargeTestResult, type GameMagicCaster, type GameOutcome, type GameSide, type SavedGame } from '../services/games'
 import { getSavedArmyList } from '../services/savedLists'
 import { hydrateFriendlyMagicSetup, loadMagicChoices, loadScenarioGuidance, magicSelectionLimit, randomHappeningOptions } from '../services/gameSetup'
-import { loadMatchDeploymentGuidance, loadMatchStartRoundGuidance, loadMatchTurnGuidance, type MatchDeploymentGuidance, type MatchGuidanceRule, type MatchStartRoundRule } from '../services/matchIntelligence'
+import { loadMatchDeploymentGuidance, loadMatchStartRoundGuidance, loadMatchTurnGuidance, type MatchDeploymentGuidance, type MatchGuidanceRule, type MatchStartRoundRule } from '../services/matchGuidance'
 import { isGameLocked } from '../services/gameLocks'
 import type { BuilderRosterSelection } from '../domain/rosterTypes'
 import { clearMatchTracking, loadMatchTracking, saveMatchTracking, type MatchCombatDisposition, type MatchPersistentUnitState, type MatchTrackingState, type MatchTurnUnitState } from '../services/matchTracking'
-import { loadMatchUnitProfile, type MatchUnitProfileSnapshot } from '../services/matchUnitProfiles'
+import { loadMatchRosterProfile as loadMatchUnitProfile, type MatchUnitProfileSnapshot } from '../services/matchRosterProfiles'
 import { breakTestBands } from '../core/breakTest'
 import { loadRandomHappeningTable, type RandomHappeningTable } from '../services/randomHappenings'
+import { matchUseBucket } from '../core/matchUsage'
 
 const route = useRoute()
 const router = useRouter()
@@ -67,6 +69,7 @@ const isCompulsoryMoveStep = computed(() => phase.value?.id === 'movement' && st
 const isRemainingMoveStep = computed(() => phase.value?.id === 'movement' && step.value?.id === 'remaining-moves' && turnViewSide.value === 'player')
 const isShootingStep = computed(() => phase.value?.id === 'shooting' && step.value?.id === 'shooting' && turnViewSide.value === 'player')
 const isCombatResultStep = computed(() => phase.value?.id === 'combat' && step.value?.id === 'combat-result')
+const isRallyStep = computed(() => phase.value?.id === 'strategy' && step.value?.id === 'rally' && turnViewSide.value === 'player')
 
 const playerListFallback = computed(() => game.value ? getSavedArmyList(game.value.playerListId) : null)
 const opponentListFallback = computed(() => game.value?.opponentListId ? getSavedArmyList(game.value.opponentListId) : null)
@@ -89,6 +92,10 @@ const roundsComplete = computed(() => Boolean(game.value && game.value.roundsCom
 const battleMarchEnabled = computed(() => String(game.value?.playerCompositionRule || playerListFallback.value?.rule || '').toLowerCase() === 'battle-march' || playerCompositionRule.value.toLowerCase().includes('battle march'))
 const selectedBattlefieldConditions = computed(() => new Set(game.value?.battlefieldConditions || []))
 const battlefieldConditionRows = computed(() => randomHappeningOptions.filter((option) => selectedBattlefieldConditions.value.has(option.id)))
+const deploymentBattlefieldConditions = computed(() => battlefieldConditionRows.value.filter((option) => option.id === 'disruptive-weather' || option.id === 'wilderness-terrain'))
+const chaosOfWarSelected = computed(() => selectedBattlefieldConditions.value.has('chaos-of-war'))
+const showChaosOfWarResolution = computed(() => Boolean(chaosOfWarSelected.value && phase.value?.id === 'strategy' && step.value?.id === 'start-of-turn' && game.value && game.value.round === 2))
+const chaosOfWarResultKey = computed(() => `chaos-of-war:${turnViewSide.value}`)
 const scenarioGuidance = computed(() => game.value?.scenarioGuidance || null)
 const deployedPlayerIds = computed(() => new Set(game.value?.deployedPlayerIds || []))
 const reservePlayerIds = computed(() => new Set(game.value?.reservePlayerIds || []))
@@ -118,9 +125,11 @@ const requiredChargeUnits = computed(() => {
   const seen = new Set<string>()
   return requiredChargeRuleGuidance.value.filter((rule) => rule.action === 'required-charge-test').flatMap((rule) => rule.unitRefs || []).filter((unit) => { if (seen.has(unit.instanceId)) return false; seen.add(unit.instanceId); return true })
 })
+const fleeingUnits = computed(() => playerRoster.value.filter((row) => Boolean(persistentUnitState(row.instanceId).fleeing) && !unitEliminated(row)))
 const compulsoryMovementUnits = computed(() => {
   if (!isCompulsoryMoveStep.value) return [] as BuilderRosterSelection[]
   const ids = new Set(friendlyActionGuidance.value.flatMap((rule) => rule.unitRefs || []).map((unit) => unit.instanceId))
+  for (const unit of fleeingUnits.value) ids.add(unit.instanceId)
   return playerRoster.value.filter((row) => ids.has(row.instanceId) && !isJoinedCharacterId(row.instanceId))
 })
 const remainingMoveUnits = computed(() => {
@@ -193,8 +202,8 @@ watch(() => [isCombatResultStep.value, foughtUnits.value.map((row) => row.instan
   if (!isCombatResultStep.value) return
   for (const row of foughtUnits.value) void ensureCombatProfile(row)
 })
-watch(() => [isShootingStep.value, isEnemyDeclareChargeStep.value], () => {
-  if (!isShootingStep.value && !isEnemyDeclareChargeStep.value) return
+watch(() => [isShootingStep.value, isEnemyDeclareChargeStep.value, isRemainingMoveStep.value, isCombatFightStep.value, isRallyStep.value, isRequiredChargeStep.value], () => {
+  if (!isShootingStep.value && !isEnemyDeclareChargeStep.value && !isRemainingMoveStep.value && !isCombatFightStep.value && !isRallyStep.value && !isRequiredChargeStep.value) return
   for (const row of playerRoster.value) void ensureCombatProfile(row)
 }, { immediate: true })
 watch(() => [...selectedBattlefieldConditions.value].sort().join('|'), () => { for (const id of selectedBattlefieldConditions.value) void ensureRandomHappeningTable(id) }, { immediate: true })
@@ -247,18 +256,25 @@ function troopSubtype(row: BuilderRosterSelection) { return String(row.troopType
 function isWarMachine(row: BuilderRosterSelection) { return /war machine|warmachine/i.test(String(row.troopType || '')) }
 function isScoutUnit(row: BuilderRosterSelection) { return unitHasRule(row, /^Scouts?(?:\s|\(|$)/i) }
 function deploymentSequenceRank(row: BuilderRosterSelection) {
+  if (isScoutUnit(row)) return 3
   if (isCharacter(row)) return 2
   if (isWarMachine(row)) return 1
   return 0
 }
 function deploymentSequenceLabel(row: BuilderRosterSelection) {
   const rank = deploymentSequenceRank(row)
-  if (rank === 2) return isScoutUnit(row) ? 'CHARACTERS · DEPLOY LAST · SCOUTS MAY DEPLOY LATER' : 'CHARACTERS · DEPLOY LAST'
+  if (rank === 3) return isCharacter(row) ? 'SCOUT CHARACTER · SPECIAL DEPLOYMENT LAST' : 'SCOUTS · NORMAL DEPLOYMENT OR USE SCOUTS LATER'
+  if (rank === 2) return 'CHARACTERS · DEPLOY LAST'
   if (rank === 1) return 'WAR MACHINES · ONE DEPLOYMENT'
-  if (isScoutUnit(row)) return 'UNITS · NORMAL DEPLOYMENT OR USE SCOUTS LATER'
   return 'UNITS · ALTERNATING DEPLOYMENT'
 }
 const deploymentRosterRows = computed(() => playerRoster.value.map((row, index) => ({ row, index })).sort((a, b) => deploymentSequenceRank(a.row) - deploymentSequenceRank(b.row) || a.index - b.index).map((entry) => entry.row))
+const deploymentRosterGroups = computed(() => [
+  { id: 'units', label: '1 · UNITS', detail: 'Alternating ordinary deployment', rows: deploymentRosterRows.value.filter((row) => deploymentSequenceRank(row) === 0) },
+  { id: 'war-machines', label: '2 · WAR MACHINES', detail: 'Place the army’s War Machines together', rows: deploymentRosterRows.value.filter((row) => deploymentSequenceRank(row) === 1) },
+  { id: 'characters', label: '3 · CHARACTERS', detail: 'Deploy after ordinary units and War Machines', rows: deploymentRosterRows.value.filter((row) => deploymentSequenceRank(row) === 2) },
+  { id: 'scouts', label: '4 · SCOUTS / SPECIAL DEPLOYMENT', detail: 'Resolve Scouts after normal deployment when using their special deployment', rows: deploymentRosterRows.value.filter((row) => deploymentSequenceRank(row) === 3) },
+].filter((group) => group.rows.length))
 
 function sameJoinParityRule(character: BuilderRosterSelection, host: BuilderRosterSelection, pattern: RegExp) {
   return unitHasRule(character, pattern) === unitHasRule(host, pattern)
@@ -340,9 +356,19 @@ function setChargeHeld(instanceId: string, checked: boolean) {
 function setChargeDeclared(instanceId: string, checked: boolean) {
   const state = unitTurnState(instanceId)
   patchUnitTurnState(instanceId, { chargeDeclared: checked, chargeHeld: checked ? false : state.chargeHeld, chargeSuccessful: checked ? state.chargeSuccessful : false })
+  if (checked) recordHistory('charge', instanceId, 'declared')
+}
+function recordHistory(kind: 'charge' | 'combat', instanceId: string, result: string, detail = '') {
+  if (!game.value) return
+  mutateTracking((next) => {
+    const target = kind === 'charge' ? next.chargeHistory : next.combatHistory
+    target.push({ round: game.value!.round, side: turnViewSide.value, instanceId, result, detail: detail || undefined })
+    if (target.length > 500) target.splice(0, target.length - 500)
+  })
 }
 function setChargeSuccessful(instanceId: string, checked: boolean) {
   patchUnitTurnState(instanceId, { chargeHeld: false, chargeDeclared: checked || chargeDeclared(instanceId), chargeSuccessful: checked })
+  if (checked) recordHistory('charge', instanceId, 'successful')
 }
 function chargeReaction(instanceId: string) { return unitTurnState(instanceId).chargeReaction || '' }
 function chargeReactionLabel(value: MatchTurnUnitState['chargeReaction']) {
@@ -352,8 +378,12 @@ function chargeReactionLabel(value: MatchTurnUnitState['chargeReaction']) {
   if (value === 'flee') return 'Flee'
   return ''
 }
+function setFleeing(instanceId: string, fleeing: boolean) {
+  patchPersistentUnitState(instanceId, { fleeing, fleeingSinceRound: fleeing ? game.value?.round : undefined })
+}
 function setChargeReaction(instanceId: string, reaction: 'hold' | 'stand-shoot' | 'flee' | 'counter-charge', checked: boolean) {
   patchUnitTurnState(instanceId, { chargeReaction: checked ? reaction : (chargeReaction(instanceId) === reaction ? '' : chargeReaction(instanceId)) })
+  if (reaction === 'flee') setFleeing(instanceId, checked)
 }
 function missileWeaponsForUnit(instanceId: string) { return (combatProfiles.value[instanceId]?.weapons || []).filter((weapon) => weapon.kind === 'missile') }
 function unitHasCounterCharge(instanceId: string) {
@@ -379,13 +409,40 @@ function setRemainingMoveMode(instanceId: string, mode: Exclude<RemainingMoveMod
   const nextMode: RemainingMoveMode = checked ? mode : (remainingMoveMode(instanceId) === mode ? '' : remainingMoveMode(instanceId))
   patchUnitTurnState(instanceId, { remainingMoveMode: nextMode, remainingMoved: Boolean(nextMode) })
 }
-function movementCharacteristic(unit: BuilderRosterSelection) { const value = Number(unit.movement || 0); return Number.isFinite(value) && value > 0 ? value : 0 }
+function profileCharacteristic(instanceId: string, key: 'M' | 'BS' | 'Ld') {
+  const values = (combatProfile(instanceId)?.rows || []).map((row) => Number.parseInt(String(row.profile[key] || ''), 10)).filter((value) => Number.isFinite(value) && value >= 0)
+  return values.length ? Math.max(...values) : 0
+}
+function movementCharacteristic(unit: BuilderRosterSelection) {
+  const stored = Number(unit.movement || 0)
+  if (Number.isFinite(stored) && stored > 0) return stored
+  return profileCharacteristic(unit.instanceId, 'M')
+}
 function remainingMoveDistance(unit: BuilderRosterSelection, mode: Exclude<RemainingMoveMode, ''>) {
   const movement = movementCharacteristic(unit)
   if (mode === 'hold') return '0"'
-  if (!movement) return 'See profile'
+  if (!movement) return combatProfileLoading.value.has(unit.instanceId) ? 'Loading...' : '—'
   return `${mode === 'march' ? movement * 2 : movement}"`
 }
+const shootingPenaltyOptions = [
+  { id: 'long-range', label: 'Long Range', modifier: -1 },
+  { id: 'stand-shoot', label: 'Stand & Shoot', modifier: -1 },
+  { id: 'skirmishers', label: 'Target is Skirmishers', modifier: -1 },
+  { id: 'soft-cover', label: 'Soft Cover', modifier: -1 },
+  { id: 'hard-cover', label: 'Hard Cover', modifier: -2 },
+  { id: 'other', label: 'Other Penalty', modifier: -1 },
+]
+function shootingPenaltyIds(instanceId: string) { return new Set(unitTurnState(instanceId).shootingPenaltyIds || []) }
+function toggleShootingPenalty(instanceId: string, id: string, checked: boolean) {
+  const next = shootingPenaltyIds(instanceId)
+  if (checked) next.add(id); else next.delete(id)
+  patchUnitTurnState(instanceId, { shootingPenaltyIds: [...next] })
+}
+function shootingModifierTotal(instanceId: string) {
+  const selected = shootingPenaltyIds(instanceId)
+  return shootingPenaltyOptions.filter((row) => selected.has(row.id)).reduce((sum, row) => sum + row.modifier, 0)
+}
+function ballisticSkill(instanceId: string) { return profileCharacteristic(instanceId, 'BS') }
 function destroyedCount(instanceId: string) { return Math.max(0, Number(persistentUnitState(instanceId).casualties || 0)) }
 function profileWounds(instanceId: string) {
   const profile = combatProfile(instanceId)
@@ -405,7 +462,9 @@ function combatDispositionFor(instanceId: string) { return unitTurnState(disposi
 function setCombatDisposition(instanceId: string, disposition: MatchCombatDisposition) {
   const ownerId = dispositionOwnerId(instanceId)
   const current = unitTurnState(ownerId).combatDisposition || ''
-  patchUnitTurnState(ownerId, { combatDisposition: current === disposition ? '' : disposition, combatLostBy: 0, breakResult: '', followUpResult: '' })
+  const nextDisposition = current === disposition ? '' : disposition
+  patchUnitTurnState(ownerId, { combatDisposition: nextDisposition, combatLostBy: 0, breakResult: '', followUpResult: '' })
+  if (nextDisposition) recordHistory('combat', ownerId, nextDisposition)
 }
 function combatLostBy(instanceId: string) { return Math.max(0, Number(unitTurnState(dispositionOwnerId(instanceId)).combatLostBy || 0)) }
 function setCombatLostBy(instanceId: string, value: number) { patchUnitTurnState(dispositionOwnerId(instanceId), { combatLostBy: Math.max(0, Math.floor(Number(value || 0))), breakResult: '' }) }
@@ -420,6 +479,17 @@ function setBreakResult(instanceId: string, result: string, checked: boolean) {
   const ownerId = dispositionOwnerId(instanceId)
   const current = unitTurnState(ownerId).breakResult || ''
   patchUnitTurnState(ownerId, { breakResult: checked ? result : (current === result ? '' : current) })
+  if (checked) {
+    setFleeing(ownerId, result === 'flee')
+    recordHistory('combat', ownerId, result, `lost by ${combatLostBy(ownerId)}`)
+  } else if (current === 'flee') {
+    setFleeing(ownerId, false)
+  }
+}
+function rallyResult(instanceId: string) { return unitTurnState(instanceId).rallyResult || '' }
+function setRallyResult(instanceId: string, result: 'pass' | 'fail', checked: boolean) {
+  patchUnitTurnState(instanceId, { rallyResult: checked ? result : '' })
+  if (result === 'pass') setFleeing(instanceId, !checked)
 }
 function setFollowUpResult(instanceId: string, result: string, checked: boolean) {
   const ownerId = dispositionOwnerId(instanceId)
@@ -430,7 +500,7 @@ function hasCommandModel(row: BuilderRosterSelection, kind: 'banner' | 'champion
   const text = [...(row.options || []), ...(row.optionalSelections || []), ...(row.includedEquipment || [])].join(' ')
   if (kind === 'banner') return /standard bearer|banner bearer|battle standard/i.test(text)
   if (kind === 'musician') return /musician/i.test(text)
-  return /champion|boss|unit champion/i.test(text)
+  return /champion|\bboss\b|unit champion/i.test(text)
 }
 function foughtInCombat(instanceId: string) {
   if (!game.value) return false
@@ -462,15 +532,28 @@ async function ensureCombatProfile(row: BuilderRosterSelection) {
 }
 function combatProfile(instanceId: string) { return combatProfiles.value[instanceId] }
 function matchUnitProfileRoute(row: BuilderRosterSelection) {
-  const list = playerListFallback.value
-  const armySlug = game.value?.playerArmyId || list?.army || ''
-  const composition = list?.composition || ''
-  const rule = game.value?.playerCompositionRule || list?.rule || ''
-  const options = (game.value?.playerOptions || list?.options || []).join(',')
-  return {
-    path: `/army/${armySlug}/unit/${row.unitId}`,
-    query: { composition, rule, options, instance: row.instanceId, mode: 'view', return: route.fullPath },
+  return game.value
+    ? { path: `/games/${game.value.id}/unit/${row.instanceId}`, query: { return: route.fullPath } }
+    : { path: '/games' }
+}
+function openMatchUnitProfile(row: BuilderRosterSelection) { void router.push(matchUnitProfileRoute(row)) }
+function combatRemainingLabel(unit: BuilderRosterSelection) {
+  if ((unit.modelCount || 1) > 1) {
+    const remaining = Math.max(0, Number(unit.modelCount || 1) - destroyedCount(unit.instanceId))
+    return `${remaining} model${remaining === 1 ? '' : 's'} remaining`
   }
+  return `${Math.max(0, casualtyLimit(unit) - destroyedCount(unit.instanceId))} Wounds Remaining`
+}
+function unitLeadershipByInstanceId(instanceId: string) {
+  const row = playerRoster.value.find((entry) => entry.instanceId === instanceId)
+  if (!row) return '—'
+  const hostId = joinedHostId(row.instanceId) || row.instanceId
+  const host = playerRoster.value.find((entry) => entry.instanceId === hostId) || row
+  const values = [
+    Number(host.leadership || 0) || profileCharacteristic(host.instanceId, 'Ld'),
+    ...joinedCharactersForHost(hostId).map((character) => Number(character.leadership || 0) || profileCharacteristic(character.instanceId, 'Ld')),
+  ].filter((value) => Number.isFinite(value) && value > 0)
+  return values.length ? Math.max(...values) : '—'
 }
 function scrollTabs(target: 'phase' | 'step', direction: -1 | 1) {
   const element = target === 'phase' ? phaseTabsRef.value : stepTabsRef.value
@@ -519,13 +602,36 @@ function selectTurnContext(side: GameSide) { if (!game.value || isReadOnly.value
 function guidanceCheckId(rule: MatchGuidanceRule, index: number) { const refs = (rule.unitRefs || []).map((ref) => ref.instanceId).sort().join(','); return `${rule.action || 'rule'}|${rule.label}|${rule.path || ''}|${refs}|${index}`.toLowerCase() }
 function guidanceChecked(rule: MatchGuidanceRule, index: number) { if (!game.value || !checklistKey.value) return false; return Boolean(game.value.stepChecks?.[checklistKey.value]?.[guidanceCheckId(rule, index)]) }
 function isFatedDispelRule(rule: MatchGuidanceRule) { return /^Fated Dispel$/i.test(rule.label) }
-function guidanceDisabled(rule: MatchGuidanceRule, index: number) { return isReadOnly.value || (isFatedDispelRule(rule) && fatedDispelUsedThisRound.value && !guidanceChecked(rule, index)) }
+function ruleUseBucket(rule: MatchGuidanceRule) { return rule.useScope && game.value ? matchUseBucket(rule.useScope, game.value.round, turnViewSide.value) : '' }
+function ruleUseCount(rule: MatchGuidanceRule) {
+  const bucket = ruleUseBucket(rule)
+  const key = rule.useKey || rule.id
+  return bucket ? Math.max(0, Number(matchTracking.value.ruleUses?.[key]?.[bucket] || 0)) : 0
+}
+function ruleUseRemaining(rule: MatchGuidanceRule) { return rule.useLimit ? Math.max(0, rule.useLimit - ruleUseCount(rule)) : undefined }
+function adjustRuleUse(rule: MatchGuidanceRule, delta: number) {
+  const bucket = ruleUseBucket(rule)
+  if (!bucket || !rule.useLimit) return
+  mutateTracking((next) => {
+    const key = rule.useKey || rule.id
+    const buckets = { ...(next.ruleUses[key] || {}) }
+    buckets[bucket] = Math.max(0, Math.min(rule.useLimit!, Number(buckets[bucket] || 0) + delta))
+    if (!buckets[bucket]) delete buckets[bucket]
+    if (Object.keys(buckets).length) next.ruleUses[key] = buckets; else delete next.ruleUses[key]
+  })
+}
+function guidanceDisabled(rule: MatchGuidanceRule, index: number) {
+  const exhausted = rule.useLimit && ruleUseRemaining(rule) === 0 && !guidanceChecked(rule, index)
+  return isReadOnly.value || Boolean(exhausted) || (isFatedDispelRule(rule) && fatedDispelUsedThisRound.value && !guidanceChecked(rule, index))
+}
 function toggleGuidanceCheck(rule: MatchGuidanceRule, index: number, checked: boolean) {
   if (!game.value || isReadOnly.value || !checklistKey.value || guidanceDisabled(rule, index)) return
   const group = { ...(game.value.stepChecks?.[checklistKey.value] || {}) }
   const id = guidanceCheckId(rule, index)
+  const wasChecked = Boolean(group[id])
   if (checked) group[id] = true; else delete group[id]
   persist({ stepChecks: { ...(game.value.stepChecks || {}), [checklistKey.value]: group } })
+  if (checked !== wasChecked && rule.useLimit) adjustRuleUse(rule, checked ? 1 : -1)
   if (isFatedDispelRule(rule)) mutateTracking((next) => { next.fatedDispelUsedRound = checked ? game.value?.round : undefined })
 }
 function chargeTestKey(instanceId: string) { return game.value ? `${game.value.round}:${turnViewSide.value}:required-charges:${instanceId}` : '' }
@@ -641,6 +747,18 @@ function battlefieldTableForPath(path?: string) { const option = battlefieldOpti
 function battlefieldTableForRule(rule: MatchGuidanceRule) { return battlefieldTableForPath(rule.path) }
 function battlefieldResultSelectedForPath(path: string | undefined, roll: string) { const option = battlefieldOptionForPath(path); return Boolean(option && battlefieldResult(option.id) === roll) }
 function battlefieldResultSelectedForRule(rule: MatchGuidanceRule, roll: string) { return battlefieldResultSelectedForPath(rule.path, roll) }
+function battlefieldResolvedRow(id: string, resultKey = id) {
+  const roll = battlefieldResult(resultKey)
+  return randomHappeningTables.value[id]?.results.find((row) => row.roll === roll) || null
+}
+
+function battlefieldResolvedRowForPath(path?: string) {
+  const option = battlefieldOptionForPath(path)
+  return option ? battlefieldResolvedRow(option.id) : null
+}
+function battlefieldResolvedRowForRule(rule: MatchGuidanceRule) {
+  return battlefieldResolvedRowForPath(rule.path)
+}
 function toggleBattlefieldCondition(id: string, checked: boolean) {
   if (!game.value || isReadOnly.value) return
   const next = new Set(game.value.battlefieldConditions || [])
@@ -667,9 +785,9 @@ function ruleParagraphs(value: string) {
   return rows
 }
 function guidanceQuantityText(rule: MatchGuidanceRule) {
-  if (!rule.quantity) return ''
-  const remaining = rule.remainingQuantity ?? rule.quantity
-  return `${remaining} / ${rule.quantity} remaining`
+  if (!rule.useLimit) return ''
+  const remaining = ruleUseRemaining(rule)
+  return `${remaining ?? rule.useLimit} / ${rule.useLimit} remaining ${rule.useScope ? `this ${rule.useScope}` : ''}`.trim()
 }
 const setupTip = computed(() => { if (isSetupArmiesStep.value) return 'Confirm the roster, scenario and battle-composition details before deployment. Wizard lore choices are made when the model permits a choice; changing a lore here changes this match setup only and does not rewrite the saved roster.'; if (isSetupSpellsStep.value) return 'Generate spells before deployment. For a Wizard, roll one D6 per Wizard Level and re-roll duplicates; each result selects the matching numbered spell. One generated spell may be exchanged for the signature spell. A single Wizard cannot know the same spell twice.'; if (isOverviewStep.value) return 'Use Overview as the at-a-glance battle dashboard. Check the matchup, scenario, prepared magic and current turn state here before moving into Deployment and the turn phases.'; return '' })
 const deploymentTip = computed(() => { if (isDeploymentOrderStep.value) return 'Review the scenario deployment instructions before placing models. Record which side begins deployment here; this is separate from determining which side takes the first turn.'; if (isDeployArmiesStep.value) return 'Deploy ordinary non-character units in the scenario’s alternating order. An army’s War Machines are placed together as one deployment. Characters are deployed after other ordinary deployments; a Character assigned to a joined unit is automatically recorded with that host when the host/character deployment state is resolved. Scouts that use their special deployment are resolved after the normal armies have deployed. Units permitted to begin off-table may be marked Held in Reserve instead. Always follow a unit or scenario rule when it gives a more specific exception.'; if (isRoundBattleEffectsStep.value) return 'Start of Round begins with effects that apply to the battle as a whole. Resolve scenario, battlefield and battle-composition effects before either player resolves army or model-specific Start of Round rules.'; if (isRoundPlayerEffectsStep.value) return 'After shared battle effects, resolve the friendly and enemy army, unit and model rules that trigger at Start of Round. Keep each side separate so no model-specific effect is missed.'; return '' })
@@ -740,20 +858,8 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
           <section class="game-length-card card-inset"><div class="setup-section-heading"><div><p class="eyebrow">GAME LENGTH</p><h3>{{ roundLimit }} rounds</h3></div></div><p>{{ scenarioGuidance?.gameLength || 'Old.dex defaults to four rounds unless the selected scenario specifies a different game length.' }}</p><label class="round-limit-control"><span>Rounds</span><input type="number" min="1" max="20" :value="roundLimit" :disabled="isReadOnly || battleStarted" @change="handleRoundLimit" /></label></section>
           <section v-if="battleMarchEnabled" class="battlefield-condition-card card-inset">
             <div class="setup-section-heading"><div><p class="eyebrow">BATTLE CONDITIONS</p><h3>Battle March random happenings</h3></div></div>
-            <p class="setup-inline-status">Enable each random-happening table being used, then record the D6 result. Old.dex uses only the rolled result when deciding which later phase or step should show its effect.</p>
-            <div class="battlefield-condition-options"><label v-for="option in randomHappeningOptions" :key="option.id"><input type="checkbox" :checked="selectedBattlefieldConditions.has(option.id)" :disabled="isReadOnly" @change="handleBattlefieldCondition(option.id, $event)" /><span><strong>{{ option.label }}</strong><RouterLink :to="`/rules/read${option.path}`">Rules</RouterLink></span></label></div>
-            <details v-for="option in battlefieldConditionRows" :key="`setup-table-${option.id}`" class="random-happening-details" open>
-              <summary><strong>{{ option.label }} Table</strong><span v-if="battlefieldResult(option.id)" class="value-chip">D6: {{ battlefieldResult(option.id) }}</span></summary>
-              <p v-if="randomHappeningLoading.has(option.id)" class="setup-inline-status">Loading D6 table…</p>
-              <div v-else-if="randomHappeningTables[option.id]?.results.length" class="random-happening-table">
-                <div class="random-happening-table-head"><strong>D6</strong><strong>Result</strong></div>
-                <label v-for="result in randomHappeningTables[option.id]?.results || []" :key="`${option.id}-${result.roll}`" class="random-happening-row" :class="{ selected: battlefieldResult(option.id) === result.roll }">
-                  <span class="random-happening-roll"><input type="radio" :name="`random-${option.id}`" :checked="battlefieldResult(option.id) === result.roll" :disabled="isReadOnly" @change="setBattlefieldResult(option.id, result.roll)" /><strong>{{ result.roll }}</strong></span>
-                  <span><strong>{{ result.title }}:</strong> {{ result.text }}</span>
-                </label>
-              </div>
-              <p v-else class="setup-inline-status">The table could not be loaded. Open the linked rule and record the result when available.</p>
-            </details>
+            <p class="setup-inline-status">Select the Battle Conditions being used. Their D6 tables are resolved when their rules take effect rather than expanded during Setup.</p>
+            <div class="battlefield-condition-options"><label v-for="option in randomHappeningOptions" :key="option.id"><input type="checkbox" :checked="selectedBattlefieldConditions.has(option.id)" :disabled="isReadOnly" @change="handleBattlefieldCondition(option.id, $event)" /><span><strong>{{ option.label }}</strong><small v-if="option.id === 'chaos-of-war'">Start of each player's second turn</small><small v-else>Start of Deployment</small><RouterLink :to="`/rules/read${option.path}`">Rules</RouterLink></span></label></div>
           </section>
         </div>
 
@@ -766,14 +872,10 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
               <summary class="spell-caster-heading"><div><span class="rule-kind-pill">{{ caster.kind }}<template v-if="caster.kind === 'Wizard'"> · Level {{ caster.level }}</template></span><h3>{{ caster.name }}</h3><p>{{ caster.selectedLore || 'No lore selected' }}</p></div><strong v-if="caster.kind === 'Wizard'">{{ caster.selectedSpellIds.length }} / {{ magicSelectionLimit(caster) }} spells</strong></summary>
               <div class="spell-caster-collapse-body">
                 <p v-if="magicChoiceLoading.has(caster.instanceId)" class="setup-inline-status">Loading {{ caster.kind === 'Wizard' ? 'spells' : 'prayers' }} from the rules source…</p>
-                <div v-else-if="caster.kind === 'Wizard' && caster.choices?.length" class="spell-choice-grid spell-generation-grid">
-                  <article v-for="choice in caster.choices" :key="choice.id" class="spell-generation-card spell-rule-box" :class="{ selected: selectedMagicChoice(caster, choice.id), signature: choice.signature, unavailable: casterChoiceDisabled(caster, choice.id) }">
-                    <label class="spell-generation-card-select"><input type="checkbox" :checked="selectedMagicChoice(caster, choice.id)" :disabled="isReadOnly || casterChoiceDisabled(caster, choice.id)" @change="handleMagicChoice(caster, choice.id, $event)" /><strong>{{ choice.name }}</strong><span class="rule-kind-pill">{{ choice.type || 'Spell' }}</span><small v-if="choice.signature">Signature Spell</small></label>
-                    <div class="spell-generation-rule-body"><dl v-if="choice.type || choice.castingValue || choice.range" class="spell-rule-meta"><div v-if="choice.castingValue"><dt>Casting Value</dt><dd>{{ choice.castingValue }}</dd></div><div v-if="choice.range"><dt>Range</dt><dd>{{ choice.range }}</dd></div></dl>
-                    <p v-if="choice.summary">{{ choice.summary }}</p><RouterLink v-if="choice.path" :to="`/rules/read${choice.path}`">Open lore rules</RouterLink></div>
-                  </article>
+                <div v-else-if="caster.kind === 'Wizard' && caster.choices?.length" class="spell-choice-grid spell-generation-grid canonical-spell-choice-grid">
+                  <MatchSpellChoiceCard v-for="choice in caster.choices" :key="choice.id" :choice="choice" :selected="selectedMagicChoice(caster, choice.id)" :disabled="isReadOnly || casterChoiceDisabled(caster, choice.id)" @toggle="toggleMagicChoice(caster, choice.id, $event)" />
                 </div>
-                <div v-else-if="caster.kind === 'Priest' && caster.choices?.length" class="spell-choice-grid spell-generation-grid"><article v-for="choice in caster.choices" :key="choice.id" class="spell-generation-card prayer"><span class="rule-kind-pill">Prayer</span><strong>{{ choice.name }}</strong><p>{{ choice.summary }}</p><RouterLink v-if="choice.path" :to="`/rules/read${choice.path}`">Open prayer rules</RouterLink></article></div>
+                <div v-else-if="caster.kind === 'Priest' && caster.choices?.length" class="spell-choice-grid spell-generation-grid canonical-spell-choice-grid"><MatchSpellChoiceCard v-for="choice in caster.choices" :key="choice.id" :choice="choice" :selectable="false" kind-label="Prayer" /></div>
                 <div v-else class="setup-inline-status">No {{ caster.kind === 'Wizard' ? 'spell' : 'prayer' }} list could be read for {{ caster.selectedLore || caster.name }}.</div>
               </div>
             </details>
@@ -791,6 +893,21 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
 
         <div v-else-if="isDeploymentOrderStep" class="deployment-step-content">
           <MatchTipPanel v-if="tipsVisible" title="Tip — Deployment Order" :text="deploymentTip" :collapsed="currentTipCollapsed" @toggle="setCurrentTipCollapsed" />
+          <section v-if="deploymentBattlefieldConditions.length" class="condition-resolution-panel card-inset">
+            <div class="setup-section-heading"><div><p class="eyebrow">BATTLE CONDITIONS</p><h3>Resolve before deployment</h3></div></div>
+            <article v-for="option in deploymentBattlefieldConditions" :key="`deployment-condition-${option.id}`" class="condition-resolution-entry">
+              <header><strong>{{ option.label }}</strong><RouterLink :to="`/rules/read${option.path}`">Open rules</RouterLink></header>
+              <p v-if="randomHappeningLoading.has(option.id)" class="setup-inline-status">Loading D6 table...</p>
+              <div v-else-if="randomHappeningTables[option.id]?.results.length" class="random-happening-table">
+                <div class="random-happening-table-head"><strong>D6</strong><strong>Result</strong></div>
+                <label v-for="result in randomHappeningTables[option.id]?.results || []" :key="`${option.id}-${result.roll}`" class="random-happening-row" :class="{ selected: battlefieldResult(option.id) === result.roll }">
+                  <span class="random-happening-roll"><input type="radio" :name="`deployment-random-${option.id}`" :checked="battlefieldResult(option.id) === result.roll" :disabled="isReadOnly" @change="setBattlefieldResult(option.id, result.roll)" /><strong>{{ result.roll }}</strong></span>
+                  <span><strong>{{ result.title }}:</strong> {{ result.text }}</span>
+                </label>
+              </div>
+              <div v-if="battlefieldResolvedRow(option.id)" class="resolved-condition-result"><strong>Recorded — {{ battlefieldResolvedRow(option.id)?.roll }}: {{ battlefieldResolvedRow(option.id)?.title }}</strong><p>{{ battlefieldResolvedRow(option.id)?.text }}</p></div>
+            </article>
+          </section>
           <section class="deployment-guidance-panel card-inset"><p class="eyebrow">SCENARIO DEPLOYMENT</p><h3>{{ game.scenario }}</h3><div class="scenario-deployment-body"><p v-if="scenarioGuidance?.setupText"><strong>Set-up:</strong> {{ scenarioGuidance.setupText }}</p><p v-if="scenarioGuidance?.deploymentText"><strong>Deployment:</strong> {{ scenarioGuidance.deploymentText }}</p><p v-else>No additional scenario-specific deployment rules are listed. Use the standard deployment procedure.</p><p v-for="rule in scenarioGuidance?.scenarioRules || []" :key="`deployment-${rule}`">{{ rule }}</p><img v-if="scenarioGuidance?.mapImageUrl" class="scenario-deployment-map scenario-rules-bottom-image" :src="scenarioGuidance.mapImageUrl" :alt="`${game.scenario} battlefield and deployment map`" loading="lazy" decoding="async" /></div></section>
           <section class="deployment-order-panel card-inset"><p class="eyebrow">FIRST TO DEPLOY</p><h3>Who begins deployment?</h3><div class="deployment-side-actions"><button type="button" class="secondary-button" :class="{ active: game.deploymentFirstSide === 'player' }" :disabled="isReadOnly" @click="chooseDeploymentFirstSide('player')">{{ game.playerName }}</button><button type="button" class="secondary-button" :class="{ active: game.deploymentFirstSide === 'opponent' }" :disabled="isReadOnly" @click="chooseDeploymentFirstSide('opponent')">{{ game.opponentName }}</button></div></section>
         </div>
@@ -798,19 +915,28 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
         <div v-else-if="isDeployArmiesStep" class="deployment-step-content">
           <MatchTipPanel v-if="tipsVisible" title="Tip — Deploying Armies" :text="deploymentTip" :collapsed="currentTipCollapsed" rule-to="/rules/read/overview-of-the-game" rule-label="Open deployment rules" @toggle="setCurrentTipCollapsed" />
           <p v-if="deploymentLoading" class="setup-inline-status">Reading deployment rules and legal formations for the friendly roster…</p>
-          <section class="deployment-roster-grid friendly-only-deployment-grid"><article class="deployment-roster-panel card-inset"><div class="deployment-roster-heading"><div><p class="eyebrow">FRIENDLY ROSTER</p><h3>{{ game.playerListName }}</h3></div><strong>{{ deploymentFriendlyCount }} / {{ playerRoster.length }} deployed</strong></div><article v-for="row in deploymentRosterRows" :key="row.instanceId" class="deployment-unit-row deployment-unit-guidance" :class="{ deployed: deployedPlayerIds.has(row.instanceId), reserved: reservePlayerIds.has(row.instanceId) }"><div class="deployment-unit-status-controls"><label><input type="checkbox" :checked="deployedPlayerIds.has(row.instanceId)" :disabled="isReadOnly || Boolean(isCharacter(row) && joinedHostId(row.instanceId))" @change="handleDeployedUnit('player', row.instanceId, $event)" /><span>{{ isCharacter(row) && joinedHostId(row.instanceId) ? 'Deployed with joined unit' : isWarMachine(row) ? 'Deploy war machines' : 'Deployed' }}</span></label><label title="Track this unit as held in Reserve"><input type="checkbox" :checked="reservePlayerIds.has(row.instanceId)" :disabled="isReadOnly || Boolean(isCharacter(row) && joinedHostId(row.instanceId))" @change="handleReserveUnit(row.instanceId, $event)" /><span>Held in Reserve</span></label></div><div class="deployment-unit-copy"><div class="deployment-unit-title"><strong>{{ row.name }}</strong><small>{{ row.modelCount }} model{{ row.modelCount === 1 ? '' : 's' }} · {{ row.totalPoints }} pts</small><small class="deployment-sequence-note">{{ deploymentSequenceLabel(row) }}</small></div><label v-if="isCharacter(row)" class="deployment-character-join"><span>Joined unit</span><select :value="joinedHostId(row.instanceId)" :disabled="isReadOnly" @change="handleCharacterHost(row.instanceId, $event)"><option value="">Not joined</option><option v-for="host in joinableHostsForCharacter(row)" :key="`${row.instanceId}-join-${host.instanceId}`" :value="host.instanceId">{{ host.name }}</option></select></label><div v-if="joinedCharactersForHost(row.instanceId).length" class="joined-character-pills"><span v-for="character in joinedCharactersForHost(row.instanceId)" :key="`${row.instanceId}-joined-${character.instanceId}`">{{ character.name }}</span></div><div v-if="deploymentFor(row.instanceId)?.formations.length" class="deployment-formations"><span class="deployment-detail-label">Formation</span><RouterLink v-for="formation in deploymentFor(row.instanceId)?.formations" :key="`${row.instanceId}-${formation.label}`" :to="`/rules/read${formation.path}`">{{ formation.label }}</RouterLink></div><div v-if="deploymentFor(row.instanceId)?.deploymentRules.length" class="deployment-rule-list"><span class="deployment-detail-label">Deployment rules</span><article v-for="rule in deploymentFor(row.instanceId)?.deploymentRules" :key="`${row.instanceId}-${rule.label}`"><details class="phase-rule-details compact"><summary>{{ rule.label }}</summary><p v-if="rule.summary">{{ rule.summary }}</p></details></article></div><p v-if="deploymentFor(row.instanceId)?.canReserve" class="deployment-reserve-reason">May begin off-table / in Reserve: {{ deploymentFor(row.instanceId)?.reserveReason }}.</p></div></article></article></section>
+          <section class="deployment-roster-grid friendly-only-deployment-grid"><article class="deployment-roster-panel card-inset"><div class="deployment-roster-heading"><div><p class="eyebrow">FRIENDLY ROSTER</p><h3>{{ game.playerListName }}</h3></div><strong>{{ deploymentFriendlyCount }} / {{ playerRoster.length }} deployed</strong></div><section v-for="group in deploymentRosterGroups" :key="group.id" class="deployment-category-group"><header><strong>{{ group.label }}</strong><small>{{ group.detail }}</small></header><article v-for="row in group.rows" :key="row.instanceId" class="deployment-unit-row deployment-unit-guidance" :class="{ deployed: deployedPlayerIds.has(row.instanceId), reserved: reservePlayerIds.has(row.instanceId) }"><div class="deployment-unit-status-controls"><label><input type="checkbox" :checked="deployedPlayerIds.has(row.instanceId)" :disabled="isReadOnly || Boolean(isCharacter(row) && joinedHostId(row.instanceId))" @change="handleDeployedUnit('player', row.instanceId, $event)" /><span>{{ isCharacter(row) && joinedHostId(row.instanceId) ? 'Deployed with joined unit' : isWarMachine(row) ? 'Deploy war machines' : 'Deployed' }}</span></label><label title="Track this unit as held in Reserve"><input type="checkbox" :checked="reservePlayerIds.has(row.instanceId)" :disabled="isReadOnly || Boolean(isCharacter(row) && joinedHostId(row.instanceId))" @change="handleReserveUnit(row.instanceId, $event)" /><span>Held in Reserve</span></label></div><div class="deployment-unit-copy"><div class="deployment-unit-title"><strong>{{ row.name }}</strong><small>{{ row.modelCount }} model{{ row.modelCount === 1 ? '' : 's' }} · {{ row.totalPoints }} pts</small><small class="deployment-sequence-note">{{ deploymentSequenceLabel(row) }}</small></div><label v-if="isCharacter(row)" class="deployment-character-join"><span>Joined unit</span><select :value="joinedHostId(row.instanceId)" :disabled="isReadOnly" @change="handleCharacterHost(row.instanceId, $event)"><option value="">Not joined</option><option v-for="host in joinableHostsForCharacter(row)" :key="`${row.instanceId}-join-${host.instanceId}`" :value="host.instanceId">{{ host.name }}</option></select></label><div v-if="joinedCharactersForHost(row.instanceId).length" class="joined-character-pills"><span v-for="character in joinedCharactersForHost(row.instanceId)" :key="`${row.instanceId}-joined-${character.instanceId}`">{{ character.name }}</span></div><div v-if="deploymentFor(row.instanceId)?.formations.length" class="deployment-formations"><span class="deployment-detail-label">Formation</span><RouterLink v-for="formation in deploymentFor(row.instanceId)?.formations" :key="`${row.instanceId}-${formation.label}`" :to="`/rules/read${formation.path}`">{{ formation.label }}</RouterLink></div><div v-if="deploymentFor(row.instanceId)?.deploymentRules.length" class="deployment-rule-list"><span class="deployment-detail-label">Deployment rules</span><article v-for="rule in deploymentFor(row.instanceId)?.deploymentRules" :key="`${row.instanceId}-${rule.label}`"><details class="phase-rule-details compact"><summary>{{ rule.label }}</summary><p v-if="rule.summary">{{ rule.summary }}</p></details></article></div><p v-if="deploymentFor(row.instanceId)?.canReserve" class="deployment-reserve-reason">May begin off-table / in Reserve: {{ deploymentFor(row.instanceId)?.reserveReason }}.</p></div></article></section></article></section>
           <section class="game-first-turn-window deployment-first-turn-window card-inset" aria-label="First turn result"><p class="eyebrow">FIRST TURN</p><strong>Who takes the first turn?</strong><p>{{ firstTurnProcedureText }}</p><div class="game-first-turn-actions"><button type="button" class="secondary-button friendly-turn-action" :class="{ active: game.firstPlayerConfirmed && game.firstPlayer === 'player' }" :disabled="isReadOnly" @click="chooseFirstPlayer('player')">{{ game.playerListName }}</button><button type="button" class="secondary-button enemy-turn-action" :class="{ active: game.firstPlayerConfirmed && game.firstPlayer === 'opponent' }" :disabled="isReadOnly" @click="chooseFirstPlayer('opponent')">{{ game.opponentListName || game.opponentName }}</button></div></section>
         </div>
 
         <div v-else-if="isRoundStartStep" class="round-start-content">
           <MatchTipPanel v-if="tipsVisible" title="Tip — Start of Round" :text="deploymentTip" :collapsed="currentTipCollapsed" rule-to="/rules/read/the-turn-sequence" rule-label="Open Turn Sequence rules" @toggle="setCurrentTipCollapsed" />
           <p v-if="startRoundLoading" class="setup-inline-status">Checking both rosters and battle rules for Start of Round effects…</p>
-          <section v-if="isRoundBattleEffectsStep" class="start-round-rule-panel battle card-inset"><div class="setup-section-heading"><div><p class="eyebrow">STEP 1 · BATTLE</p><h3>Scenario, Composition &amp; Battlefield</h3></div></div><template v-if="battleStartRoundRules.length"><details v-for="rule in battleStartRoundRules" :key="`${rule.source}-${rule.label}`" class="phase-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}</span></summary><div v-if="rule.source === 'Battlefield' && battlefieldTableForPath(rule.path)?.results.length" class="random-happening-table match-random-happening-table"><div class="random-happening-table-head"><strong>D6</strong><strong>Result</strong></div><div v-for="result in battlefieldTableForPath(rule.path)?.results || []" :key="`${rule.path}-${result.roll}`" class="random-happening-row" :class="{ selected: battlefieldResultSelectedForPath(rule.path, result.roll) }"><span class="random-happening-roll"><strong>{{ result.roll }}</strong></span><span><strong>{{ result.title }}:</strong> {{ result.text }}</span></div></div><div v-else class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></template><p v-else class="setup-inline-status">No actions.</p></section>
+          <section v-if="isRoundBattleEffectsStep" class="start-round-rule-panel battle card-inset"><div class="setup-section-heading"><div><p class="eyebrow">STEP 1 · BATTLE</p><h3>Scenario, Composition &amp; Battlefield</h3></div></div><template v-if="battleStartRoundRules.length"><details v-for="rule in battleStartRoundRules" :key="`${rule.source}-${rule.label}`" class="phase-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}</span></summary><div v-if="rule.source === 'Battlefield' && battlefieldResolvedRowForPath(rule.path)" class="resolved-condition-result"><strong>{{ battlefieldResolvedRowForPath(rule.path)?.title }}</strong><p>{{ battlefieldResolvedRowForPath(rule.path)?.text }}</p></div><div v-else class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></template><p v-else class="setup-inline-status">No actions.</p></section>
           <section v-if="isRoundPlayerEffectsStep" class="start-round-rule-columns"><article class="start-round-rule-panel friendly card-inset"><div class="setup-section-heading"><div><p class="eyebrow">STEP 2 · FRIENDLY</p><h3>Army &amp; Model Rules</h3></div></div><template v-if="friendlyStartRoundRules.length"><details v-for="rule in friendlyStartRoundRules" :key="`${rule.source}-${rule.label}`" class="phase-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}</span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></template><p v-else class="setup-inline-status">No actions.</p></article><article class="start-round-rule-panel enemy card-inset"><div class="setup-section-heading"><div><p class="eyebrow">STEP 2 · ENEMY</p><h3>Army &amp; Model Rules</h3></div></div><template v-if="enemyStartRoundRules.length"><details v-for="rule in enemyStartRoundRules" :key="`${rule.source}-${rule.label}`" class="phase-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}</span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></template><p v-else class="setup-inline-status">No actions.</p></article></section>
         </div>
 
         <section v-if="isBattleTurnPhase" class="turn-guidance-shell">
           <MatchTipPanel v-if="tipsVisible && battleStepTip && !isAnyDeclareChargeStep && !isCombatResultStep" :title="`Tip — ${step.label}`" :text="battleStepTip" :collapsed="currentTipCollapsed" :rule-to="`/rules/read${battleStepRulePath}`" rule-label="Open phase rules" @toggle="setCurrentTipCollapsed" />
+          <article v-if="showChaosOfWarResolution" class="condition-resolution-panel chaos-of-war-resolution card-inset">
+            <div class="setup-section-heading"><div><p class="eyebrow">BATTLE CONDITION</p><h3>Chaos of War</h3></div><RouterLink to="/rules/read/battle-march/the-chaos-of-war">Open rules</RouterLink></div>
+            <p class="setup-inline-status">Resolve the Chaos of War roll at the start of this player's second turn and record this player's result here.</p>
+            <div v-if="randomHappeningTables['chaos-of-war']?.results.length" class="random-happening-table">
+              <div class="random-happening-table-head"><strong>D6</strong><strong>Result</strong></div>
+              <label v-for="result in randomHappeningTables['chaos-of-war']?.results || []" :key="`chaos-${result.roll}`" class="random-happening-row" :class="{ selected: battlefieldResult(chaosOfWarResultKey) === result.roll }"><span class="random-happening-roll"><input type="radio" :name="`chaos-of-war-result-${turnViewSide}`" :checked="battlefieldResult(chaosOfWarResultKey) === result.roll" :disabled="isReadOnly" @change="setBattlefieldResult(chaosOfWarResultKey, result.roll)" /><strong>{{ result.roll }}</strong></span><span><strong>{{ result.title }}:</strong> {{ result.text }}</span></label>
+            </div>
+            <div v-if="battlefieldResolvedRow('chaos-of-war', chaosOfWarResultKey)" class="resolved-condition-result"><strong>Recorded — {{ battlefieldResolvedRow('chaos-of-war', chaosOfWarResultKey)?.roll }}: {{ battlefieldResolvedRow('chaos-of-war', chaosOfWarResultKey)?.title }}</strong><p>{{ battlefieldResolvedRow('chaos-of-war', chaosOfWarResultKey)?.text }}</p></div>
+          </article>
           <article v-if="isDeclareChargeStep" class="match-procedure-panel charge-procedure-panel card-inset"><p class="eyebrow">CHARGE PROCEDURE</p><h3>Declare, roll &amp; resolve one charge at a time</h3><p>Choose an eligible charging unit and a legal target within its maximum declaration range. Declare the charge and resolve the target's charge reaction. For the Charge roll, roll 2D6 and discard the lower die; add the higher result to the unit's Movement characteristic, then apply any charge-roll or maximum-range rules shown with that unit. If that range reaches the target, complete the Charge Move; otherwise move directly toward the target by the Charge roll as a failed charge. Finish the entire charge before declaring another.</p><RouterLink :to="`/rules/read${battleStepRulePath}`">Open charge rules</RouterLink></article>
           <article v-if="isEnemyDeclareChargeStep" class="match-procedure-panel charge-reaction-procedure-panel card-inset"><p class="eyebrow">CHARGE REACTIONS</p><h3>Resolve each friendly unit's reaction when it is charged</h3><p>When the enemy declares a charge, choose a legal reaction for the unit being charged before the enemy rolls its charge. Hold accepts the charge. Flee immediately resolves a flee move. Stand &amp; Shoot is available only when the unit has a selected missile weapon and the normal range/restriction requirements are met. Special reactions such as Counter Charge appear only when that unit has the rule.</p><RouterLink to="/rules/read/the-movement-phase/charge-reactions">Open charge reaction rules</RouterLink></article>
           <article v-if="isCombatResultStep" class="match-procedure-panel break-procedure-panel card-inset"><p class="eyebrow">COMBAT PROCEDURE</p><h3>Combat Result, Break Tests &amp; follow up</h3><p>Resolve one combat completely before moving to the next. Record casualties or wounds, total Combat Result and mark each friendly unit as winner, loser or draw. A losing unit rolls 2D6 and adds the amount by which it lost. Compare the natural and modified totals with the highest Leadership in the unit: a natural total above Leadership Breaks and flees; a natural total at or below Leadership but a modified total above Leadership Falls Back in Good Order; a modified total at or below Leadership, or natural double 1, Gives Ground. Winning units then record the legal follow-up, pursuit, restraint or overrun response.</p><div class="procedure-rule-links"><RouterLink to="/rules/read/the-combat-phase/calculate-combat-result">Combat Result rules</RouterLink><RouterLink to="/rules/read/the-combat-phase/break-test">Break Test rules</RouterLink><RouterLink to="/rules/read/the-combat-phase/follow-up-and-pursuit">Follow Up rules</RouterLink></div></article>
@@ -821,25 +947,24 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
               <div class="setup-section-heading"><div><p class="eyebrow">BATTLE &amp; BATTLEFIELD RULES</p><h3>Scenario, Battlefield &amp; Battle Rules</h3></div></div>
               <details v-for="(rule, battleIndex) in battleTurnGuidanceDisplay" :key="`${rule.source}-${rule.label}-${rule.path || ''}-${battleIndex}`" class="phase-rule-details turn-rule-details" :class="{ complete: guidanceChecked(rule, battleIndex) }">
                 <summary><label class="turn-action-check" @click.stop><input type="checkbox" :checked="guidanceChecked(rule, battleIndex)" :disabled="isReadOnly" @change="toggleGuidanceCheck(rule, battleIndex, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><strong>{{ rule.source }}</strong><span>{{ rule.label }}</span></summary>
-                <div v-if="rule.sourceKind === 'battlefield' && battlefieldTableForRule(rule)?.results.length" class="random-happening-table match-random-happening-table">
-                  <div class="random-happening-table-head"><strong>D6</strong><strong>Result</strong></div>
-                  <div v-for="result in battlefieldTableForRule(rule)?.results || []" :key="`${rule.path}-${result.roll}`" class="random-happening-row" :class="{ selected: battlefieldResultSelectedForRule(rule, result.roll) }"><span class="random-happening-roll"><strong>{{ result.roll }}</strong></span><span><strong>{{ result.title }}:</strong> {{ result.text }}</span></div>
-                </div>
+                <div v-if="rule.sourceKind === 'battlefield' && battlefieldResolvedRowForRule(rule)" class="resolved-condition-result"><strong>{{ battlefieldResolvedRowForRule(rule)?.title }}</strong><p>{{ battlefieldResolvedRowForRule(rule)?.text }}</p></div>
                 <div v-else class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div>
               </details>
             </article>
 
             <article v-if="spellGuidance.length" class="turn-guidance-panel combat-spell-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">{{ spellPanelEyebrow }}</p><h3>{{ spellPanelTitle }}</h3><small class="optional-check-hint">The Wizard that can attempt each spell is shown first.</small></div></div><details v-for="rule in spellGuidance" :key="`${rule.source}-${rule.label}`" class="phase-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}</span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></article>
 
-            <article v-if="isShootingStep" class="turn-guidance-panel shooting-weapon-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">RANGED WEAPONS</p><h3>Units able to shoot</h3><small class="optional-check-hint">Only selected missile/ranged weapons from the saved roster are shown.</small></div></div><div v-if="shootingUnits.length" class="shooting-unit-list"><article v-for="entry in shootingUnits" :key="`shooting-${entry.unit.instanceId}`" class="shooting-unit-row" :class="{ complete: shootingUnitChecked(entry.unit.instanceId) }"><label class="turn-action-check"><input type="checkbox" :checked="shootingUnitChecked(entry.unit.instanceId)" :disabled="isReadOnly" @change="toggleShootingUnit(entry.unit.instanceId, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><div class="shooting-unit-copy"><header><RouterLink :to="matchUnitProfileRoute(entry.unit)"><strong>{{ entry.unit.name }}</strong></RouterLink><small v-if="joinedHostId(entry.unit.instanceId)">Joined to {{ joinedHostName(entry.unit.instanceId) }}</small></header><div class="shooting-weapon-list"><div v-for="weapon in entry.weapons" :key="`${entry.unit.instanceId}-${weapon.id}`" class="shooting-weapon-row"><strong>{{ weapon.name }}<small v-if="weapon.count > 1"> ×{{ weapon.count }}</small></strong><span>{{ weapon.range }}</span><span>S {{ weapon.strength }}</span><span>AP {{ weapon.ap }}</span><small v-if="weapon.rules.length">{{ weapon.rules.join(' · ') }}</small></div></div></div></article></div><p v-else class="setup-inline-status">No selected ranged weapons were found in the friendly roster.</p></article>
+            <article v-if="isShootingStep" class="turn-guidance-panel shooting-weapon-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">RANGED WEAPONS</p><h3>Units able to shoot</h3><small class="optional-check-hint">BS comes from the roster-derived match profile. Select each To Hit penalty that applies to this shooting action.</small></div></div><div v-if="shootingUnits.length" class="shooting-unit-list"><article v-for="entry in shootingUnits" :key="`shooting-${entry.unit.instanceId}`" class="shooting-unit-row" :class="{ complete: shootingUnitChecked(entry.unit.instanceId) }"><label class="turn-action-check"><input type="checkbox" :checked="shootingUnitChecked(entry.unit.instanceId)" :disabled="isReadOnly" @change="toggleShootingUnit(entry.unit.instanceId, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><div class="shooting-unit-copy"><header><RouterLink :to="matchUnitProfileRoute(entry.unit)"><strong>{{ entry.unit.name }}</strong></RouterLink><span class="shooting-bs-chip">BS {{ ballisticSkill(entry.unit.instanceId) || '—' }}</span><small v-if="joinedHostId(entry.unit.instanceId)">Joined to {{ joinedHostName(entry.unit.instanceId) }}</small></header><div class="shooting-penalty-controls"><label v-for="penalty in shootingPenaltyOptions" :key="`${entry.unit.instanceId}-${penalty.id}`" :class="{ selected: shootingPenaltyIds(entry.unit.instanceId).has(penalty.id) }"><input type="checkbox" :checked="shootingPenaltyIds(entry.unit.instanceId).has(penalty.id)" :disabled="isReadOnly" @change="toggleShootingPenalty(entry.unit.instanceId, penalty.id, ($event.target as HTMLInputElement).checked)" /><span>{{ penalty.label }}</span><strong>{{ penalty.modifier }}</strong></label><span class="shooting-modifier-total">To Hit modifier <strong>{{ shootingModifierTotal(entry.unit.instanceId) > 0 ? '+' : '' }}{{ shootingModifierTotal(entry.unit.instanceId) }}</strong></span></div><div class="shooting-weapon-list"><div v-for="weapon in entry.weapons" :key="`${entry.unit.instanceId}-${weapon.id}`" class="shooting-weapon-row"><strong>{{ weapon.name }}<small v-if="weapon.count > 1"> ×{{ weapon.count }}</small></strong><span>{{ weapon.range }}</span><span>S {{ weapon.strength }}</span><span>AP {{ weapon.ap }}</span><small v-if="weapon.rules.length">{{ weapon.rules.join(' · ') }}</small></div></div></div></article></div><p v-else class="setup-inline-status">No selected ranged weapons were found in the friendly roster.</p></article>
 
             <article v-if="showGenericActionPanel" class="turn-guidance-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">SPECIAL RULES &amp; ACTIONS</p><h3>{{ turnContextLabel }} — {{ step.label }}</h3><small class="optional-check-hint">Checks are optional and only track what you have resolved.</small></div></div>
-              <template v-if="normalFriendlyGuidance.length"><article v-for="(rule, ruleIndex) in normalFriendlyGuidance" :key="`${rule.source}-${rule.label}-${rule.path || ''}`" class="start-round-rule-row turn-action-row" :class="{ complete: guidanceChecked(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex) }"><label class="turn-action-check"><input type="checkbox" :checked="guidanceChecked(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex)" :disabled="guidanceDisabled(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex)" @change="toggleGuidanceCheck(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><details class="phase-rule-details turn-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}<small v-if="rule.quantity" class="tracked-quantity">{{ guidanceQuantityText(rule) }}</small><small v-if="isFatedDispelRule(rule) && fatedDispelUsedThisRound" class="tracked-quantity fated-dispel-used">USED THIS ROUND</small></span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></article></template>
-              <template v-if="requiredChargeRuleGuidance.length"><details v-for="rule in requiredChargeRuleGuidance" :key="`${rule.label}-${rule.path || ''}`" class="phase-rule-details required-charge-rule-details"><summary class="required-charge-rule-summary"><strong>{{ rule.label }}</strong><span v-if="rule.unitRefs?.length" class="required-charge-unit-pills"><span v-for="unit in rule.unitRefs" :key="`${rule.label}-${unit.instanceId}`">{{ unit.name }}</span></span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></template>
+              <template v-if="normalFriendlyGuidance.length"><article v-for="(rule, ruleIndex) in normalFriendlyGuidance" :key="`${rule.source}-${rule.label}-${rule.path || ''}`" class="start-round-rule-row turn-action-row" :class="{ complete: guidanceChecked(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex) }"><label class="turn-action-check"><input type="checkbox" :checked="guidanceChecked(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex)" :disabled="guidanceDisabled(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex)" @change="toggleGuidanceCheck(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><details class="phase-rule-details turn-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}<small v-if="rule.useLimit" class="tracked-quantity">{{ guidanceQuantityText(rule) }}</small><small v-if="isFatedDispelRule(rule) && fatedDispelUsedThisRound" class="tracked-quantity fated-dispel-used">USED THIS ROUND</small></span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></article></template>
+              <template v-if="requiredChargeRuleGuidance.length"><details v-for="rule in requiredChargeRuleGuidance" :key="`${rule.label}-${rule.path || ''}`" class="phase-rule-details required-charge-rule-details"><summary class="required-charge-rule-summary"><strong>{{ rule.label }}</strong><span v-if="rule.unitRefs?.length" class="required-charge-unit-pills"><span v-for="unit in rule.unitRefs" :key="`${rule.label}-${unit.instanceId}`">{{ unit.name }} — Ld {{ unitLeadershipByInstanceId(unit.instanceId) }}</span></span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></template>
               <p v-if="!normalFriendlyGuidance.length && !requiredChargeRuleGuidance.length" class="setup-inline-status">No actions.</p>
             </article>
 
-            <article v-if="isRequiredChargeStep && requiredChargeUnits.length" class="turn-guidance-panel required-charge-test-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">REQUIRED CHARGE TEST</p><h3>Units that must test</h3></div></div><div class="required-charge-unit-grid"><div v-for="unit in requiredChargeUnits" :key="unit.instanceId" class="required-charge-test-unit"><strong>{{ unit.name }}</strong><div class="charge-test-controls" role="group" :aria-label="`${unit.name} required charge test`"><label><input type="checkbox" :checked="chargeTestResult(unit.instanceId) === 'pass'" :disabled="isReadOnly" @change="setChargeTestResult(unit.instanceId, 'pass', ($event.target as HTMLInputElement).checked)" /><span>Pass</span></label><label><input type="checkbox" :checked="chargeTestResult(unit.instanceId) === 'fail'" :disabled="isReadOnly" @change="setChargeTestResult(unit.instanceId, 'fail', ($event.target as HTMLInputElement).checked)" /><span>Fail</span></label></div></div></div></article>
+            <article v-if="isRallyStep" class="turn-guidance-panel rally-tracker-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">RALLY FLEEING TROOPS</p><h3>Fleeing units</h3><small class="optional-check-hint">Fleeing state persists between turns and rounds until the unit rallies or is removed.</small></div></div><div v-if="fleeingUnits.length" class="rally-unit-list"><article v-for="unit in fleeingUnits" :key="`rally-${unit.instanceId}`"><strong>{{ unit.name }} — Ld {{ unitLeadershipByInstanceId(unit.instanceId) }}</strong><div class="charge-test-controls"><label><input type="checkbox" :checked="rallyResult(unit.instanceId) === 'pass'" :disabled="isReadOnly" @change="setRallyResult(unit.instanceId, 'pass', ($event.target as HTMLInputElement).checked)" /><span>Rallied</span></label><label><input type="checkbox" :checked="rallyResult(unit.instanceId) === 'fail'" :disabled="isReadOnly" @change="setRallyResult(unit.instanceId, 'fail', ($event.target as HTMLInputElement).checked)" /><span>Failed</span></label></div></article></div><p v-else class="setup-inline-status">No friendly units are currently fleeing.</p></article>
+
+            <article v-if="isRequiredChargeStep && requiredChargeUnits.length" class="turn-guidance-panel required-charge-test-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">REQUIRED CHARGE TEST</p><h3>Units that must test</h3></div></div><div class="required-charge-unit-grid"><div v-for="unit in requiredChargeUnits" :key="unit.instanceId" class="required-charge-test-unit"><strong>{{ unit.name }} — Ld {{ unitLeadershipByInstanceId(unit.instanceId) }}</strong><div class="charge-test-controls" role="group" :aria-label="`${unit.name} required charge test`"><label><input type="checkbox" :checked="chargeTestResult(unit.instanceId) === 'pass'" :disabled="isReadOnly" @change="setChargeTestResult(unit.instanceId, 'pass', ($event.target as HTMLInputElement).checked)" /><span>Pass</span></label><label><input type="checkbox" :checked="chargeTestResult(unit.instanceId) === 'fail'" :disabled="isReadOnly" @change="setChargeTestResult(unit.instanceId, 'fail', ($event.target as HTMLInputElement).checked)" /><span>Fail</span></label></div></div></div></article>
 
             <article v-if="isDeclareChargeStep" class="turn-guidance-panel declare-charge-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">CHARGE SEQUENCE</p><h3>Eligible charging units</h3><small class="optional-check-hint">Joined characters travel with their unit and are not listed as separate chargers.</small></div></div><div v-if="declareChargeGuidance.length" class="declare-charge-sequence-list"><article v-for="(rule, index) in declareChargeGuidance" :key="`${rule.source}-${rule.unitRefs?.[0]?.instanceId || index}`" class="declare-resolve-charge-row" :class="{ complete: chargeHeld(rule.unitRefs?.[0]?.instanceId || '') || chargeDeclared(rule.unitRefs?.[0]?.instanceId || ''), required: rule.requiredCharge, held: chargeHeld(rule.unitRefs?.[0]?.instanceId || ''), successful: chargeSuccessful(rule.unitRefs?.[0]?.instanceId || '') }"><header><div><strong>{{ rule.unitRefs?.[0]?.name || rule.source }}</strong><small v-if="rule.requiredCharge">MUST CHARGE IF POSSIBLE</small><small v-else>Declare this charge only if the unit is eligible and you choose to charge.</small><div v-if="joinedCharactersForHost(rule.unitRefs?.[0]?.instanceId || '').length" class="joined-character-pills"><span v-for="character in joinedCharactersForHost(rule.unitRefs?.[0]?.instanceId || '')" :key="`charge-joined-${character.instanceId}`">{{ character.name }}</span></div></div><span class="declare-charge-range"><small>MAX DECLARATION RANGE</small><strong>{{ rule.unitRefs?.[0]?.chargeRange || 'See profile' }}</strong><em v-if="rule.unitRefs?.[0]?.chargeRangeNote">{{ rule.unitRefs?.[0]?.chargeRangeNote }}</em></span></header><div class="charge-resolution-checks"><label><input type="checkbox" :checked="chargeHeld(rule.unitRefs?.[0]?.instanceId || '')" :disabled="isReadOnly" @change="setChargeHeld(rule.unitRefs?.[0]?.instanceId || '', ($event.target as HTMLInputElement).checked)" /><span>Hold</span></label><label><input type="checkbox" :checked="chargeDeclared(rule.unitRefs?.[0]?.instanceId || '')" :disabled="isReadOnly" @change="setChargeDeclared(rule.unitRefs?.[0]?.instanceId || '', ($event.target as HTMLInputElement).checked)" /><span>Charge declared</span></label><label><input type="checkbox" :checked="chargeSuccessful(rule.unitRefs?.[0]?.instanceId || '')" :disabled="isReadOnly" @change="setChargeSuccessful(rule.unitRefs?.[0]?.instanceId || '', ($event.target as HTMLInputElement).checked)" /><span>Successful</span></label></div><details v-if="chargeRelatedRules(rule).length" class="phase-rule-details charge-unit-rule-details"><summary>Rules that apply while resolving this charge</summary><article v-for="related in chargeRelatedRules(rule)" :key="`${related.label}-${related.path || ''}-${related.summary}`" class="charge-related-rule"><strong>{{ related.label }}</strong><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(related.summary)" :key="paragraph">{{ paragraph }}</p></div><RouterLink v-if="related.path" :to="`/rules/read${related.path}`">Open rule</RouterLink></article></details></article></div><p v-else class="setup-inline-status">No friendly unit is available for a charge declaration in the current roster snapshot.</p></article>
 
@@ -848,10 +973,9 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
             <article v-if="isCompulsoryMoveStep" class="turn-guidance-panel movement-unit-panel compulsory-move-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">COMPULSORY MOVES</p><h3>Units that require compulsory movement</h3></div></div><div v-if="compulsoryMovementUnits.length" class="movement-unit-checklist"><label v-for="unit in compulsoryMovementUnits" :key="unit.instanceId" :class="{ complete: compulsoryMoved(unit.instanceId) }"><input type="checkbox" :checked="compulsoryMoved(unit.instanceId)" :disabled="isReadOnly" @change="setCompulsoryMoved(unit.instanceId, ($event.target as HTMLInputElement).checked)" /><span><strong>{{ unit.name }}</strong><small>Compulsory movement resolved</small></span></label></div><p v-else class="setup-inline-status">No friendly units currently require a tracked compulsory move.</p></article>
 
             <article v-if="isRemainingMoveStep" class="turn-guidance-panel movement-unit-panel remaining-move-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">REMAINING MOVES</p><h3>Units still available to move</h3><small class="optional-check-hint">Units that declared a charge, resolved compulsory movement, or remain in Reserve are excluded automatically.</small></div></div><div v-if="remainingMoveUnits.length" class="movement-unit-checklist remaining-move-list"><article v-for="unit in remainingMoveUnits" :key="`remaining-${unit.instanceId}`" class="remaining-move-unit" :class="{ complete: Boolean(remainingMoveMode(unit.instanceId)) }"><header><strong>{{ unit.name }}</strong><small v-if="movementCharacteristic(unit)">M {{ movementCharacteristic(unit) }}</small></header><div class="remaining-move-options"><label><input type="checkbox" :checked="remainingMoveMode(unit.instanceId) === 'normal'" :disabled="isReadOnly" @change="setRemainingMoveMode(unit.instanceId, 'normal', ($event.target as HTMLInputElement).checked)" /><span>Normal Move</span><strong>{{ remainingMoveDistance(unit, 'normal') }}</strong></label><label><input type="checkbox" :checked="remainingMoveMode(unit.instanceId) === 'march'" :disabled="isReadOnly" @change="setRemainingMoveMode(unit.instanceId, 'march', ($event.target as HTMLInputElement).checked)" /><span>March</span><strong>{{ remainingMoveDistance(unit, 'march') }}</strong></label><label><input type="checkbox" :checked="remainingMoveMode(unit.instanceId) === 'hold'" :disabled="isReadOnly" @change="setRemainingMoveMode(unit.instanceId, 'hold', ($event.target as HTMLInputElement).checked)" /><span>Hold</span><strong>0&quot;</strong></label></div><div v-if="joinedCharactersForHost(unit.instanceId).length" class="joined-character-leave-list"><span class="deployment-detail-label">Joined characters</span><div v-for="character in joinedCharactersForHost(unit.instanceId)" :key="`remaining-joined-${character.instanceId}`"><strong>{{ character.name }}</strong><button type="button" class="secondary-button" :disabled="isReadOnly || Boolean(remainingMoveMode(unit.instanceId))" @click="leaveCharacter(character.instanceId)">Leave unit</button></div></div></article></div><p v-else class="setup-inline-status">No friendly units remain eligible for an ordinary Remaining Move.</p></article>
-
             <article v-if="isCombatFightStep" class="turn-guidance-panel combat-unit-panel combat-profile-panel card-inset">
               <div class="setup-section-heading"><div><p class="eyebrow">CHOOSE &amp; FIGHT COMBAT</p><h3>Friendly roster units</h3><small class="optional-check-hint">Mark the friendly roster entries that fought in this Combat phase. Joined Characters remain separate entries for wound tracking.</small></div></div>
-              <div v-if="combatFightUnits.length" class="combat-fight-list"><article v-for="unit in combatFightUnits" :key="unit.instanceId" class="combat-fight-unit" :class="{ complete: combatUnitChecked(unit.instanceId) }"><label class="turn-action-check"><input type="checkbox" :checked="combatUnitChecked(unit.instanceId)" :disabled="isReadOnly" @change="toggleCombatUnit(unit.instanceId, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><div><RouterLink class="combat-profile-roster-link" :to="matchUnitProfileRoute(unit)"><strong>{{ unit.name }}</strong></RouterLink><small>{{ Math.max(0, (unit.modelCount || 1) - ((unit.modelCount || 1) > 1 ? destroyedCount(unit.instanceId) : 0)) }} model{{ (unit.modelCount || 1) === 1 ? '' : 's' }} remaining</small><small v-if="joinedHostId(unit.instanceId)" class="combat-joined-note">Joined to {{ joinedHostName(unit.instanceId) }}</small></div></article></div>
+              <div v-if="combatFightUnits.length" class="combat-fight-list"><article v-for="unit in combatFightUnits" :key="unit.instanceId" class="combat-fight-unit combat-profile-clickable" :class="{ complete: combatUnitChecked(unit.instanceId) }" role="link" tabindex="0" @click="openMatchUnitProfile(unit)" @keydown.enter.prevent="openMatchUnitProfile(unit)" @keydown.space.prevent="openMatchUnitProfile(unit)"><label class="turn-action-check" @click.stop><input type="checkbox" :checked="combatUnitChecked(unit.instanceId)" :disabled="isReadOnly" @change="toggleCombatUnit(unit.instanceId, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><div><RouterLink class="combat-profile-roster-link" :to="matchUnitProfileRoute(unit)" @click.stop><strong>{{ unit.name }}</strong></RouterLink><small>{{ combatRemainingLabel(unit) }}</small><small v-if="joinedHostId(unit.instanceId)" class="combat-joined-note">Joined to {{ joinedHostName(unit.instanceId) }}</small></div></article></div>
               <p v-else class="setup-inline-status">No active friendly roster units remain available for Combat.</p>
             </article>
 

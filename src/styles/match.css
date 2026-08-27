@@ -1,0 +1,96 @@
+/* Canonical guided-match layout and interaction rules. */
+.game-match-page .game-match-shell,
+.game-match-page .game-step-card,
+.game-match-page .game-step-card > *,
+.game-match-page :is(.game-setup-content,.game-overview-dashboard,.deployment-step-content,.round-start-content,.turn-guidance-shell),
+.game-match-page :is(.game-setup-content,.game-overview-dashboard,.deployment-step-content,.round-start-content,.turn-guidance-shell) > *,
+.game-match-page :is(.card-inset,.turn-guidance-panel,.match-procedure-panel,.deployment-roster-panel,.condition-resolution-panel) {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.game-match-page :is(.card-inset,.turn-guidance-panel,.match-procedure-panel,.deployment-roster-panel,.condition-resolution-panel) {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+.game-match-page :is(p,small,strong,span,a,dd,dt) { overflow-wrap: anywhere; }
+.game-match-page :is(.match-setup-summary-grid,.start-round-rule-columns,.overview-composition-columns,.deployment-roster-grid) {
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+}
+.game-match-page .game-step-heading > div,
+.game-match-page .setup-section-heading > div,
+.game-match-page .shooting-unit-copy,
+.game-match-page .deployment-unit-copy { min-width: 0; }
+
+/* Steppers must retain readable foreground/background contrast in either theme. */
+.game-match-page .casualty-stepper button,
+.game-match-page .game-score-side button {
+  color: var(--ink) !important;
+  background: var(--paper) !important;
+  border-color: var(--line-dark) !important;
+}
+.game-match-page .casualty-stepper button:disabled,
+.game-match-page .game-score-side button:disabled {
+  color: var(--ink-soft) !important;
+  background: var(--paper-2) !important;
+}
+
+.canonical-spell-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(285px, 100%), 1fr));
+  gap: 12px;
+}
+.match-spell-choice-card { height: 100%; transition: border-color .15s ease, box-shadow .15s ease, opacity .15s ease; }
+.match-spell-choice-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent); }
+.match-spell-choice-card.unavailable { opacity: .58; }
+.match-spell-select { display: inline-grid; place-items: center; flex: 0 0 auto; }
+.match-spell-select input { width: 18px; height: 18px; margin: 0; }
+.match-spell-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
+.match-spell-meta div { padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper-2); }
+.match-spell-meta dt { font-size: calc(8px + var(--font-offset)); font-weight: 850; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+.match-spell-meta dd { margin: 2px 0 0; font-weight: 850; }
+
+.condition-resolution-panel { display: grid; gap: 12px; padding: 14px 16px; margin: 0 16px 14px; width: calc(100% - 32px) !important; }
+.condition-resolution-entry { display: grid; gap: 9px; min-width: 0; }
+.condition-resolution-entry + .condition-resolution-entry { padding-top: 12px; border-top: 1px solid var(--line); }
+.condition-resolution-entry > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.resolved-condition-result { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--accent-wash) 32%, var(--paper)); }
+.resolved-condition-result p { margin: 0; line-height: 1.45; color: var(--ink); }
+.chaos-of-war-resolution { margin: 0 0 14px; width: 100% !important; }
+
+.deployment-category-group { display: grid; gap: 0; margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.deployment-category-group > header { display: grid; gap: 2px; padding: 10px 12px; background: var(--paper-2); border-bottom: 1px solid var(--line); }
+.deployment-category-group > header strong { font-size: calc(11px + var(--font-offset)); letter-spacing: .08em; }
+.deployment-category-group > header small { color: var(--ink-soft); }
+.deployment-category-group .deployment-unit-row:last-child { border-bottom: 0; }
+
+.rally-unit-list { display: grid; gap: 9px; }
+.rally-unit-list > article { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.shooting-unit-copy > header { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.shooting-bs-chip { display: inline-flex; align-items: center; min-height: 25px; padding: 3px 8px; border: 1px solid var(--line-dark); border-radius: 999px; background: var(--paper-2); color: var(--ink); font-weight: 900; }
+.shooting-penalty-controls { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0; }
+.shooting-penalty-controls label { display: inline-flex; align-items: center; gap: 5px; min-height: 31px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); cursor: pointer; }
+.shooting-penalty-controls label.selected { border-color: var(--accent); background: var(--accent-wash); }
+.shooting-penalty-controls label input { margin: 0; }
+.shooting-modifier-total { display: inline-flex; align-items: center; gap: 5px; min-height: 31px; padding: 4px 9px; border: 1px solid var(--line-dark); border-radius: 9px; background: var(--paper-2); }
+.combat-profile-clickable { cursor: pointer; }
+.combat-profile-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.combat-profile-clickable:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent-wash) 20%, var(--paper)); }
+
+.match-snapshot-profile-shell { display: grid; gap: 12px; }
+.match-profile-row,.match-profile-section { padding: 15px 17px; }
+.match-profile-row h2 { margin: 0 0 12px; font-family: Georgia, 'Times New Roman', serif; }
+.match-profile-stat-grid { grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); }
+.match-profile-magic-list { display: grid; gap: 8px; }
+.match-profile-magic-list article { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.match-profile-magic-list article:last-child { border-bottom: 0; }
+.match-profile-magic-list span { color: var(--ink-soft); }
+.match-profile-rules { display: flex; flex-wrap: wrap; gap: 6px; }
+
+@media (max-width: 620px) {
+  .condition-resolution-panel { margin-inline: 10px; width: calc(100% - 20px) !important; }
+  .game-match-page .game-step-heading { padding-inline: 12px; }
+  .game-match-page :is(.turn-guidance-panel,.match-procedure-panel) { margin-inline: 10px; max-width: calc(100% - 20px); }
+  .shooting-penalty-controls label { width: 100%; justify-content: space-between; }
+  .match-profile-magic-list article { flex-direction: column; gap: 3px; }
+}

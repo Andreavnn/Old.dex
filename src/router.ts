@@ -4,6 +4,7 @@ import RulesView from './views/RulesView.vue'
 import GamesView from './views/GamesView.vue'
 import GameCreateView from './views/GameCreateView.vue'
 import GameMatchView from './views/GameMatchView.vue'
+import MatchUnitProfileView from './views/MatchUnitProfileView.vue'
 import ArmyView from './views/ArmyView.vue'
 import UnitView from './views/UnitView.vue'
 import SettingsView from './views/SettingsView.vue'
@@ -31,6 +32,7 @@ const router = createRouter({
     { path: '/rules/index/:kind/:pathMatch(.*)*', name: 'rule-index-group', component: RuleIndexGroupView },
     { path: '/games', name: 'games', component: GamesView },
     { path: '/games/new', name: 'game-create', component: GameCreateView },
+    { path: '/games/:gameId/unit/:instanceId', name: 'game-unit-profile', component: MatchUnitProfileView },
     { path: '/games/:gameId', name: 'game-match', component: GameMatchView },
     { path: '/army/:armySlug', name: 'army', component: ArmyView },
     { path: '/army/:armySlug/unit/:unitSlug', name: 'unit', component: UnitView },

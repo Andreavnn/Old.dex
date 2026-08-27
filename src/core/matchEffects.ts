@@ -3,6 +3,12 @@ export type ChargeMatchEffects = {
   chargeRollModifier?: string
 }
 
+export type ChargeRangeContribution = {
+  label: string
+  bonus: number
+  chargeRollModifier?: string
+}
+
 function diceMaximum(value: string) {
   const clean = String(value || '').trim()
   const die = clean.match(/^D(\d+)$/i)
@@ -19,12 +25,16 @@ function highestBonus(text: string, patterns: RegExp[]) {
   return values.length ? Math.max(...values) : 0
 }
 
+function contributionLabel(value: string) {
+  return String(value || '').replace(/\s+/g, ' ').replace(/\s*\([^)]*\)\s*$/, '').trim()
+}
+
 export function extractChargeMatchEffects(label: string, text: string): ChargeMatchEffects {
   const source = `${label || ''} ${text || ''}`.replace(/[’]/g, "'").replace(/\s+/g, ' ').trim()
 
-  // Swiftstride changes the maximum possible charge distance by adding an
-  // additional charge die. Keeping this as canonical rule identity avoids
-  // making match calculations dependent on a live rule-page fetch.
+  // Declaration reach is a distinct contract from the resolved Charge roll.
+  // Swiftstride contributes +3 to maximum declaration range; the actual charge
+  // still resolves with the dice/rules printed by the core charge procedure.
   const canonical = /^Swiftstride(?:\s|\(|$)/i.test(label || '') ? 3 : 0
 
   const explicitRange = highestBonus(source, [
@@ -40,11 +50,31 @@ export function extractChargeMatchEffects(label: string, text: string): ChargeMa
   const rollModifier = rollMatches.map((match) => match[1]).find(Boolean)
   const rollMaximum = rollModifier ? diceMaximum(rollModifier) : 0
 
-  // When a rule states both a maximum-range increase and a charge-roll bonus
-  // (Waaagh! Banner is the canonical example), those are two descriptions of
-  // the same possible reach and must not be double-counted.
+  // If one rule states both a range increase and a roll modifier, those are
+  // two descriptions of one source of reach and are counted once.
   return {
     maximumChargeRangeBonus: Math.max(canonical, explicitRange, rollMaximum),
     chargeRollModifier: rollModifier ? String(rollModifier).toUpperCase() : undefined,
   }
+}
+
+export function chargeRangeContribution(label: string, text: string, storedBonus = 0, storedChargeRollModifier?: string): ChargeRangeContribution | null {
+  const extracted = extractChargeMatchEffects(label, text)
+  const bonus = Math.max(Math.max(0, Number(storedBonus || 0)), extracted.maximumChargeRangeBonus)
+  if (!bonus) return null
+  return {
+    label: contributionLabel(label) || 'Rule bonus',
+    bonus,
+    chargeRollModifier: storedChargeRollModifier || extracted.chargeRollModifier,
+  }
+}
+
+export function formatMaximumDeclarationRange(movement: number, contributions: ChargeRangeContribution[], baseChargeMaximum = 6) {
+  const m = Math.max(0, Math.floor(Number(movement || 0)))
+  const base = Math.max(0, Math.floor(Number(baseChargeMaximum || 0)))
+  const active = contributions.filter((row) => Number(row.bonus) > 0)
+  const total = m + base + active.reduce((sum, row) => sum + Math.max(0, Number(row.bonus || 0)), 0)
+  if (!m) return { total: 0, text: 'Maximum declaration range could not be derived from the saved match snapshot.' }
+  const extras = active.map((row) => ` + ${Math.max(0, Number(row.bonus || 0))} ${row.label}`).join('')
+  return { total, text: `Maximum declaration range: M ${m} + ${base}${extras} = ${total}"` }
 }

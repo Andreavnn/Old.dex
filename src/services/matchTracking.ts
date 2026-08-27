@@ -14,6 +14,8 @@ export type MatchTurnUnitState = {
   combatLostBy?: number
   breakResult?: string
   followUpResult?: string
+  shootingPenaltyIds?: string[]
+  rallyResult?: 'pass' | 'fail' | ''
 }
 
 export type MatchPersistentUnitState = {
@@ -21,14 +23,26 @@ export type MatchPersistentUnitState = {
   bannerLost?: boolean
   championLost?: boolean
   musicianLost?: boolean
+  fleeing?: boolean
+  fleeingSinceRound?: number
+}
+
+export type MatchHistoryRow = {
+  round: number
+  side: 'player' | 'opponent'
+  instanceId: string
+  result: string
+  detail?: string
 }
 
 export type MatchTrackingState = {
-  version: 2
+  version: 3
   joinedCharacters: Record<string, string>
   turns: Record<string, Record<string, MatchTurnUnitState>>
-  /** Persistent model loss/wounds and command-model state across all turns/rounds. */
   units: Record<string, MatchPersistentUnitState>
+  ruleUses: Record<string, Record<string, number>>
+  chargeHistory: MatchHistoryRow[]
+  combatHistory: MatchHistoryRow[]
   workflowMigrated?: boolean
   tipsHidden?: boolean
   collapsedTips?: Record<string, boolean>
@@ -46,7 +60,21 @@ type LegacyTurnUnitState = Omit<MatchTurnUnitState, 'combatDisposition'> & {
 }
 
 function emptyState(): MatchTrackingState {
-  return { version: 2, joinedCharacters: {}, turns: {}, units: {} }
+  return { version: 3, joinedCharacters: {}, turns: {}, units: {}, ruleUses: {}, chargeHistory: [], combatHistory: [] }
+}
+
+function normalizeHistory(value: unknown): MatchHistoryRow[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((row) => row && typeof row === 'object').map((raw): MatchHistoryRow => {
+    const row = raw as Partial<MatchHistoryRow>
+    return {
+      round: Math.max(1, Math.floor(Number(row.round || 1))),
+      side: row.side === 'opponent' ? 'opponent' : 'player',
+      instanceId: String(row.instanceId || ''),
+      result: String(row.result || ''),
+      detail: row.detail ? String(row.detail) : undefined,
+    }
+  }).filter((row) => row.instanceId && row.result).slice(-500)
 }
 
 function normalizeState(value: unknown): MatchTrackingState {
@@ -69,6 +97,8 @@ function normalizeState(value: unknown): MatchTrackingState {
         bannerLost: Boolean(source.bannerLost),
         championLost: Boolean(source.championLost),
         musicianLost: Boolean(source.musicianLost),
+        fleeing: Boolean(source.fleeing),
+        fleeingSinceRound: Math.max(0, Math.floor(Number(source.fleeingSinceRound || 0))) || undefined,
       }
     }
   }
@@ -98,14 +128,14 @@ function normalizeState(value: unknown): MatchTrackingState {
           combatLostBy: Math.max(0, Math.floor(Number(source.combatLostBy || 0))),
           breakResult: typeof source.breakResult === 'string' ? source.breakResult : '',
           followUpResult: typeof source.followUpResult === 'string' ? source.followUpResult : '',
+          shootingPenaltyIds: Array.isArray(source.shootingPenaltyIds) ? [...new Set(source.shootingPenaltyIds.map(String).filter(Boolean))] : [],
+          rallyResult: source.rallyResult === 'pass' || source.rallyResult === 'fail' ? source.rallyResult : '',
         }
 
-        // Migrate the old per-turn casualty/command state into one persistent
-        // unit record. Taking the highest casualty count and OR-ing command
-        // losses preserves the most advanced state from existing matches.
         const legacyCasualties = Math.max(0, Math.floor(Number(source.destroyedModels || 0)))
         const prior = units[unitId] || {}
         units[unitId] = {
+          ...prior,
           casualties: Math.max(Number(prior.casualties || 0), legacyCasualties),
           bannerLost: Boolean(prior.bannerLost || source.bannerLost),
           championLost: Boolean(prior.championLost || source.championLost),
@@ -120,11 +150,27 @@ function normalizeState(value: unknown): MatchTrackingState {
     for (const [key, val] of Object.entries(row.collapsedTips)) if (key && val) collapsedTips[key] = true
   }
 
+  const ruleUses: Record<string, Record<string, number>> = {}
+  if (row.ruleUses && typeof row.ruleUses === 'object') {
+    for (const [ruleId, buckets] of Object.entries(row.ruleUses)) {
+      if (!buckets || typeof buckets !== 'object') continue
+      const normalized: Record<string, number> = {}
+      for (const [bucket, count] of Object.entries(buckets)) {
+        const countValue = Math.max(0, Math.floor(Number(count || 0)))
+        if (countValue) normalized[bucket] = countValue
+      }
+      if (Object.keys(normalized).length) ruleUses[ruleId] = normalized
+    }
+  }
+
   return {
-    version: 2,
+    version: 3,
     joinedCharacters,
     turns,
     units,
+    ruleUses,
+    chargeHistory: normalizeHistory(row.chargeHistory),
+    combatHistory: normalizeHistory(row.combatHistory),
     workflowMigrated: Boolean(row.workflowMigrated),
     tipsHidden: Boolean(row.tipsHidden),
     collapsedTips,

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import AppHeader from '../components/AppHeader.vue'
 import { changelogEntries } from '../data/changelog'
+import { latestChangelogEntry } from '../data/changelogLatest'
 
-const visibleChangelogEntries = changelogEntries
+const visibleChangelogEntries = [latestChangelogEntry, ...changelogEntries.filter((entry) => entry.version !== latestChangelogEntry.version)]
 </script>
 
 <template>

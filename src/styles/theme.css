@@ -1,0 +1,25 @@
+/* Canonical theme corrections shared by Old.dex surfaces. */
+
+/* Alpha 0.37 introduced a blanket Dark Mode rule that forces every *-pill and
+   *-chip to black. Load this semantic correction after the legacy stylesheet so
+   each pill family uses theme-readable text instead of the forced black value. */
+html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"], [class*="-chip "]) {
+  color: var(--ink) !important;
+}
+html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"], [class*="-chip "]) :is(strong, span, small, em, a) {
+  color: inherit !important;
+}
+
+/* Neutral chips use the current theme surfaces instead of the old fixed light
+   surface. Semantic rule/spell pills keep the accent foreground. */
+html[data-theme="dark"] :is(.value-chip, .match-option-chips > span, .joined-character-pills > span, .required-charge-flag, .legacy-pill, .legacy-army-pill) {
+  background: var(--paper-2) !important;
+  border-color: var(--line-dark) !important;
+  color: var(--ink) !important;
+}
+html[data-theme="dark"] .rule-kind-pill {
+  background: color-mix(in srgb, var(--accent) 14%, var(--paper)) !important;
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--line-dark)) !important;
+  color: var(--accent-dark) !important;
+}
+html[data-theme="dark"] .rule-kind-pill :is(strong, span, small, em) { color: inherit !important; }
