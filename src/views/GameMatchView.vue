@@ -11,7 +11,7 @@ import { hydrateFriendlyMagicSetup, loadMagicChoices, loadScenarioGuidance, magi
 import { loadMatchDeploymentGuidance, loadMatchStartRoundGuidance, loadMatchTurnGuidance, type MatchDeploymentGuidance, type MatchGuidanceRule, type MatchStartRoundRule } from '../services/matchGuidance'
 import { isGameLocked } from '../services/gameLocks'
 import type { BuilderRosterSelection } from '../domain/rosterTypes'
-import { clearMatchTracking, loadMatchTracking, saveMatchTracking, type MatchCombatDisposition, type MatchPersistentUnitState, type MatchTrackingState, type MatchTurnUnitState } from '../services/matchTracking'
+import { clearMatchTracking, loadMatchTracking, saveMatchTracking, type MatchCombatDisposition, type MatchPersistentUnitState, type MatchSpellCastState, type MatchTrackingState, type MatchTurnUnitState } from '../services/matchTracking'
 import { loadMatchRosterProfile as loadMatchUnitProfile, type MatchUnitProfileSnapshot } from '../services/matchRosterProfiles'
 import { breakTestBands } from '../core/breakTest'
 import { shootingToHit } from '../core/shootingToHit'
@@ -41,6 +41,8 @@ const combatProfiles = ref<Record<string, MatchUnitProfileSnapshot | null>>({})
 const combatProfileLoading = ref(new Set<string>())
 const randomHappeningTables = ref<Record<string, RandomHappeningTable | null>>({})
 const randomHappeningLoading = ref(new Set<string>())
+const miscastTable = ref<RandomHappeningTable | null>(null)
+const miscastTableLoading = ref(false)
 let turnGuidanceRequest = 0
 
 const phase = computed(() => game.value ? gameWorkflow[Math.min(game.value.phaseIndex, gameWorkflow.length - 1)] : null)
@@ -99,6 +101,13 @@ const chaosOfWarSide = computed<GameSide>(() => game.value?.firstPlayerConfirmed
 const showChaosOfWarResolution = computed(() => Boolean(chaosOfWarSelected.value && phase.value?.id === 'strategy' && step.value?.id === 'start-of-turn' && game.value && game.value.round >= 2 && turnViewSide.value === chaosOfWarSide.value))
 const chaosOfWarResultKey = computed(() => `chaos-of-war:round-${game.value?.round || 0}`)
 const disruptiveWeatherPending = computed(() => selectedBattlefieldConditions.value.has('disruptive-weather') && !battlefieldResult('disruptive-weather'))
+const ongoingConditionPhaseIds = new Set(['round-start', 'strategy', 'movement', 'shooting', 'combat', 'end'])
+const showOngoingBattleConditions = computed(() => Boolean(battleStarted.value && phase.value && ongoingConditionPhaseIds.has(phase.value.id) && battlefieldConditionRows.value.length))
+const ongoingBattleConditions = computed(() => battlefieldConditionRows.value.filter((option) => {
+  if (option.id === 'wilderness-terrain') return true
+  if (option.id === 'chaos-of-war') return Boolean(game.value && game.value.round >= 2)
+  return Boolean(battlefieldResult(option.id))
+}))
 const chaosOfWarPreviousRolls = computed(() => {
   const results = game.value?.battlefieldConditionResults || {}
   return new Set(Object.entries(results).filter(([key]) => /^chaos-of-war:round-\d+$/.test(key) && key !== chaosOfWarResultKey.value).map(([, roll]) => String(roll)))
@@ -122,7 +131,7 @@ const battleTurnGuidanceDisplay = computed(() => {
     return true
   })
 })
-const spellGuidance = computed(() => friendlyTurnGuidance.value.filter((row) => row.action === 'spell'))
+const spellGuidance = computed(() => friendlyTurnGuidance.value.filter((row) => row.action === 'spell' && !spellIsForgotten(row)))
 const friendlyActionGuidance = computed(() => friendlyTurnGuidance.value.filter((row) => row.action !== 'spell'))
 const allDeclareChargeGuidance = computed(() => isDeclareChargeStep.value ? friendlyActionGuidance.value.filter((row) => row.action === 'declare-charge') : [])
 const declareChargeGuidance = computed(() => allDeclareChargeGuidance.value.filter((row) => !isJoinedCharacterId(row.unitRefs?.[0]?.instanceId || '')))
@@ -473,6 +482,10 @@ function ballisticSkillRows(instanceId: string) {
   const seen = new Set<string>()
   return rows.filter((row) => { const key = `${row.name}|${row.bs}`; if (seen.has(key)) return false; seen.add(key); return true })
 }
+function distinctBallisticSkillRows(instanceId: string) {
+  const seen = new Set<number>()
+  return ballisticSkillRows(instanceId).filter((row) => { if (seen.has(row.bs)) return false; seen.add(row.bs); return true })
+}
 function ballisticSkill(instanceId: string) { const rows = ballisticSkillRows(instanceId); return rows.length ? Math.max(...rows.map((row) => row.bs)) : 0 }
 function shootingToHitFor(instanceId: string, bs: number) { return shootingToHit(bs, shootingModifierTotal(instanceId)) }
 function shootingToHitLabel(instanceId: string) { const bs = ballisticSkill(instanceId); return bs ? shootingToHitFor(instanceId, bs).label : '—' }
@@ -552,6 +565,13 @@ const followUpOptions = [
   { id: 'overrun', label: 'Overrun', detail: 'Available when the enemy was destroyed before Break Tests and the normal overrun conditions are met.' },
   { id: 'none', label: 'No follow up', detail: 'Record that this unit makes no further follow-up movement.' },
 ]
+function followUpDetail(row: BuilderRosterSelection, resultId: string) {
+  if (resultId === 'follow-up') return 'No test required. Choose this when the losing unit Gives Ground, then move back into contact as the Follow Up rules direct.'
+  if (resultId === 'pursue') return 'No Leadership test to choose Pursue. Make the unit’s normal Pursuit roll and move when the enemy Falls Back in Good Order or flees, applying rules such as Swiftstride where relevant.'
+  if (resultId === 'restrain') return `Roll 2D6 and score ${unitLeadershipByInstanceId(row.instanceId)} or less to pass the Leadership test. If the test fails, the unit must make the required follow-up or pursuit move.`
+  if (resultId === 'overrun') return 'No Leadership test. When the enemy was destroyed before Break Tests and Overrun is permitted, make the normal Pursuit roll and move directly forwards.'
+  return 'No roll required. Record that this unit makes no follow-up movement.'
+}
 
 async function ensureCombatProfile(row: BuilderRosterSelection) {
   if (!game.value || Object.prototype.hasOwnProperty.call(combatProfiles.value, row.instanceId) || combatProfileLoading.value.has(row.instanceId)) return
@@ -663,23 +683,38 @@ function toggleGuidanceCheck(rule: MatchGuidanceRule, index: number, checked: bo
   if (checked !== wasChecked && rule.useLimit) adjustRuleUse(rule, checked ? 1 : -1)
   if (isFatedDispelRule(rule)) mutateTracking((next) => { next.fatedDispelUsedRound = checked ? game.value?.round : undefined })
 }
-function spellGuidanceChoice(rule: MatchGuidanceRule): GameMagicChoice {
+function normalizedSpellMatchName(value: string) { return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() }
+function spellCasterForRule(rule: MatchGuidanceRule) {
+  const refIds = new Set((rule.unitRefs || []).map((ref) => ref.instanceId))
+  const direct = magicCasters.value.find((caster) => refIds.has(caster.instanceId))
+  if (direct) return direct
+  const source = normalizedSpellMatchName(rule.source)
+  const label = normalizedSpellMatchName(rule.label)
+  return magicCasters.value.find((caster) => {
+    if (source && normalizedSpellMatchName(caster.name) === source) return true
+    const selected = new Set(caster.selectedSpellIds || [])
+    return (caster.choices || []).some((choice) => selected.has(choice.id) && normalizedSpellMatchName(choice.name) === label)
+  }) || null
+}
+function spellChoiceForRule(rule: MatchGuidanceRule, caster = spellCasterForRule(rule)) {
   const wantedPath = String(rule.path || '')
-  const wantedName = String(rule.label || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-  for (const caster of magicCasters.value) {
+  const wantedName = normalizedSpellMatchName(rule.label)
+  if (caster) {
     const selected = new Set(caster.selectedSpellIds || [])
     const choice = (caster.choices || []).find((candidate) => {
       if (!selected.has(candidate.id)) return false
       if (wantedPath && candidate.path === wantedPath) return true
-      return String(candidate.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() === wantedName
+      return normalizedSpellMatchName(candidate.name) === wantedName
     })
-    if (choice) return { ...choice, summary: choice.summary || rule.summary, path: choice.path || rule.path }
+    if (choice) return choice
   }
-  return { id: rule.id, name: rule.label, summary: rule.summary, path: rule.path, type: 'Spell' }
+  return null
 }
-function spellResultCheckId(rule: MatchGuidanceRule, result: 'success' | 'fail') {
-  return `spell-result:${rule.id}:${result}`.toLowerCase()
+function spellGuidanceChoice(rule: MatchGuidanceRule): GameMagicChoice {
+  const choice = spellChoiceForRule(rule)
+  return choice ? { ...choice, summary: choice.summary || rule.summary, path: choice.path || rule.path } : { id: rule.id, name: rule.label, summary: rule.summary, path: rule.path, type: 'Spell' }
 }
+function spellResultCheckId(rule: MatchGuidanceRule, result: 'success' | 'fail') { return `spell-result:${rule.id}:${result}`.toLowerCase() }
 function spellResult(rule: MatchGuidanceRule): 'success' | 'fail' | '' {
   if (!game.value || !checklistKey.value) return ''
   const group = game.value.stepChecks?.[checklistKey.value] || {}
@@ -694,6 +729,134 @@ function setSpellResult(rule: MatchGuidanceRule, result: 'success' | 'fail' | ''
   delete group[spellResultCheckId(rule, 'fail')]
   if (result) group[spellResultCheckId(rule, result)] = true
   persist({ stepChecks: { ...(game.value.stepChecks || {}), [checklistKey.value]: group } })
+}
+function spellCastKey(rule: MatchGuidanceRule) {
+  const caster = spellCasterForRule(rule)
+  return `${trackingTurnKey()}|${caster?.instanceId || normalizedSpellMatchName(rule.source) || 'unknown'}|${rule.id}`
+}
+function spellCastState(rule: MatchGuidanceRule): MatchSpellCastState { return matchTracking.value.spellCasts?.[spellCastKey(rule)] || {} }
+function spellCastHasState(rule: MatchGuidanceRule) { const state = spellCastState(rule); return Boolean(state.totalPower || state.miscast || state.miscastRoll || state.levelLoss || state.forgottenSpellIds?.length || spellResult(rule)) }
+function patchSpellCastState(rule: MatchGuidanceRule, patch: Partial<MatchSpellCastState>) {
+  if (isReadOnly.value) return
+  const key = spellCastKey(rule)
+  mutateTracking((next) => { next.spellCasts[key] = { ...(next.spellCasts[key] || {}), phaseId: phase.value?.id, ...patch } })
+}
+function spellTotalPower(rule: MatchGuidanceRule) { return Boolean(spellCastState(rule).totalPower) }
+function spellMiscast(rule: MatchGuidanceRule) { const state = spellCastState(rule); return Boolean(state.miscast || state.totalPower) }
+async function hydrateMiscastTable() {
+  if (miscastTable.value || miscastTableLoading.value) return
+  miscastTableLoading.value = true
+  try { miscastTable.value = await loadRandomHappeningTable('/magic/miscast-table'); for (const caster of magicCasters.value) recomputeWizardCastingLock(caster.instanceId) }
+  catch { miscastTable.value = null }
+  finally { miscastTableLoading.value = false }
+}
+function miscastRow(rule: MatchGuidanceRule) { const roll = String(spellCastState(rule).miscastRoll || ''); return miscastTable.value?.results.find((row) => row.roll === roll) || null }
+function miscastCastingStop(row: { title?: string; text?: string } | null) {
+  const text = `${row?.title || ''} ${row?.text || ''}`
+  if (!/cannot\s+(?:attempt\s+to\s+)?cast|cannot\s+cast|unable\s+to\s+cast|may\s+cast\s+no\s+more/i.test(text)) return null
+  return { scope: /(?:remainder|rest)\s+of\s+(?:the\s+)?(?:current\s+)?phase/i.test(text) ? 'phase' as const : 'turn' as const, reason: String(row?.title || 'Miscast') }
+}
+function miscastLosesWizardLevel(row: { title?: string; text?: string } | null) { return /(?:lose|loses|lost|reduce|reduced).*wizard\s+level|wizard\s+level.*(?:lose|reduced|decrease)/i.test(`${row?.title || ''} ${row?.text || ''}`) }
+function miscastLevelLossMaximum(row: { title?: string; text?: string } | null) {
+  const text = `${row?.title || ''} ${row?.text || ''}`
+  if (/d3\s+wizard\s+levels?|wizard\s+level[^.]*d3/i.test(text)) return 3
+  if (/d6\s+wizard\s+levels?|wizard\s+level[^.]*d6/i.test(text)) return 6
+  const match = text.match(/(?:lose|reduce[^.]*by)\s+(\d+)\s+wizard\s+levels?/i)
+  return Math.max(1, Number(match?.[1] || 1))
+}
+function recomputeWizardCastingLock(casterId: string) {
+  if (!casterId) return
+  const prefix = `${trackingTurnKey()}|${casterId}|`
+  let lock: { scope: 'phase' | 'turn'; reason: string; phaseId?: string } | null = null
+  for (const [key, state] of Object.entries(matchTracking.value.spellCasts || {})) {
+    if (!key.startsWith(prefix) || !state.miscastRoll) continue
+    const row = miscastTable.value?.results.find((candidate) => candidate.roll === state.miscastRoll) || null
+    const stop = miscastCastingStop(row)
+    if (!stop) continue
+    if (!lock || stop.scope === 'turn') lock = { ...stop, phaseId: state.phaseId }
+  }
+  mutateTracking((next) => {
+    const key = trackingTurnKey(); if (!key) return
+    const group = { ...(next.wizardTurns[key] || {}) }
+    if (lock) group[casterId] = { cannotCast: true, cannotCastReason: lock.reason, scope: lock.scope, phaseId: lock.phaseId }
+    else delete group[casterId]
+    next.wizardTurns[key] = group
+  })
+}
+function recomputeWizardPersistent(casterId: string) {
+  if (!casterId) return
+  let levelLost = 0
+  const forgotten = new Set<string>()
+  for (const [key, state] of Object.entries(matchTracking.value.spellCasts || {})) {
+    if (!key.includes(`|${casterId}|`)) continue
+    levelLost += Math.max(0, Number(state.levelLoss || 0))
+    for (const id of state.forgottenSpellIds || []) forgotten.add(id)
+  }
+  mutateTracking((next) => { next.wizards[casterId] = { levelLost: levelLost || undefined, forgottenSpellIds: [...forgotten] } })
+}
+function wizardEffectiveLevel(caster: GameMagicCaster) { return Math.max(0, Number(caster.level || 0) - Math.max(0, Number(matchTracking.value.wizards?.[caster.instanceId]?.levelLost || 0))) }
+function wizardCannotCast(rule: MatchGuidanceRule) {
+  const caster = spellCasterForRule(rule); if (!caster) return false
+  if (caster.kind === 'Wizard' && wizardEffectiveLevel(caster) <= 0) return true
+  const state = matchTracking.value.wizardTurns?.[trackingTurnKey()]?.[caster.instanceId]
+  return Boolean(state?.cannotCast && (state.scope !== 'phase' || state.phaseId === phase.value?.id))
+}
+function wizardCannotCastReason(rule: MatchGuidanceRule) {
+  const caster = spellCasterForRule(rule); if (!caster) return ''
+  if (caster.kind === 'Wizard' && wizardEffectiveLevel(caster) <= 0) return 'No Wizard Levels remaining'
+  return matchTracking.value.wizardTurns?.[trackingTurnKey()]?.[caster.instanceId]?.cannotCastReason || ''
+}
+function wizardCastingLockLabel(rule: MatchGuidanceRule) {
+  const caster = spellCasterForRule(rule); if (!caster) return 'Cannot cast'
+  if (caster.kind === 'Wizard' && wizardEffectiveLevel(caster) <= 0) return 'Cannot cast — no Wizard Levels remaining'
+  const state = matchTracking.value.wizardTurns?.[trackingTurnKey()]?.[caster.instanceId]
+  return `Cannot cast again ${state?.scope === 'phase' ? 'this phase' : 'this turn'}${state?.cannotCastReason ? ` — ${state.cannotCastReason}` : ''}`
+}
+function spellCardDisabled(rule: MatchGuidanceRule) { return Boolean(isReadOnly.value || (wizardCannotCast(rule) && !spellCastHasState(rule))) }
+function spellIsForgotten(rule: MatchGuidanceRule) {
+  if (spellCastHasState(rule)) return false
+  const caster = spellCasterForRule(rule); if (!caster) return false
+  const choice = spellChoiceForRule(rule, caster); if (!choice) return false
+  return Boolean(matchTracking.value.wizards?.[caster.instanceId]?.forgottenSpellIds?.includes(choice.id))
+}
+function setSpellTotalPower(rule: MatchGuidanceRule, checked: boolean) {
+  patchSpellCastState(rule, { totalPower: checked, miscast: checked ? true : spellCastState(rule).miscast })
+  if (checked) void hydrateMiscastTable()
+}
+function setSpellMiscast(rule: MatchGuidanceRule, checked: boolean) {
+  const caster = spellCasterForRule(rule)
+  patchSpellCastState(rule, checked ? { miscast: true } : { miscast: false, totalPower: false, miscastRoll: undefined, levelLoss: undefined, forgottenSpellIds: [] })
+  if (checked) void hydrateMiscastTable()
+  else if (caster) { recomputeWizardCastingLock(caster.instanceId); recomputeWizardPersistent(caster.instanceId) }
+}
+function setSpellMiscastRoll(rule: MatchGuidanceRule, roll: string) {
+  const caster = spellCasterForRule(rule)
+  const row = miscastTable.value?.results.find((candidate) => candidate.roll === roll) || null
+  patchSpellCastState(rule, { miscastRoll: roll || undefined, levelLoss: roll && miscastLosesWizardLevel(row) ? Math.max(1, Number(spellCastState(rule).levelLoss || 1)) : undefined, forgottenSpellIds: roll && miscastLosesWizardLevel(row) ? spellCastState(rule).forgottenSpellIds || [] : [] })
+  if (caster) { recomputeWizardCastingLock(caster.instanceId); recomputeWizardPersistent(caster.instanceId) }
+}
+function spellLevelLoss(rule: MatchGuidanceRule) { return Math.max(0, Number(spellCastState(rule).levelLoss || 0)) }
+function setSpellLevelLoss(rule: MatchGuidanceRule, value: number) {
+  const caster = spellCasterForRule(rule); if (!caster) return
+  const row = miscastRow(rule); const maximum = Math.min(miscastLevelLossMaximum(row), Math.max(1, caster.level))
+  const levelLoss = Math.max(1, Math.min(maximum, Math.floor(Number(value || 1))))
+  patchSpellCastState(rule, { levelLoss, forgottenSpellIds: (spellCastState(rule).forgottenSpellIds || []).slice(0, levelLoss) })
+  recomputeWizardPersistent(caster.instanceId)
+}
+function knownSpellsForMiscast(rule: MatchGuidanceRule) {
+  const caster = spellCasterForRule(rule); if (!caster) return [] as GameMagicChoice[]
+  const selected = new Set(caster.selectedSpellIds || [])
+  const current = new Set(spellCastState(rule).forgottenSpellIds || [])
+  const persistent = new Set(matchTracking.value.wizards?.[caster.instanceId]?.forgottenSpellIds || [])
+  return (caster.choices || []).filter((choice) => selected.has(choice.id) && (!persistent.has(choice.id) || current.has(choice.id)))
+}
+function spellForgottenForMiscast(rule: MatchGuidanceRule, choiceId: string) { return Boolean(spellCastState(rule).forgottenSpellIds?.includes(choiceId)) }
+function setSpellForgottenForMiscast(rule: MatchGuidanceRule, choiceId: string, checked: boolean) {
+  const caster = spellCasterForRule(rule); if (!caster) return
+  const selected = new Set(spellCastState(rule).forgottenSpellIds || [])
+  if (checked) { if (selected.size >= spellLevelLoss(rule)) return; selected.add(choiceId) } else selected.delete(choiceId)
+  patchSpellCastState(rule, { forgottenSpellIds: [...selected] })
+  recomputeWizardPersistent(caster.instanceId)
 }
 function chargeTestKey(instanceId: string) { return game.value ? `${game.value.round}:${turnViewSide.value}:required-charges:${instanceId}` : '' }
 function chargeTestResult(instanceId: string): GameChargeTestResult | '' { if (!game.value) return ''; return game.value.chargeTests?.[chargeTestKey(instanceId)] || '' }
@@ -755,14 +918,25 @@ function handleMagicChoice(caster: GameMagicCaster, id: string, event: Event) { 
 function casterChoiceDisabled(caster: GameMagicCaster, id: string) { return !selectedMagicChoice(caster, id) && caster.selectedSpellIds.length >= magicSelectionLimit(caster) }
 function selectedChoiceNames(caster: GameMagicCaster) { const selected = new Set(caster.selectedSpellIds); return (caster.choices || []).filter((choice) => selected.has(choice.id)).map((choice) => choice.name) }
 
+function scenarioMinimumRounds(value: string) {
+  const words: Record<string, string> = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10' }
+  const text = String(value || '').toLowerCase().replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/g, (word) => words[word] || word).replace(/[–—]/g, '-')
+  const patterns = [
+    /between\s+(\d+)\s+and\s+(\d+)\s+rounds?/,
+    /(\d+)\s*(?:-|to)\s*(\d+)\s+rounds?/,
+    /(\d+)\s+or\s+(\d+)\s+rounds?/,
+  ]
+  for (const pattern of patterns) { const match = text.match(pattern); if (match) return Math.max(1, Math.min(Number(match[1]), Number(match[2]))) }
+  const minimum = text.match(/(?:minimum(?: of)?|at least|no fewer than)\s+(\d+)\s+rounds?/)
+  if (minimum) return Math.max(1, Number(minimum[1]))
+  const exact = text.match(/(?:last|for)\s+(\d+)\s+rounds?/)
+  return exact ? Math.max(1, Number(exact[1])) : 0
+}
 function scenarioDefaultRounds(guidance: SavedGame['scenarioGuidance']) {
   if (!guidance) return 4
   const text = String(guidance.gameLength || '').trim()
-  // loadScenarioGuidance uses this six-round sentence as its generic fallback;
-  // Old.dex's normal table default is four unless the selected scenario provides
-  // an actual scenario-specific game length.
   if (!text || /^Most battles last for six rounds\.?$/i.test(text)) return 4
-  return Math.max(1, Number(guidance.roundLimit || 4))
+  return scenarioMinimumRounds(text) || Math.max(1, Number(guidance.roundLimit || 4))
 }
 async function hydrateScenarioGuidance() {
   if (!game.value) return
@@ -820,6 +994,14 @@ function battlefieldResolvedRowForPath(path?: string) {
 function battlefieldResolvedRowForRule(rule: MatchGuidanceRule) {
   return battlefieldResolvedRowForPath(rule.path)
 }
+function ongoingBattleConditionResult(option: (typeof randomHappeningOptions)[number]) {
+  if (option.id === 'wilderness-terrain') return { title: 'Ongoing terrain trigger', text: 'Whenever a unit is deployed within natural terrain or ends its movement within natural terrain, resolve Wilderness Terrain for that terrain feature.' }
+  if (option.id === 'chaos-of-war') {
+    const row = battlefieldResolvedRow('chaos-of-war', chaosOfWarResultKey.value)
+    return row || { title: `Round ${game.value?.round || 1} reminder`, text: 'From the first player’s second turn onward, check whether Chaos of War triggers at the beginning of that player’s Start of Turn sub-phase.' }
+  }
+  return battlefieldResolvedRow(option.id) || { title: 'Active Battle Condition', text: 'This Battle Condition remains part of the battle. Apply its recorded result whenever its rule says it is relevant.' }
+}
 function toggleBattlefieldCondition(id: string, checked: boolean) {
   if (!game.value || isReadOnly.value) return
   const next = new Set(game.value.battlefieldConditions || [])
@@ -864,6 +1046,7 @@ const advanceButtonDisabled = computed(() => Boolean(
   (phase.value?.id === 'deployment' && game.value?.stepIndex === phase.value.steps.length - 1 && !game.value?.firstPlayerConfirmed)
 ))
 
+watch(() => spellGuidance.value.length, (count) => { if (count) void hydrateMiscastTable() })
 onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.value.id)); void Promise.allSettled([hydrateMagicSetup(), hydrateScenarioGuidance()]) })
 </script>
 
@@ -913,6 +1096,11 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
             </div>
           </div>
         </div>
+
+        <section v-if="showOngoingBattleConditions && ongoingBattleConditions.length" class="ongoing-battle-conditions card-inset" aria-label="Ongoing Battle Conditions">
+          <div class="ongoing-battle-conditions-heading"><p class="eyebrow">ONGOING BATTLE CONDITIONS</p><small>Active conditions that can continue to affect this battle.</small></div>
+          <div class="ongoing-battle-condition-list"><details v-for="condition in ongoingBattleConditions" :key="`ongoing-${phase?.id}-${condition.id}`" class="phase-rule-details ongoing-condition-row"><summary><strong>{{ condition.label }}</strong><span>{{ ongoingBattleConditionResult(condition).title }}</span></summary><p>{{ ongoingBattleConditionResult(condition).text }}</p><RouterLink :to="`/rules/read${condition.path}`">Open rules</RouterLink></details></div>
+        </section>
 
         <div v-if="isSetupArmiesStep" class="game-setup-content">
           <MatchTipPanel v-if="tipsVisible" title="Tip — Match Setup" :text="setupTip" :collapsed="currentTipCollapsed" @toggle="setCurrentTipCollapsed" />
@@ -988,7 +1176,6 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
 
         <div v-else-if="isRoundStartStep" class="round-start-content">
           <MatchTipPanel v-if="tipsVisible" title="Tip — Start of Round" :text="deploymentTip" :collapsed="currentTipCollapsed" rule-to="/rules/read/the-turn-sequence" rule-label="Open Turn Sequence rules" @toggle="setCurrentTipCollapsed" />
-          <details v-if="wildernessTerrainSelected" class="wilderness-terrain-reminder card-inset"><summary><strong>Wilderness Terrain</strong><span>Battle Condition</span></summary><div><p>Whenever a unit ends its movement within natural terrain, roll on the Wilderness Terrain table and track that terrain result on the battlefield.</p><RouterLink to="/rules/read/battle-march/wilderness-terrain">Open rules</RouterLink><div v-if="randomHappeningTables['wilderness-terrain']?.results.length" class="random-happening-table"><div class="random-happening-table-head"><strong>D6</strong><strong>Result</strong></div><div v-for="result in randomHappeningTables['wilderness-terrain']?.results || []" :key="`wilderness-reminder-${phase?.id}-${step?.id}-${result.roll}`" class="random-happening-row"><span class="random-happening-roll"><strong>{{ result.roll }}</strong></span><span><strong>{{ result.title }}:</strong> {{ result.text }}</span></div></div></div></details>
           <p v-if="startRoundLoading" class="setup-inline-status">Checking both rosters and battle rules for Start of Round effects…</p>
           <section v-if="isRoundBattleEffectsStep" class="start-round-rule-panel battle card-inset"><div class="setup-section-heading"><div><p class="eyebrow">STEP 1 · BATTLE</p><h3>Scenario, Composition &amp; Battlefield</h3></div></div><template v-if="battleStartRoundRules.length"><details v-for="rule in battleStartRoundRules" :key="`${rule.source}-${rule.label}`" class="phase-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}</span></summary><div v-if="rule.source === 'Battlefield' && battlefieldResolvedRowForPath(rule.path)" class="resolved-condition-result"><strong>{{ battlefieldResolvedRowForPath(rule.path)?.title }}</strong><p>{{ battlefieldResolvedRowForPath(rule.path)?.text }}</p></div><div v-else class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></template><p v-else class="setup-inline-status">No actions.</p></section>
           <section v-if="isRoundPlayerEffectsStep" class="start-round-rule-columns"><article class="start-round-rule-panel friendly card-inset"><div class="setup-section-heading"><div><p class="eyebrow">STEP 2 · FRIENDLY</p><h3>Army &amp; Model Rules</h3></div></div><template v-if="friendlyStartRoundRules.length"><details v-for="rule in friendlyStartRoundRules" :key="`${rule.source}-${rule.label}`" class="phase-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}</span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></template><p v-else class="setup-inline-status">No actions.</p></article><article class="start-round-rule-panel enemy card-inset"><div class="setup-section-heading"><div><p class="eyebrow">STEP 2 · ENEMY</p><h3>Army &amp; Model Rules</h3></div></div><template v-if="enemyStartRoundRules.length"><details v-for="rule in enemyStartRoundRules" :key="`${rule.source}-${rule.label}`" class="phase-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}</span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></template><p v-else class="setup-inline-status">No actions.</p></article></section>
@@ -996,7 +1183,6 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
 
         <section v-if="isBattleTurnPhase" class="turn-guidance-shell">
           <MatchTipPanel v-if="tipsVisible && battleStepTip && !isAnyDeclareChargeStep && !isCombatResultStep" :title="`Tip — ${step.label}`" :text="battleStepTip" :collapsed="currentTipCollapsed" :rule-to="`/rules/read${battleStepRulePath}`" rule-label="Open phase rules" @toggle="setCurrentTipCollapsed" />
-          <details v-if="wildernessTerrainSelected" class="wilderness-terrain-reminder card-inset"><summary><strong>Wilderness Terrain</strong><span>Battle Condition</span></summary><div><p>Whenever a unit ends its movement within natural terrain, roll on the Wilderness Terrain table and track that terrain result on the battlefield.</p><RouterLink to="/rules/read/battle-march/wilderness-terrain">Open rules</RouterLink><div v-if="randomHappeningTables['wilderness-terrain']?.results.length" class="random-happening-table"><div class="random-happening-table-head"><strong>D6</strong><strong>Result</strong></div><div v-for="result in randomHappeningTables['wilderness-terrain']?.results || []" :key="`wilderness-reminder-${phase?.id}-${step?.id}-${result.roll}`" class="random-happening-row"><span class="random-happening-roll"><strong>{{ result.roll }}</strong></span><span><strong>{{ result.title }}:</strong> {{ result.text }}</span></div></div></div></details>
           <article v-if="showChaosOfWarResolution" class="condition-resolution-panel chaos-of-war-resolution card-inset">
             <div class="setup-section-heading"><div><p class="eyebrow">BATTLE CONDITION</p><h3>Chaos of War</h3></div><RouterLink to="/rules/read/battle-march/the-chaos-of-war">Open rules</RouterLink></div>
             <p class="setup-inline-status">When using the Chaos of War in your games, from their second turn onwards, the player who took the first turn rolls a D6 at the beginning of each of their Start of Turn sub-phases. If the number rolled is equal to or lower than their current turn number, their opponent rolls a D6 on the table below, re-rolling any results rolled previously.</p>
@@ -1021,12 +1207,12 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
               </details>
             </article>
 
-            <article v-if="spellGuidance.length" class="turn-guidance-panel combat-spell-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">{{ spellPanelEyebrow }}</p><h3>{{ spellPanelTitle }}</h3><small class="optional-check-hint">Resolve the spell from its normal rule box, then record whether the casting attempt succeeded or failed.</small></div></div><div class="match-phase-spell-grid"><MatchSpellChoiceCard v-for="rule in spellGuidance" :key="`${rule.source}-${rule.label}-${rule.id}`" :choice="spellGuidanceChoice(rule)" :selectable="false" :source-label="rule.source" :track-result="true" :result="spellResult(rule)" :disabled="isReadOnly" @result="setSpellResult(rule, $event)" /></div></article>
+            <article v-if="spellGuidance.length" class="turn-guidance-panel combat-spell-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">{{ spellPanelEyebrow }}</p><h3>{{ spellPanelTitle }}</h3><small class="optional-check-hint">Resolve the spell from its normal rule box, record the casting result, then resolve Total Power or a Miscast when required.</small></div></div><div class="match-phase-spell-grid"><article v-for="rule in spellGuidance" :key="`${rule.source}-${rule.label}-${rule.id}`" class="match-phase-spell-entry" :class="{ locked: spellCardDisabled(rule) }"><MatchSpellChoiceCard :choice="spellGuidanceChoice(rule)" :selectable="false" :source-label="rule.source" :track-result="true" :result="spellResult(rule)" :disabled="spellCardDisabled(rule)" @result="setSpellResult(rule, $event)" /><div class="spell-power-controls"><label :class="{ selected: spellTotalPower(rule) }"><input type="checkbox" :checked="spellTotalPower(rule)" :disabled="spellCardDisabled(rule)" @change="setSpellTotalPower(rule, ($event.target as HTMLInputElement).checked)" /><span>Total Power</span></label><label :class="{ selected: spellMiscast(rule) }"><input type="checkbox" :checked="spellMiscast(rule)" :disabled="spellCardDisabled(rule)" @change="setSpellMiscast(rule, ($event.target as HTMLInputElement).checked)" /><span>Miscast</span></label><strong v-if="wizardCannotCast(rule)" class="wizard-casting-lock">{{ wizardCastingLockLabel(rule) }}</strong></div><details v-if="spellMiscast(rule)" open class="miscast-resolution-panel phase-rule-details"><summary><strong>Miscast Table</strong><span v-if="spellCastState(rule).miscastRoll">Result {{ spellCastState(rule).miscastRoll }}</span></summary><p v-if="miscastTableLoading" class="setup-inline-status">Loading Miscast table…</p><div v-else-if="miscastTable?.results.length" class="miscast-result-grid"><label v-for="result in miscastTable.results" :key="`${rule.id}-miscast-${result.roll}`" :class="{ selected: spellCastState(rule).miscastRoll === result.roll }"><input type="checkbox" :checked="spellCastState(rule).miscastRoll === result.roll" :disabled="isReadOnly" @change="setSpellMiscastRoll(rule, ($event.target as HTMLInputElement).checked ? result.roll : '')" /><span><strong>{{ result.roll }} · {{ result.title }}</strong><small>{{ result.text }}</small></span></label></div><p v-else class="setup-inline-status">The Miscast table could not be loaded. Open the rules page to resolve the result manually.</p><RouterLink to="/rules/read/magic/miscast-table">Open Miscast rules</RouterLink><div v-if="miscastLosesWizardLevel(miscastRow(rule))" class="wizard-level-loss-panel"><label><span>Wizard Levels lost</span><input type="number" min="1" :max="miscastLevelLossMaximum(miscastRow(rule))" :value="spellLevelLoss(rule) || 1" :disabled="isReadOnly" @change="setSpellLevelLoss(rule, Number(($event.target as HTMLInputElement).value))" /></label><strong>Forget {{ spellLevelLoss(rule) || 1 }} known spell{{ (spellLevelLoss(rule) || 1) === 1 ? '' : 's' }}</strong><div class="wizard-forget-spell-grid"><label v-for="choice in knownSpellsForMiscast(rule)" :key="`${rule.id}-forget-${choice.id}`" :class="{ selected: spellForgottenForMiscast(rule, choice.id) }"><input type="checkbox" :checked="spellForgottenForMiscast(rule, choice.id)" :disabled="isReadOnly || (!spellForgottenForMiscast(rule, choice.id) && (spellCastState(rule).forgottenSpellIds?.length || 0) >= (spellLevelLoss(rule) || 1))" @change="setSpellForgottenForMiscast(rule, choice.id, ($event.target as HTMLInputElement).checked)" /><span>{{ choice.name }}</span></label></div></div></details></article></div></article>
 
-            <article v-if="isShootingStep" class="turn-guidance-panel shooting-weapon-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">RANGED WEAPONS</p><h3>Units able to shoot</h3><small class="optional-check-hint">BS and To Hit use the roster-derived match profile. Selected modifiers are cumulative and update the target roll immediately.</small></div></div><div v-if="shootingUnits.length" class="shooting-unit-list"><article v-for="entry in shootingUnits" :key="`shooting-${entry.unit.instanceId}`" class="shooting-unit-row" :class="{ complete: shootingUnitChecked(entry.unit.instanceId) }"><label class="turn-action-check"><input type="checkbox" :checked="shootingUnitChecked(entry.unit.instanceId)" :disabled="isReadOnly" @change="toggleShootingUnit(entry.unit.instanceId, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><div class="shooting-unit-copy"><header><RouterLink :to="matchUnitProfileRoute(entry.unit)"><strong>{{ entry.unit.name }}</strong></RouterLink><div class="shooting-bs-summary"><span class="value-chip">BS {{ ballisticSkill(entry.unit.instanceId) || '—' }}</span><span class="value-chip shooting-to-hit-chip">To Hit {{ shootingToHitLabel(entry.unit.instanceId) }}</span><span v-if="shootingModifierTotal(entry.unit.instanceId)" class="value-chip">Modifier {{ shootingModifierTotal(entry.unit.instanceId) }}</span></div><small v-if="joinedHostId(entry.unit.instanceId)">Joined to {{ joinedHostName(entry.unit.instanceId) }}</small></header><details v-if="ballisticSkillRows(entry.unit.instanceId).length > 1" class="shooting-bs-breakdown"><summary>Different Ballistic Skills in this unit</summary><div><span v-for="row in ballisticSkillRows(entry.unit.instanceId)" :key="`${entry.unit.instanceId}-${row.name}-${row.bs}`"><strong>{{ row.name }}</strong><small>BS {{ row.bs }} · To Hit {{ shootingToHitFor(entry.unit.instanceId, row.bs).label }}</small></span></div></details><div class="shooting-penalty-options" aria-label="Shooting To Hit modifiers"><label v-for="penalty in shootingPenaltyOptions" :key="`${entry.unit.instanceId}-${penalty.id}`" :class="{ selected: shootingPenaltyIds(entry.unit.instanceId).has(penalty.id) }"><input type="checkbox" :checked="shootingPenaltyIds(entry.unit.instanceId).has(penalty.id)" :disabled="isReadOnly" @change="toggleShootingPenalty(entry.unit.instanceId, penalty.id, ($event.target as HTMLInputElement).checked)" /><span>{{ penalty.label }}</span><strong>{{ penalty.modifier }}</strong></label></div><div class="shooting-weapon-list"><div v-for="weapon in entry.weapons" :key="`${entry.unit.instanceId}-${weapon.id}`" class="shooting-weapon-row"><strong>{{ weapon.name }}<small v-if="weapon.count > 1"> ×{{ weapon.count }}</small></strong><span>{{ weapon.range }}</span><span>S {{ weapon.strength }}</span><span>AP {{ weapon.ap }}</span><small v-if="weapon.rules.length">{{ weapon.rules.join(' · ') }}</small></div></div></div></article></div><p v-else class="setup-inline-status">No selected ranged weapons were found in the friendly roster.</p></article>
+            <article v-if="isShootingStep" class="turn-guidance-panel shooting-weapon-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">RANGED WEAPONS</p><h3>Units able to shoot</h3><small class="optional-check-hint">BS and To Hit use the roster-derived match profile. Selected modifiers are cumulative and update the target roll immediately.</small></div></div><div v-if="shootingUnits.length" class="shooting-unit-list"><article v-for="entry in shootingUnits" :key="`shooting-${entry.unit.instanceId}`" class="shooting-unit-row" :class="{ complete: shootingUnitChecked(entry.unit.instanceId) }"><label class="turn-action-check"><input type="checkbox" :checked="shootingUnitChecked(entry.unit.instanceId)" :disabled="isReadOnly" @change="toggleShootingUnit(entry.unit.instanceId, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><div class="shooting-unit-copy"><header><RouterLink :to="matchUnitProfileRoute(entry.unit)"><strong>{{ entry.unit.name }}</strong></RouterLink><div class="shooting-bs-summary"><span class="value-chip">BS {{ ballisticSkill(entry.unit.instanceId) || '—' }}</span><span class="value-chip shooting-to-hit-chip">To Hit {{ shootingToHitLabel(entry.unit.instanceId) }}</span><span v-if="shootingModifierTotal(entry.unit.instanceId)" class="value-chip">Modifier {{ shootingModifierTotal(entry.unit.instanceId) }}</span></div><small v-if="joinedHostId(entry.unit.instanceId)">Joined to {{ joinedHostName(entry.unit.instanceId) }}</small></header><details v-if="distinctBallisticSkillRows(entry.unit.instanceId).length > 1" class="shooting-bs-breakdown"><summary>Different Ballistic Skills in this unit</summary><div><span v-for="row in distinctBallisticSkillRows(entry.unit.instanceId)" :key="`${entry.unit.instanceId}-${row.bs}`"><strong>{{ row.name }}</strong><small>BS {{ row.bs }} · To Hit {{ shootingToHitFor(entry.unit.instanceId, row.bs).label }}</small></span></div></details><div class="shooting-weapon-list"><div v-for="weapon in entry.weapons" :key="`${entry.unit.instanceId}-${weapon.id}`" class="shooting-weapon-row"><strong>{{ weapon.name }}<small v-if="weapon.count > 1"> ×{{ weapon.count }}</small></strong><span>{{ weapon.range }}</span><span>S {{ weapon.strength }}</span><span>AP {{ weapon.ap }}</span><small v-if="weapon.rules.length">{{ weapon.rules.join(' · ') }}</small></div></div><div class="shooting-penalty-options" aria-label="Shooting To Hit modifiers"><label v-for="penalty in shootingPenaltyOptions" :key="`${entry.unit.instanceId}-${penalty.id}`" :class="{ selected: shootingPenaltyIds(entry.unit.instanceId).has(penalty.id) }"><input type="checkbox" :checked="shootingPenaltyIds(entry.unit.instanceId).has(penalty.id)" :disabled="isReadOnly" @change="toggleShootingPenalty(entry.unit.instanceId, penalty.id, ($event.target as HTMLInputElement).checked)" /><span>{{ penalty.label }}</span><strong>{{ penalty.modifier }}</strong></label></div></div></article></div><p v-else class="setup-inline-status">No selected ranged weapons were found in the friendly roster.</p></article>
 
             <article v-if="showGenericActionPanel" class="turn-guidance-panel card-inset"><div class="setup-section-heading"><div><p class="eyebrow">SPECIAL RULES &amp; ACTIONS</p><h3>{{ turnContextLabel }} — {{ step.label }}</h3><small class="optional-check-hint">Checks are optional and only track what you have resolved.</small></div></div>
-              <template v-if="normalFriendlyGuidance.length"><article v-for="(rule, ruleIndex) in normalFriendlyGuidance" :key="`${rule.source}-${rule.label}-${rule.path || ''}`" class="start-round-rule-row turn-action-row" :class="{ complete: guidanceChecked(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex) }"><label class="turn-action-check"><input type="checkbox" :checked="guidanceChecked(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex)" :disabled="guidanceDisabled(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex)" @change="toggleGuidanceCheck(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><details class="phase-rule-details turn-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}<small v-if="rule.useLimit" class="tracked-quantity">{{ guidanceQuantityText(rule) }}</small><small v-if="isFatedDispelRule(rule) && fatedDispelUsedThisRound" class="tracked-quantity fated-dispel-used">USED THIS ROUND</small></span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></article></template>
+              <template v-if="normalFriendlyGuidance.length"><article v-for="(rule, ruleIndex) in normalFriendlyGuidance" :key="`${rule.source}-${rule.label}-${rule.path || ''}`" class="start-round-rule-row turn-action-row" :class="{ complete: guidanceChecked(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex) }"><label class="turn-action-check"><input type="checkbox" :checked="guidanceChecked(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex)" :disabled="guidanceDisabled(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex)" @change="toggleGuidanceCheck(rule, battleTurnGuidanceDisplay.length + spellGuidance.length + ruleIndex, ($event.target as HTMLInputElement).checked)" /><span aria-hidden="true"></span></label><details class="phase-rule-details turn-rule-details"><summary><strong>{{ rule.source }}</strong><span>{{ rule.label }}<span v-if="rule.useLimit" class="tracked-use-status"><strong>{{ ruleUseRemaining(rule) ?? rule.useLimit }} / {{ rule.useLimit }}</strong><small>{{ rule.useScope ? `${rule.useScope} uses remaining` : 'uses remaining' }}</small></span><span v-if="isFatedDispelRule(rule) && fatedDispelUsedThisRound" class="tracked-use-status depleted"><strong>USED</strong><small>this round</small></span></span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></article></template>
               <template v-if="requiredChargeRuleGuidance.length"><details v-for="rule in requiredChargeRuleGuidance" :key="`${rule.label}-${rule.path || ''}`" class="phase-rule-details required-charge-rule-details"><summary class="required-charge-rule-summary"><strong>{{ rule.label }}</strong><span v-if="rule.unitRefs?.length" class="required-charge-unit-pills"><span v-for="unit in rule.unitRefs" :key="`${rule.label}-${unit.instanceId}`">{{ unit.name }} — Ld {{ unitLeadershipByInstanceId(unit.instanceId) }}</span></span></summary><div class="match-rule-copy"><p v-for="paragraph in ruleParagraphs(rule.summary)" :key="paragraph">{{ paragraph }}</p></div></details></template>
               <p v-if="!normalFriendlyGuidance.length && !requiredChargeRuleGuidance.length" class="setup-inline-status">No actions.</p>
             </article>
@@ -1058,7 +1244,7 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
                     <div class="command-loss-options"><label v-if="hasCommandModel(unit, 'banner')"><input type="checkbox" :checked="persistentUnitState(unit.instanceId).bannerLost" :disabled="isReadOnly" @change="setCommandLoss(unit.instanceId, 'bannerLost', ($event.target as HTMLInputElement).checked)" /><span>Banner lost</span></label><label v-if="hasCommandModel(unit, 'champion')"><input type="checkbox" :checked="persistentUnitState(unit.instanceId).championLost" :disabled="isReadOnly" @change="setCommandLoss(unit.instanceId, 'championLost', ($event.target as HTMLInputElement).checked)" /><span>Champion lost</span></label><label v-if="hasCommandModel(unit, 'musician')"><input type="checkbox" :checked="persistentUnitState(unit.instanceId).musicianLost" :disabled="isReadOnly" @change="setCommandLoss(unit.instanceId, 'musicianLost', ($event.target as HTMLInputElement).checked)" /><span>Musician lost</span></label></div>
                     <div class="combat-disposition-actions"><button type="button" class="secondary-button" :class="{ active: combatDispositionFor(unit.instanceId) === 'won' }" :disabled="isReadOnly" @click="setCombatDisposition(unit.instanceId, 'won')">Won Combat</button><button type="button" class="secondary-button" :class="{ active: combatDispositionFor(unit.instanceId) === 'lost' }" :disabled="isReadOnly" @click="setCombatDisposition(unit.instanceId, 'lost')">Lost Combat</button><button type="button" class="secondary-button" :class="{ active: combatDispositionFor(unit.instanceId) === 'draw' }" :disabled="isReadOnly" @click="setCombatDisposition(unit.instanceId, 'draw')">Draw</button></div>
                     <section v-if="combatDispositionFor(unit.instanceId) === 'lost'" class="break-test-resolution"><label class="combat-loss-input"><span>Lost combat by</span><input type="number" min="0" max="20" :value="combatLostBy(unit.instanceId)" :disabled="isReadOnly" @change="setCombatLostBy(unit.instanceId, Number(($event.target as HTMLInputElement).value))" /></label><div class="break-leadership-summary"><span>Leadership <strong>{{ unitBreakBands(unit).leadership }}</strong></span><span>Modified Give Ground threshold <strong>{{ unitBreakBands(unit).modifiedThreshold }}</strong></span></div><div class="break-outcome-grid"><label v-for="result in breakResultOptions" :key="`${unit.instanceId}-${result.id}`" class="break-outcome-card" :class="{ selected: unitTurnState(unit.instanceId).breakResult === result.id }"><input type="checkbox" :checked="unitTurnState(unit.instanceId).breakResult === result.id" :disabled="isReadOnly" @change="setBreakResult(unit.instanceId, result.id, ($event.target as HTMLInputElement).checked)" /><span><strong>{{ result.label }}</strong><small v-if="result.id === 'give-ground'">{{ unitBreakBands(unit).giveGround }}</small><small v-else-if="result.id === 'fall-back'">{{ unitBreakBands(unit).fallBack }}</small><small v-else>{{ unitBreakBands(unit).breakAndFlee }}</small></span></label></div></section>
-                    <fieldset v-else-if="combatDispositionFor(unit.instanceId) === 'won'" class="follow-up-checks"><legend>Winner follow up</legend><label v-for="result in followUpOptions" :key="`${unit.instanceId}-follow-${result.id}`"><input type="checkbox" :checked="unitTurnState(unit.instanceId).followUpResult === result.id" :disabled="isReadOnly" @change="setFollowUpResult(unit.instanceId, result.id, ($event.target as HTMLInputElement).checked)" /><span><strong>{{ result.label }}</strong><small>{{ result.detail }}</small></span></label></fieldset>
+                    <fieldset v-else-if="combatDispositionFor(unit.instanceId) === 'won'" class="winner-follow-up-panel"><legend>Winner follow up</legend><div class="follow-up-outcome-grid"><label v-for="result in followUpOptions" :key="`${unit.instanceId}-follow-${result.id}`" class="break-outcome-card follow-up-outcome-card" :class="{ selected: unitTurnState(unit.instanceId).followUpResult === result.id }"><input type="checkbox" :checked="unitTurnState(unit.instanceId).followUpResult === result.id" :disabled="isReadOnly" @change="setFollowUpResult(unit.instanceId, result.id, ($event.target as HTMLInputElement).checked)" /><span><strong>{{ result.label }}</strong><small>{{ followUpDetail(unit, result.id) }}</small></span></label></div></fieldset>
                     <p v-else-if="combatDispositionFor(unit.instanceId) === 'draw'" class="combat-result-host-note">Drawn combat: no Break Test is made because there is no losing side.</p>
                   </template>
                 </article>
@@ -1067,7 +1253,7 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
           </template>
         </section>
 
-        <section v-if="isEndScoreStep" class="end-round-score-panel card-inset" aria-label="Round score calculation"><div class="setup-section-heading"><div><p class="eyebrow">END OF ROUND · STEP 2</p><h3>Round &amp; Score Calculation</h3></div></div><p>Record the current running score after resolving this round’s scoring conditions, then choose which turn begins next or mark the round complete.</p><div class="game-score-board end-round-score-board"><div class="game-score-side"><small>{{ game.playerListName }}</small><div><button type="button" :disabled="isReadOnly" @click="adjustScore('player', -1)">−</button><strong>{{ game.playerScore }}</strong><button type="button" :disabled="isReadOnly" @click="adjustScore('player', 1)">+</button></div></div><span class="game-score-divider">—</span><div class="game-score-side"><small>{{ game.opponentListName || game.opponentName }}</small><div><button type="button" :disabled="isReadOnly" @click="adjustScore('opponent', -1)">−</button><strong>{{ game.opponentScore }}</strong><button type="button" :disabled="isReadOnly" @click="adjustScore('opponent', 1)">+</button></div></div></div></section>
+        <section v-if="isEndScoreStep" class="end-round-score-content" aria-label="Round score calculation"><div class="setup-section-heading"><div><p class="eyebrow">END OF ROUND · STEP 2</p><h3>Round &amp; Score Calculation</h3></div></div><p>Record the current running score after resolving this round’s scoring conditions, then choose which turn begins next or mark the round complete.</p><div class="game-score-board end-round-score-board"><div class="game-score-side"><small>{{ game.playerListName }}</small><div><button type="button" :disabled="isReadOnly" @click="adjustScore('player', -1)">−</button><strong>{{ game.playerScore }}</strong><button type="button" :disabled="isReadOnly" @click="adjustScore('player', 1)">+</button></div></div><span class="game-score-divider">—</span><div class="game-score-side"><small>{{ game.opponentListName || game.opponentName }}</small><div><button type="button" :disabled="isReadOnly" @click="adjustScore('opponent', -1)">−</button><strong>{{ game.opponentScore }}</strong><button type="button" :disabled="isReadOnly" @click="adjustScore('opponent', 1)">+</button></div></div></div></section>
         <div v-if="!isReadOnly && isEndScoreStep" class="game-step-actions end-round-actions"><button type="button" class="secondary-button" @click="back">‹ Back</button><button type="button" class="secondary-button friendly-turn-action" :disabled="roundsComplete" @click="startTurnFromEnd('player')">Friendly Turn</button><button type="button" class="secondary-button enemy-turn-action" :disabled="roundsComplete" @click="startTurnFromEnd('opponent')">Enemy Turn</button><button type="button" class="primary-button" :disabled="roundsComplete" @click="endRoundFromEnd">End of Round</button></div>
         <div v-else-if="!isReadOnly" class="game-step-actions match-sticky-nav"><button type="button" class="secondary-button" :disabled="battleStarted && isOverviewStep" @click="back">‹ Back</button><button type="button" class="primary-button" :disabled="advanceButtonDisabled" @click="advance">{{ advanceButtonLabel }} ›</button></div>
       </section>

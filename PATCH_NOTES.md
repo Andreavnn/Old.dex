@@ -1,23 +1,32 @@
-# Old.dex Alpha 0.46
+# Old.dex Alpha 0.47
 
-Alpha 0.46 returns match spell presentation to Old.dex's canonical rule cards and tightens match-state controls, deployment order, and roster actions.
-
-## Match
-- Setup Step 2 spells now use the same `RuleAbilityCard` presentation as Special Rules and Magical Items, with only the Select control added for spell generation.
-- Spells shown in their castable phase/subphase use the same canonical rule box and now have mutually exclusive Successful / Failed tracking.
-- Deployment Step 2 now enforces the displayed order: ordinary units, War Machines, Characters, then Scouts / special deployment. Later groups remain locked until earlier groups are resolved or placed in Reserve.
-- Disruptive Weather uses the standard expandable match rule-panel presentation while retaining the required D6 result and progression gate.
-- Corrected the Tips master flip switch so generic checkbox sizing no longer overrides it.
-- Reduced and bounded the Back / Next controls so they stay inside the match panel.
-- Combat Step 1 marks units that successfully charged with a `Charged` status.
-- Depleted limited-use rules/items lock their tracking checkbox.
-- Movement Step 2 adds `In Combat`. Hold and In Combat exclude all charge actions; charge actions lock Hold and In Combat.
+Alpha 0.47 consolidates roster transfer controls, fixes theme-independent pill presentation, and deepens match-state handling for Battle Conditions, magic, Shooting, Combat Result, and End of Round.
 
 ## Army Rosters
-- Reworked roster-entry actions into the compact square button layout: Export, Lock, Enemy toggle, Copy, Share Code, and Delete where applicable.
-- Kept the QR-shaped roster icon as the Share Code action only; no QR generation or scanning is reintroduced.
-- Added direct per-roster Delete with confirmation.
+- Replaced the My Rosters icon-only transfer controls with word actions.
+- Combined roster import into one `Import Roster` action with either JSON file upload or pasted Share Code.
+- Combined roster export into one `Export Roster` action with either file download or Share Code sharing.
+- Added a left-side roster filter and removed the page-level Delete control.
+- Restored saved-roster actions in this order: View, Edit, Lock, Mark Enemy, Copy, Share, Delete.
+- Restored the flag icon and `Mark as Enemy Roster` label.
+- Moved current/limit points beside the roster name and removed redundant VALID / Locked copy.
+
+## Theme
+- Common pill UI now uses fixed semantic foreground/background/border palettes in both Light and Dark modes.
+- Magic/rule and roster-status pills retain their intended colors instead of inheriting Dark Mode surface variables.
+
+## Match
+- Scenario Game Length defaults to the minimum stated round count when a selected scenario gives a range or minimum, unless the user already customized the round limit.
+- Setup spell Select controls sit lower beneath the card accent edge, and spell type is presented below the spell name.
+- Added a universal Ongoing Battle Conditions panel at the top of active battle phases; the prior duplicated Wilderness Terrain phase reminders are removed.
+- Replaced miniature limited-use pills with larger text-size-aware remaining-use status blocks.
+- Added Total Power and Miscast tracking for castable spells. Total Power automatically marks Miscast.
+- Miscasts open the source Miscast table inline with selectable results. Results that prevent further casting lock that Wizard for the source-defined phase or turn.
+- The miscast tracker also supports source-defined Wizard Level loss and lets the player choose known spells to forget when a level-loss result requires it.
+- Shooting weapon profiles are back above To Hit penalty controls.
+- Mixed Ballistic Skill details only expand when the unit actually contains more than one distinct BS value.
+- Winning Combat Result follow-up choices now use the same card treatment as lost-combat outcomes and include explicit test/roll instructions.
+- Round & Score Calculation is flattened into End of Round Step 2 rather than nested in its own panel.
 
 ## Release
-- Updated package, header, footer, changelog, and PWA cache metadata to Alpha Build 0.46.
-- Expanded permanent match regressions for canonical spell cards, cast results, deployment gating, charge-state exclusivity, depleted-use locking, compact navigation, Combat charge carry-through, and roster actions.
+- Updated package, header, footer, Settings changelog label, Share Code metadata, changelog, and PWA cache to Alpha Build 0.47.

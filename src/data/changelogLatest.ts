@@ -1,6 +1,6 @@
 import type { ChangelogEntry } from './changelog'
 
-export const latestChangelogEntry: ChangelogEntry = {
+const alpha046ChangelogEntry: ChangelogEntry = {
   version: '0.46',
   title: 'Canonical match spell cards, deployment gating, and combat-state tracking',
   notes: [
@@ -17,10 +17,7 @@ export const latestChangelogEntry: ChangelogEntry = {
     'Bumped package, header, footer, and PWA cache metadata to Alpha Build 0.46.',
   ],
 }
-
-export const recentChangelogEntries: ChangelogEntry[] = [
-  latestChangelogEntry,
-  {
+const alpha045ChangelogEntry: ChangelogEntry = {
   version: '0.45',
   title: 'Settings cleanup, Share Codes, rule resolution, and match UI refinement',
   notes: [
@@ -35,5 +32,30 @@ export const recentChangelogEntries: ChangelogEntry[] = [
     'Restored Disruptive Weather as an always-visible required pre-deployment D6 table with inline rules access, saved result selection, and progression gating until a result is recorded.',
     'Bumped package/header/footer/PWA metadata to Alpha Build 0.45 and extended permanent regressions for the new UI and rule-resolution behavior.',
   ],
-},
+}
+
+export const latestChangelogEntry: ChangelogEntry = {
+  version: '0.47',
+  title: 'Roster transfer consolidation, persistent magic state, and match presentation refinements',
+  notes: [
+    'Consolidated My Rosters import into one word-based action with file upload or Share Code entry, consolidated export into one action with file download or Share Code, added a left-side roster filter, and removed the page-level Delete control.',
+    'Restored saved-roster actions in the requested order: View, Edit, Lock, Mark Enemy, Copy, Share, Delete. The enemy action uses the flag icon and is labeled Mark as Enemy Roster.',
+    'Moved each roster point total beside the roster name and removed the redundant VALID / Locked status copy from roster cards.',
+    'Made shared pill UI colors theme-independent so Dark Mode no longer recolors equipment, composition, rule, magic, and status pills.',
+    'Game Length now prefers the minimum round count stated by a selected scenario when the scenario provides a range or minimum and the user has not customized the round count.',
+    'Adjusted Setup spell-card layout so Select sits below the card accent edge and the spell type appears beneath the spell name.',
+    'Added a universal Ongoing Battle Conditions panel at the top of battle phases, replacing phase-specific Wilderness Terrain reminder duplication.',
+    'Redesigned limited-use action status as a larger text-size-aware remaining-use block rather than a miniature pill.',
+    'Added Total Power and Miscast tracking to castable spells. Total Power also marks Miscast, the source Miscast table is selectable inline, casting lockouts persist for the appropriate phase or turn, and source-defined Wizard Level loss can track forgotten known spells.',
+    'Moved Shooting weapon profiles above To Hit penalty controls and only expands mixed Ballistic Skill details when distinct BS values exist.',
+    'Reworked winning Combat Result follow-up choices into the same card treatment as losing outcomes and added explicit roll/test instructions.',
+    'Flattened End of Round Step 2 Round & Score Calculation into the step content instead of nesting it in a second panel.',
+    'Bumped package, header, footer, Settings changelog label, Share Code metadata, and PWA cache metadata to Alpha Build 0.47.',
+  ],
+}
+
+export const recentChangelogEntries: ChangelogEntry[] = [
+  latestChangelogEntry,
+  alpha046ChangelogEntry,
+  alpha045ChangelogEntry,
 ]

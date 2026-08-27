@@ -1,16 +1,5 @@
-/* Theme corrections shared by Old.dex surfaces. */
-
-/* Alpha 0.37 introduced a blanket Dark Mode rule that forced all pill/chip text
-   to black. Override it after styles.css and pair foreground AND background so
-   every neutral pill remains readable in the active theme. */
-html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"], [class*="-chip "]) {
-  color: var(--ink) !important;
-}
-html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"], [class*="-chip "]) :is(strong, span, small, em, a) {
-  color: inherit !important;
-}
-
-html[data-theme="dark"] :is(
+/* Theme-independent semantic pills. Pills deliberately keep the same palette in light and dark modes. */
+:is(
   .value-chip,
   .prototype-pill,
   .app-option-label,
@@ -21,11 +10,11 @@ html[data-theme="dark"] :is(
   .legacy-pill,
   .legacy-army-pill
 ) {
-  background: var(--paper-2) !important;
-  border-color: var(--line-dark) !important;
-  color: var(--ink) !important;
+  background: #f4f1e9 !important;
+  border-color: #d8d2c6 !important;
+  color: #25231f !important;
 }
-html[data-theme="dark"] :is(
+:is(
   .value-chip,
   .prototype-pill,
   .app-option-label,
@@ -37,18 +26,24 @@ html[data-theme="dark"] :is(
   .legacy-army-pill
 ) :is(strong, span, small, em, a) { color: inherit !important; }
 
-html[data-theme="dark"] .rule-kind-pill,
-html[data-theme="dark"] .old-rule-phase {
-  background: color-mix(in srgb, var(--accent) 17%, var(--paper)) !important;
-  border-color: color-mix(in srgb, var(--accent) 46%, var(--line-dark)) !important;
-  color: color-mix(in srgb, var(--accent) 78%, white) !important;
+/* Magic/rule pills retain their semantic purple/tan palette regardless of site theme. */
+:is(.composition-selected-label, .rule-kind-pill, .old-rule-phase) {
+  background: #ece2f3 !important;
+  border-color: #d5c1e1 !important;
+  color: #5f3b73 !important;
 }
-html[data-theme="dark"] :is(.rule-kind-pill,.old-rule-phase) :is(strong, span, small, em) { color: inherit !important; }
+:is(.composition-selected-label, .rule-kind-pill, .old-rule-phase) :is(strong, span, small, em, a) { color: inherit !important; }
 
-html[data-theme="dark"] .match-spell-select {
-  background: var(--paper-2) !important;
-  border-color: var(--line-dark) !important;
-  color: var(--ink) !important;
+:is(.legacy-roster-label, .enemy-roster-label) {
+  background: #eee0c6 !important;
+  border-color: #c9a56f !important;
+  color: #6f4918 !important;
+}
+
+.match-spell-select {
+  background: #fbfaf6 !important;
+  border-color: #d8d2c6 !important;
+  color: #25231f !important;
 }
 
 
@@ -68,3 +63,21 @@ html[data-theme="dark"] .match-spell-select {
 .settings-page .compact-support-buttons{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 .page-utility-actions{flex-wrap:wrap}
 @media(max-width:680px){.settings-page .settings-card>details>summary{align-items:flex-start}.settings-page .donation-setting-row{align-items:stretch;flex-direction:column}.settings-page .compact-support-buttons{width:100%;justify-content:stretch}.settings-page .compact-support-buttons>*{flex:1 1 auto}}
+
+/* Builder roster chips are also fixed semantic pills rather than theme surfaces. */
+.roster-included-chip {
+  background:#25231f !important;
+  border-color:#25231f !important;
+  color:#fbfaf6 !important;
+}
+.roster-option-chip {
+  background:#ece2f3 !important;
+  border-color:#d5c1e1 !important;
+  color:#5f3b73 !important;
+}
+.configured-rule-line > a {
+  background:#f4f1e9 !important;
+  border-color:#d8d2c6 !important;
+  color:#25231f !important;
+}
+:is(.roster-included-chip,.roster-option-chip,.configured-rule-line > a) :is(strong,span,small,em,a){color:inherit !important}

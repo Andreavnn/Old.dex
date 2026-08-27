@@ -42,7 +42,7 @@ test('charge range engine reads only active roster rules and selected magical it
 
 test('match tracking persists fleeing, rule uses and cross-turn history', () => {
   const source = read('src/services/matchTracking.ts')
-  assert.ok(source.includes('version: 3'))
+  assert.ok(source.includes('version: 4'))
   assert.ok(source.includes('fleeing?: boolean'))
   assert.ok(source.includes('ruleUses: Record<string, Record<string, number>>'))
   assert.ok(source.includes('chargeHistory: MatchHistoryRow[]'))
@@ -81,13 +81,15 @@ test('selected spell metadata is persisted before later subphase guidance is bui
   assert.ok(view.includes("fight: 'Assailment Spells'"))
 })
 
-test('Dark Mode semantic correction fixes both foreground and neutral pill surfaces', () => {
+test('Pill UI uses theme-independent semantic foreground and surfaces', () => {
   const theme = read('src/styles/theme.css')
   assert.ok(theme.includes('.prototype-pill'))
   assert.ok(theme.includes('.profile-loadout-chip'))
   assert.ok(theme.includes('.old-rule-phase'))
-  assert.ok(theme.includes('background: var(--paper-2) !important'))
-  assert.ok(theme.includes('color: var(--ink) !important'))
+  assert.ok(theme.includes('background: #f4f1e9 !important'))
+  assert.ok(theme.includes('color: #25231f !important'))
+  assert.ok(theme.includes('background: #ece2f3 !important'))
+  assert.equal(theme.includes('html[data-theme="dark"] :is([class$="-pill"]'), false)
 })
 
 test('single-model Combat uses Wounds Remaining', () => {
@@ -110,14 +112,15 @@ test('Disruptive Weather blocks deployment progression until a result is recorde
   assert.ok(view.includes('advanceButtonDisabled'))
 })
 
-test('Wilderness Terrain is moved to Deploy Armies and later closed reminders', () => {
+test('Wilderness Terrain remains at deployment and battle conditions use a universal phase-top reminder', () => {
   const view = read('src/views/GameMatchView.vue')
   const deploymentOrder = view.slice(view.indexOf('v-else-if="isDeploymentOrderStep"'), view.indexOf('v-else-if="isDeployArmiesStep"'))
   const deployArmies = view.slice(view.indexOf('v-else-if="isDeployArmiesStep"'), view.indexOf('v-else-if="isRoundStartStep"'))
   assert.equal(deploymentOrder.includes('Wilderness Terrain'), false)
   assert.ok(deployArmies.includes('Wilderness Terrain'))
-  assert.ok(view.includes('wilderness-terrain-reminder'))
-  assert.equal(/<details[^>]+wilderness-terrain-reminder[^>]+open/.test(view), false)
+  assert.ok(view.includes('ONGOING BATTLE CONDITIONS'))
+  assert.ok(view.includes('ongoingBattleConditions'))
+  assert.equal((view.match(/class="wilderness-terrain-reminder card-inset"/g) || []).length, 0)
 })
 
 test('Chaos of War uses the first-turn player and the requested source-rule procedure', () => {
@@ -143,12 +146,14 @@ test('Shooting To Hit calculation follows BS table and cumulative penalties', ()
   assert.equal(shooting.shootingToHit(7, -1).label, '3+ / 5+ re-roll')
 })
 
-test('Shooting displays BS, calculated To Hit and expandable mixed-BS profiles', () => {
+test('Shooting displays calculated To Hit and expands only genuinely different BS values', () => {
   const view = read('src/views/GameMatchView.vue')
   assert.ok(view.includes('To Hit {{ shootingToHitLabel'))
   assert.ok(view.includes('Different Ballistic Skills in this unit'))
-  assert.ok(view.includes('ballisticSkillRows'))
+  assert.ok(view.includes('distinctBallisticSkillRows'))
   assert.ok(view.includes('shootingPenaltyOptions'))
+  const row = view.slice(view.indexOf('class="shooting-unit-copy"'), view.indexOf('</article></div><p v-else class="setup-inline-status">No selected ranged weapons', view.indexOf('class="shooting-unit-copy"')))
+  assert.ok(row.indexOf('shooting-weapon-list') < row.indexOf('shooting-penalty-options'))
 })
 
 test('Combat Step 1 separates checkbox interaction from explicit profile navigation', () => {
@@ -214,7 +219,7 @@ test('Settings uses Access & Community and Brambleheart-style donation/changelog
   assert.ok(settings.includes('DONATION'))
   assert.ok(settings.includes('Recurring Support'))
   assert.ok(settings.includes('CHANGELOG &amp; UPDATES'))
-  assert.ok(settings.includes('Site Changelog - Alpha 0.46'))
+  assert.ok(settings.includes('Site Changelog - Alpha 0.47'))
 })
 
 test('Roster transfer removes QR machinery while keeping the QR-shaped row icon as Share Code', () => {
@@ -227,8 +232,8 @@ test('Roster transfer removes QR machinery while keeping the QR-shaped row icon 
   assert.equal(home.includes('capture="environment"'), false)
   assert.equal(home.includes('Scan QR'), false)
   assert.equal(home.includes('roster-share-qr'), false)
-  assert.ok(home.includes('Enter Share Code'))
-  assert.ok(home.includes('aria-label="Share roster code"'))
+  assert.ok(home.includes('Paste Share Code'))
+  assert.ok(home.includes('aria-label="Share roster"'))
   assert.ok(home.includes('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z'))
   assert.equal(home.includes('Import custom data'), false)
 })
@@ -343,29 +348,101 @@ test('match Back and Next navigation uses compact bounded controls', () => {
   assert.ok(css.includes('max-width: min(180px, 42vw)'))
 })
 
-test('roster entry actions follow the compact management button set', () => {
+test('My Rosters consolidates transfer controls and saved entries use the requested action order', () => {
   const home = read('src/views/HomeView.vue')
-  const start = home.indexOf('<div v-if="!deleteMode" class="saved-list-row-actions">')
+  assert.ok(home.includes('>Filter</button>'))
+  assert.ok(home.includes('>Import Roster</button>'))
+  assert.ok(home.includes('>Export Roster</button>'))
+  assert.ok(home.includes('Upload File'))
+  assert.ok(home.includes('Paste Share Code'))
+  assert.ok(home.includes('Download File'))
+  assert.equal(home.includes('title="Delete rosters"'), false)
+  const start = home.indexOf('<div class="saved-list-row-actions">')
   const end = home.indexOf('</div>', start)
   const row = home.slice(start, end)
-  assert.ok(row.indexOf('roster-export-action') < row.indexOf('roster-lock-action'))
-  assert.ok(row.indexOf('roster-lock-action') < row.indexOf('enemy-roster-toggle'))
-  assert.ok(row.indexOf('enemy-roster-toggle') < row.indexOf('Copy roster'))
-  assert.ok(row.indexOf('Copy roster') < row.indexOf('Share roster code'))
-  assert.ok(row.indexOf('Share roster code') < row.indexOf('roster-delete-action'))
-  assert.equal(row.includes('View roster'), false)
-  assert.ok(home.includes('function deleteRoster(list: SavedArmyList)'))
-  assert.ok(home.includes('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z'))
+  assert.ok(row.indexOf('View roster') < row.indexOf('Edit roster'))
+  assert.ok(row.indexOf('Edit roster') < row.indexOf('roster-lock-action'))
+  assert.ok(row.indexOf('roster-lock-action') < row.indexOf('Mark as Enemy Roster'))
+  assert.ok(row.indexOf('Mark as Enemy Roster') < row.indexOf('Copy roster'))
+  assert.ok(row.indexOf('Copy roster') < row.indexOf('Share roster'))
+  assert.ok(row.indexOf('Share roster') < row.indexOf('roster-delete-action'))
+  assert.equal(row.includes('Export roster'), false)
+  assert.ok(home.includes('saved-list-name-points'))
+  assert.equal(home.includes("rosterState(list).toUpperCase()"), false)
 })
 
 
-test('Alpha 0.46 release metadata is synchronized', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '0.46.0')
-  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.46'))
-  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.46'))
-  assert.ok(read('public/sw.js').includes('v046'))
+
+test('scenario round defaults prefer a stated minimum', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('function scenarioMinimumRounds'))
+  assert.ok(view.includes('/between\\s+(\\d+)\\s+and\\s+(\\d+)\\s+rounds?/'))
+  assert.ok(view.includes('/(\\d+)\\s*(?:-|to)\\s*(\\d+)\\s+rounds?/'))
+  assert.ok(view.includes('scenarioMinimumRounds(text) ||'))
+})
+
+test('Setup spell select is lowered and spell type is ordered below the name', () => {
+  const css = read('src/styles/match.css')
+  assert.ok(css.includes('.match-spell-choice-shell > .match-spell-select { top: 15px; }'))
+  assert.ok(css.includes('.old-rule-title-row { order: 1; }'))
+  assert.ok(css.includes('.old-rule-pill-row { order: 2;'))
+})
+
+test('limited-use actions use a readable remaining-use status block', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const css = read('src/styles/match.css')
+  assert.ok(view.includes('class="tracked-use-status"'))
+  assert.ok(view.includes('ruleUseRemaining(rule) ?? rule.useLimit'))
+  assert.ok(css.includes('.tracked-use-status'))
+  assert.ok(css.includes('font-size:calc(11px + var(--font-offset))'))
+})
+
+test('Total Power implies Miscast and source miscast outcomes can stop later casting', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const tracking = read('src/services/matchTracking.ts')
+  assert.ok(view.includes('<span>Total Power</span>'))
+  assert.ok(view.includes('<span>Miscast</span>'))
+  assert.ok(view.includes("totalPower: checked, miscast: checked ? true"))
+  assert.ok(view.includes("loadRandomHappeningTable('/magic/miscast-table')"))
+  assert.ok(view.includes('miscastCastingStop'))
+  assert.ok(view.includes('wizardCannotCast'))
+  assert.ok(tracking.includes('spellCasts: Record<string, MatchSpellCastState>'))
+  assert.ok(tracking.includes("scope?: 'phase' | 'turn'"))
+})
+
+test('miscast level-loss handling can track forgotten known spells when the source rule requires it', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const tracking = read('src/services/matchTracking.ts')
+  assert.ok(view.includes('miscastLosesWizardLevel'))
+  assert.ok(view.includes('Wizard Levels lost'))
+  assert.ok(view.includes('knownSpellsForMiscast'))
+  assert.ok(view.includes('setSpellForgottenForMiscast'))
+  assert.ok(tracking.includes('forgottenSpellIds?: string[]'))
+  assert.ok(tracking.includes('levelLost?: number'))
+})
+
+test('winning Combat follow-up choices mirror loss cards and explain tests', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('winner-follow-up-panel'))
+  assert.ok(view.includes('break-outcome-card follow-up-outcome-card'))
+  assert.ok(view.includes('Roll 2D6 and score'))
+  assert.ok(view.includes('normal Pursuit roll'))
+})
+
+test('End of Round score is flattened into the step content', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('class="end-round-score-content"'))
+  assert.equal(view.includes('class="end-round-score-panel card-inset"'), false)
+})
+
+test('Alpha 0.47 release metadata is synchronized', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '0.47.0')
+  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.47'))
+  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.47'))
+  assert.ok(read('src/views/SettingsView.vue').includes('Site Changelog - Alpha 0.47'))
+  assert.ok(read('public/sw.js').includes('v047'))
+  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.47'"))
   assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.46'"))
-  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.45'"))
 })
 
 let passed = 0
@@ -373,4 +450,4 @@ for (const [name, fn] of tests) {
   try { await fn(); passed += 1 }
   catch (error) { console.error(`FAIL: ${name}`); throw error }
 }
-console.log(`ODX 0.46 regressions passed: ${passed}/${tests.length}`)
+console.log(`ODX 0.47 regressions passed: ${passed}/${tests.length}`)
