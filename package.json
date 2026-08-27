@@ -1,7 +1,7 @@
 {
   "name": "olddex-gui",
   "private": true,
-  "version": "0.43.0",
+  "version": "0.44.0",
   "type": "module",
   "packageManager": "npm@10.9.2",
   "engines": {
@@ -21,12 +21,14 @@
   },
   "dependencies": {
     "vue": "3.5.18",
-    "vue-router": "4.5.1"
+    "vue-router": "4.5.1",
+    "qrcode": "1.5.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "6.0.1",
     "typescript": "5.8.3",
     "vite": "7.1.2",
-    "vue-tsc": "3.0.4"
+    "vue-tsc": "3.0.4",
+    "@types/qrcode": "1.5.5"
   }
 }

@@ -1,0 +1,27 @@
+OLD.DEX — DROPBOX CLOUD SYNC
+
+Cloud Sync is optional. Old.dex continues to use the current device as the active local roster store.
+
+CONNECT DROPBOX
+1. Open Old.dex Settings.
+2. Open Data & Content > Cloud Sync.
+3. Select Connect Dropbox.
+4. Approve Old.dex in Dropbox and return to Old.dex.
+
+UPDATE FROM CLOUD
+- Select Update from Cloud when you want Old.dex to read roster files from its Dropbox App Folder.
+- A cloud roster with the same internal roster ID replaces the local copy.
+- Cloud rosters not present locally are added.
+- Local rosters not present in Dropbox remain on the device.
+
+UPLOAD LOCAL
+- Select Upload Local when you want to write all current local rosters to the Old.dex Dropbox App Folder.
+- Existing cloud files with the same internal roster ID are updated.
+- New local rosters create new cloud files.
+- Old.dex does not delete unrelated cloud roster files during upload.
+
+DISCONNECT
+- Select Disconnect to remove Dropbox authorization from this device.
+- Disconnecting does not delete files already stored in Dropbox.
+
+Old.dex only reads and writes files ending in _ODX.json inside the Dropbox App Folder assigned to Old.dex. It does not poll Dropbox or sync in the background.

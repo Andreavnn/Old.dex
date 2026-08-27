@@ -1,4 +1,4 @@
-/* Canonical guided-match layout and interaction rules. */
+/* Guided-match layout and interaction rules. */
 .game-match-page .game-match-shell,
 .game-match-page .game-step-card,
 .game-match-page .game-step-card > *,
@@ -22,7 +22,7 @@
 .game-match-page .shooting-unit-copy,
 .game-match-page .deployment-unit-copy { min-width: 0; }
 
-/* Steppers must retain readable foreground/background contrast in either theme. */
+/* Steppers retain readable foreground/background contrast in either theme. */
 .game-match-page .casualty-stepper button,
 .game-match-page .game-score-side button {
   color: var(--ink) !important;
@@ -35,25 +35,98 @@
   background: var(--paper-2) !important;
 }
 
+/* Spell generation uses a dedicated rule-card layout rather than inheriting the
+   compact generic rule summary grid. This keeps long spell names, icons and the
+   select control from colliding at normal and enlarged text sizes. */
 .canonical-spell-choice-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(285px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 12px;
 }
-.match-spell-choice-card { height: 100%; transition: border-color .15s ease, box-shadow .15s ease, opacity .15s ease; }
+.match-spell-choice-card {
+  height: 100%;
+  display: grid;
+  align-content: start;
+  overflow: hidden;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
 .match-spell-choice-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent); }
-.match-spell-choice-card.unavailable { opacity: .58; }
-.match-spell-select { display: inline-grid; place-items: center; flex: 0 0 auto; }
+.match-spell-choice-card.unavailable { opacity: 1; }
+.match-spell-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 13px 7px;
+  min-width: 0;
+}
+.match-spell-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.match-spell-title-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 3px 13px 11px;
+  min-width: 0;
+}
+.match-spell-title-row strong {
+  min-width: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: calc(15px + var(--font-offset));
+  line-height: 1.16;
+  color: var(--ink);
+}
+.match-spell-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-weight: 800;
+}
 .match-spell-select input { width: 18px; height: 18px; margin: 0; }
+.match-spell-select input:disabled + span { color: var(--ink-soft); }
+.match-spell-rule-body { border-top: 1px solid var(--line); }
 .match-spell-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
 .match-spell-meta div { padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper-2); }
 .match-spell-meta dt { font-size: calc(8px + var(--font-offset)); font-weight: 850; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
-.match-spell-meta dd { margin: 2px 0 0; font-weight: 850; }
+.match-spell-meta dd { margin: 2px 0 0; font-weight: 850; color: var(--ink); }
 
+/* Battle March condition handling. Expandable condition references default
+   closed and remain normal flow content even after navigating to their rules. */
 .condition-resolution-panel { display: grid; gap: 12px; padding: 14px 16px; margin: 0 16px 14px; width: calc(100% - 32px) !important; }
-.condition-resolution-entry { display: grid; gap: 9px; min-width: 0; }
-.condition-resolution-entry + .condition-resolution-entry { padding-top: 12px; border-top: 1px solid var(--line); }
-.condition-resolution-entry > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.condition-resolution-details,
+.wilderness-terrain-reminder {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper-2);
+  overflow: hidden;
+}
+.condition-resolution-details > summary,
+.wilderness-terrain-reminder > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--ink);
+}
+.condition-resolution-details > summary::-webkit-details-marker,
+.wilderness-terrain-reminder > summary::-webkit-details-marker { display: none; }
+.condition-resolution-details > summary::after,
+.wilderness-terrain-reminder > summary::after { content: '⌄'; flex: 0 0 auto; color: var(--ink-soft); }
+.condition-resolution-details[open] > summary::after,
+.wilderness-terrain-reminder[open] > summary::after { content: '⌃'; }
+.condition-resolution-body,
+.wilderness-terrain-reminder > div { display: grid; gap: 9px; padding: 0 12px 12px; }
+.condition-required-label { color: var(--danger); font-size: calc(9px + var(--font-offset)); letter-spacing: .05em; text-transform: uppercase; }
 .resolved-condition-result { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--accent-wash) 32%, var(--paper)); }
 .resolved-condition-result p { margin: 0; line-height: 1.45; color: var(--ink); }
 .chaos-of-war-resolution { margin: 0 0 14px; width: 100% !important; }
@@ -66,20 +139,34 @@
 
 .rally-unit-list { display: grid; gap: 9px; }
 .rally-unit-list > article { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+
+/* Shooting characteristic/target calculation. */
 .shooting-unit-copy > header { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
-.shooting-bs-chip { display: inline-flex; align-items: center; min-height: 25px; padding: 3px 8px; border: 1px solid var(--line-dark); border-radius: 999px; background: var(--paper-2); color: var(--ink); font-weight: 900; }
-.shooting-penalty-controls { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0; }
-.shooting-penalty-controls label { display: inline-flex; align-items: center; gap: 5px; min-height: 31px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); cursor: pointer; }
-.shooting-penalty-controls label.selected { border-color: var(--accent); background: var(--accent-wash); }
-.shooting-penalty-controls label input { margin: 0; }
-.shooting-modifier-total { display: inline-flex; align-items: center; gap: 5px; min-height: 31px; padding: 4px 9px; border: 1px solid var(--line-dark); border-radius: 9px; background: var(--paper-2); }
-.combat-profile-clickable { cursor: pointer; }
-.combat-profile-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.combat-profile-clickable:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent-wash) 20%, var(--paper)); }
+.shooting-bs-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.shooting-to-hit-chip { font-weight: 900; }
+.shooting-bs-breakdown { margin-top: 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper-2); }
+.shooting-bs-breakdown > summary { padding: 8px 10px; cursor: pointer; font-weight: 800; color: var(--ink); }
+.shooting-bs-breakdown > div { display: grid; gap: 5px; padding: 0 10px 10px; }
+.shooting-bs-breakdown > div > span { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); padding-top: 6px; }
+.shooting-bs-breakdown small { color: var(--ink-soft); }
+.shooting-penalty-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0; }
+.shooting-penalty-options label { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); color: var(--ink); cursor: pointer; }
+.shooting-penalty-options label.selected { border-color: var(--accent); background: var(--accent-wash); }
+.shooting-penalty-options label input { margin: 0; }
+.shooting-penalty-options label strong { margin-left: 2px; }
+
+/* Combat checkbox and profile-link targets are separate. The surrounding row is
+   deliberately not a navigation surface so attempts to hit the checkbox cannot
+   open the unit profile. */
+.combat-fight-unit { cursor: default; }
+.combat-fight-check { flex: 0 0 auto; }
+.combat-fight-unit-copy { display: grid; gap: 3px; min-width: 0; }
+.combat-profile-roster-link { width: max-content; max-width: 100%; }
+.combat-joined-note { display: block; margin-top: 2px; }
 
 .match-snapshot-profile-shell { display: grid; gap: 12px; }
 .match-profile-row,.match-profile-section { padding: 15px 17px; }
-.match-profile-row h2 { margin: 0 0 12px; font-family: Georgia, 'Times New Roman', serif; }
+.match-profile-row h2 { margin: 0 0 12px; font-family: Georgia, 'Times New Roman', serif; text-align: center; }
 .match-profile-stat-grid { grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); }
 .match-profile-magic-list { display: grid; gap: 8px; }
 .match-profile-magic-list article { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
@@ -91,6 +178,9 @@
   .condition-resolution-panel { margin-inline: 10px; width: calc(100% - 20px) !important; }
   .game-match-page .game-step-heading { padding-inline: 12px; }
   .game-match-page :is(.turn-guidance-panel,.match-procedure-panel) { margin-inline: 10px; max-width: calc(100% - 20px); }
-  .shooting-penalty-controls label { width: 100%; justify-content: space-between; }
+  .match-spell-card-head { align-items: flex-start; }
+  .match-spell-select span { display: none; }
+  .shooting-penalty-options label { width: 100%; justify-content: space-between; }
+  .shooting-bs-breakdown > div > span { align-items: flex-start; flex-direction: column; gap: 2px; }
   .match-profile-magic-list article { flex-direction: column; gap: 3px; }
 }

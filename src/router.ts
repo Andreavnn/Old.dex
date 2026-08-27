@@ -26,6 +26,7 @@ const router = createRouter({
     { path: '/lists', name: 'lists', component: HomeView },
     { path: '/lists/create', name: 'create-list', component: CreateListView },
     { path: '/lists/builder', name: 'list-builder', component: ListBuilderView },
+    { path: '/lists/shared', name: 'list-shared', component: ListView },
     { path: '/lists/view/:listId', name: 'list-view', component: ListView },
     { path: '/rules', name: 'rules', component: RulesView },
     { path: '/rules/read/:pathMatch(.*)*', name: 'rule-reader', component: RuleReaderView },

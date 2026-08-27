@@ -1,20 +1,19 @@
 import type { ChangelogEntry } from './changelog'
 
 export const latestChangelogEntry: ChangelogEntry = {
-  version: '0.43',
-  title: 'Persistent match state, snapshot profiles, and guided-play UI correction',
+  version: '0.44',
+  title: 'Roster sharing, Dropbox sync, spell recovery, and match-flow refinement',
   notes: [
-    'Removed the blanket Dark Mode pill/chip black-text override at the semantic theme layer. Neutral pills now follow theme surfaces while rule/spell pills keep readable accent treatment; Combat Result and score steppers are explicitly theme-safe.',
-    'Moved Battle March condition resolution to operational Match timing: Disruptive Weather and Wilderness Terrain resolve at Deployment, while Chaos of War is surfaced at Start of Turn from round 2. Setup now selects conditions without expanding their rules tables.',
-    'Replaced Setup Step 2’s parallel spell renderer with a shared canonical spell-box component so match spell choices use the same rule-box structure as other Old.dex spell/rule surfaces.',
-    'Grouped Deployment entries into visible placement order: ordinary units, War Machines, Characters, then Scouts/special deployment, while retaining reserve and joined-character exceptions.',
-    'Added Leadership to Required Charge Test entries, roster-derived Movement to Remaining Moves, and BS plus selectable To Hit penalties to Shooting.',
-    'Added a dedicated match-roster profile route built from the roster snapshot saved when the match began. Choose & Fight Combat unit panels are fully clickable and no longer depend on List Builder routing to reconstruct roster selections.',
-    'Extended persistent match tracking with actual limited-use counters, charge/combat history, and fleeing state. Fleeing units surface in Rally and Compulsory Moves until they successfully rally or leave play.',
-    'Changed single-model Combat status text to Wounds Remaining while retaining model-count wording for multi-model units.',
-    'Rebuilt maximum declaration range as named, stackable active-source contributions. Swiftstride and Waaagh! Banner now produce the required M + 6 + source bonuses breakdown without counting unselected upgrades.',
-    'Hardened guided-match width, shrink, wrapping, and narrow-screen layout rules to prevent panels and text from crossing the main Match card borders.',
-    'Added Alpha 0.43 regression coverage for charge-source breakdowns, limited-use scopes, persistent fleeing, canonical spell boxes, snapshot profile routing, and Dark Mode pill correction.',
-    'Bumped package/header/footer/PWA cache metadata to Alpha Build 0.43.',
+    'Added versioned local roster sharing through compressed URL payloads, locally generated QR codes, Copy Link and native Share. Shared links open read-only and are never saved until the receiving player explicitly chooses Add to My Rosters.',
+    'Added optional Dropbox App Folder cloud storage for army rosters using OAuth 2 Authorization Code with PKCE, matching Brambleheart’s local-first manual-sync architecture. Update from Cloud, Upload Local and Disconnect are explicit actions; there is no background polling.',
+    'Rebuilt Setup spell presentation and added canonical spell-detail recovery so generated spell cards include their type, Casting Value, Range and effect even when the lore transport flattened its markup. Enriched selected spells are persisted and route into their correct later subphases.',
+    'Removed the Match Note field from guided match pages.',
+    'Changed Battle March deployment handling so Disruptive Weather is a closed pre-deployment reference whose D6 result is required before progression, while Wilderness Terrain appears only at the end of Deploy Armies and as a closed reminder beneath later phase Tips.',
+    'Corrected Chaos of War ownership and recurrence: only the player who took first turn sees it from round 2 onward, prior table results cannot be reused, and the panel now displays the requested source-rule procedure text.',
+    'Removed the 0-inch value from Hold in Remaining Moves.',
+    'Added calculated Shooting To Hit targets beside BS, including cumulative common modifiers, 7+ follow-up rolls, BS6+ re-roll values, and expandable per-profile Ballistic Skills for mixed units.',
+    'Separated Combat Step 1 checkbox interaction from unit-profile navigation, centered match-profile model names, removed magical-item point costs from match profiles, corrected joined-unit spacing, and renamed the joined-character Combat Result notice.',
+    'Expanded Dark Mode pill and chip contrast fixes across match profiles, spell cards and neutral option surfaces.',
+    'Bumped package/header/footer/PWA cache metadata to Alpha Build 0.44 and expanded permanent match regressions for the new sharing, cloud, spell, Battle Condition, Shooting and Combat behavior.',
   ],
 }

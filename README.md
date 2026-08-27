@@ -2,7 +2,7 @@
 
 **Old.dex** is an unofficial companion web app for **Warhammer: The Old World** focused on army building, rules reference, roster validation, and guided match play.
 
-Current public version: **Alpha Build 0.43**
+Current public version: **Alpha Build 0.44**
 
 ## What Old.dex Does
 
@@ -26,7 +26,7 @@ Old.dex combines several tools into one browser-based application:
 - Install as a Progressive Web App on supported desktop and mobile browsers.
 
 
-Alpha Build 0.43 hardens guided match play around roster-snapshot profiles and persistent match state: battle-condition timing, standardized spell boxes, grouped deployment, movement/Leadership/BS references, tracked shooting modifiers, limited-use counters, fleeing/rally state, clickable match profiles, source-aware charge declaration breakdowns, and canonical dark-mode/layout behavior.
+Alpha Build 0.44 adds account-free QR/link roster sharing, optional Dropbox App Folder roster sync, canonical spell-detail recovery, and another guided-match refinement pass covering Battle Conditions, Shooting To Hit calculations, Combat profile interaction, and match-profile readability.
 
 ## Current Alpha Focus
 
@@ -41,6 +41,11 @@ Old.dex is still under active development. Current work is focused primarily on:
 7. Mobile and tablet usability.
 
 The project deliberately favors **failing closed rather than guessing** when a model profile or source rule cannot be resolved with sufficient confidence.
+
+
+## Dropbox deployment configuration
+
+Old.dex uses a Dropbox Scoped Access application configured for **App folder** access. The deployed site receives its public Dropbox App Key through `VITE_DROPBOX_APP_KEY`; normal users authorize their own Dropbox accounts and use their own Dropbox storage quota. The browser implementation uses OAuth 2 Authorization Code with PKCE and does not require the Dropbox App secret. Cloud Sync is manual and local roster storage remains authoritative.
 
 ## Custom Units
 

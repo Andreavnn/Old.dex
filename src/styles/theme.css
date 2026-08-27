@@ -1,8 +1,8 @@
-/* Canonical theme corrections shared by Old.dex surfaces. */
+/* Theme corrections shared by Old.dex surfaces. */
 
-/* Alpha 0.37 introduced a blanket Dark Mode rule that forces every *-pill and
-   *-chip to black. Load this semantic correction after the legacy stylesheet so
-   each pill family uses theme-readable text instead of the forced black value. */
+/* Alpha 0.37 introduced a blanket Dark Mode rule that forced all pill/chip text
+   to black. Override it after styles.css and pair foreground AND background so
+   every neutral pill remains readable in the active theme. */
 html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"], [class*="-chip "]) {
   color: var(--ink) !important;
 }
@@ -10,16 +10,43 @@ html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"
   color: inherit !important;
 }
 
-/* Neutral chips use the current theme surfaces instead of the old fixed light
-   surface. Semantic rule/spell pills keep the accent foreground. */
-html[data-theme="dark"] :is(.value-chip, .match-option-chips > span, .joined-character-pills > span, .required-charge-flag, .legacy-pill, .legacy-army-pill) {
+html[data-theme="dark"] :is(
+  .value-chip,
+  .prototype-pill,
+  .app-option-label,
+  .profile-loadout-chip,
+  .match-option-chips > span,
+  .joined-character-pills > span,
+  .required-charge-flag,
+  .legacy-pill,
+  .legacy-army-pill
+) {
   background: var(--paper-2) !important;
   border-color: var(--line-dark) !important;
   color: var(--ink) !important;
 }
-html[data-theme="dark"] .rule-kind-pill {
-  background: color-mix(in srgb, var(--accent) 14%, var(--paper)) !important;
+html[data-theme="dark"] :is(
+  .value-chip,
+  .prototype-pill,
+  .app-option-label,
+  .profile-loadout-chip,
+  .match-option-chips > span,
+  .joined-character-pills > span,
+  .required-charge-flag,
+  .legacy-pill,
+  .legacy-army-pill
+) :is(strong, span, small, em, a) { color: inherit !important; }
+
+html[data-theme="dark"] .rule-kind-pill,
+html[data-theme="dark"] .old-rule-phase {
+  background: color-mix(in srgb, var(--accent) 17%, var(--paper)) !important;
   border-color: color-mix(in srgb, var(--accent) 46%, var(--line-dark)) !important;
-  color: var(--accent-dark) !important;
+  color: color-mix(in srgb, var(--accent) 78%, white) !important;
 }
-html[data-theme="dark"] .rule-kind-pill :is(strong, span, small, em) { color: inherit !important; }
+html[data-theme="dark"] :is(.rule-kind-pill,.old-rule-phase) :is(strong, span, small, em) { color: inherit !important; }
+
+html[data-theme="dark"] .match-spell-select {
+  background: var(--paper-2) !important;
+  border-color: var(--line-dark) !important;
+  color: var(--ink) !important;
+}

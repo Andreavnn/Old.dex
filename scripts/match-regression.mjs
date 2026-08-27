@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 const root = process.cwd()
 const effects = await import(pathToFileURL(resolve(root, 'src/core/matchEffects.ts')).href)
 const usage = await import(pathToFileURL(resolve(root, 'src/core/matchUsage.ts')).href)
+const shooting = await import(pathToFileURL(resolve(root, 'src/core/shootingToHit.ts')).href)
 const read = (path) => readFileSync(resolve(root, path), 'utf8')
 
 const tests = []
@@ -53,35 +54,156 @@ test('match profiles use a saved match roster route', () => {
   const view = read('src/views/GameMatchView.vue')
   assert.ok(router.includes("name: 'game-unit-profile'"))
   assert.ok(view.includes('`/games/${game.value.id}/unit/${row.instanceId}`'))
-  assert.ok(view.includes('combat-profile-clickable'))
 })
 
-test('Setup spell generation uses the shared canonical spell card', () => {
+test('Setup spell generation uses the shared spell card and recovered canonical metadata', () => {
   const view = read('src/views/GameMatchView.vue')
+  const spell = read('src/services/spellReference.ts')
+  const card = read('src/components/MatchSpellChoiceCard.vue')
   assert.ok(view.includes('MatchSpellChoiceCard'))
-  assert.equal(view.includes('spell-generation-card-select'), false)
+  assert.ok(view.includes('enrichMagicChoices'))
+  assert.ok(spell.includes("`/spell/${slug(choice.name)}`"))
+  assert.ok(spell.includes('parseSpellFromLore'))
+  assert.ok(card.includes('Casting Value'))
+  assert.ok(card.includes('Open spell rules'))
+  assert.equal(card.includes('old-rule-title-row'), false)
 })
 
-test('Dark Mode semantic theme correction overrides the legacy black pill rule', () => {
+test('selected spell metadata is persisted before later subphase guidance is built', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('caster.choices = await enrichMagicChoices(choices)'))
+  assert.ok(view.includes('persistMagicSetup()'))
+  assert.ok(view.includes("conjuration: 'Enchantment & Hex Spells'"))
+  assert.ok(view.includes("'remaining-moves': 'Conveyance Spells'"))
+  assert.ok(view.includes("'special-shooting': 'Magic Missiles & Magical Vortexes'"))
+  assert.ok(view.includes("fight: 'Assailment Spells'"))
+})
+
+test('Dark Mode semantic correction fixes both foreground and neutral pill surfaces', () => {
   const theme = read('src/styles/theme.css')
-  const main = read('src/main.ts')
-  assert.ok(theme.includes('[class$="-pill"]'))
+  assert.ok(theme.includes('.prototype-pill'))
+  assert.ok(theme.includes('.profile-loadout-chip'))
+  assert.ok(theme.includes('.old-rule-phase'))
+  assert.ok(theme.includes('background: var(--paper-2) !important'))
   assert.ok(theme.includes('color: var(--ink) !important'))
-  assert.ok(main.indexOf("import './styles/theme.css'") > main.indexOf("import './styles.css'"))
 })
 
-test('single-model Combat uses Wounds Remaining and Shooting exposes BS penalties', () => {
+test('single-model Combat uses Wounds Remaining', () => {
   const view = read('src/views/GameMatchView.vue')
   assert.ok(view.includes('Wounds Remaining'))
-  assert.ok(view.includes('shootingPenaltyOptions'))
-  assert.ok(view.includes('BS {{ ballisticSkill'))
 })
 
-test('Battle Conditions resolve in their operational steps', () => {
+test('Match Note field is removed from guided match pages', () => {
   const view = read('src/views/GameMatchView.vue')
-  assert.ok(view.includes('deploymentBattlefieldConditions'))
-  assert.ok(view.includes('showChaosOfWarResolution'))
-  assert.ok(view.includes('Select the Battle Conditions being used.'))
+  assert.equal(view.includes('game-step-note-panel'), false)
+  assert.equal(view.includes('saveNotes'), false)
+  assert.equal(/const notes\s*=/.test(view), false)
+})
+
+test('Disruptive Weather blocks deployment progression until a result is recorded', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes("deploymentBattlefieldConditions = computed(() => battlefieldConditionRows.value.filter((option) => option.id === 'disruptive-weather'))"))
+  assert.ok(view.includes('disruptiveWeatherPending'))
+  assert.ok(view.includes('Required before continuing'))
+  assert.ok(view.includes('advanceButtonDisabled'))
+})
+
+test('Wilderness Terrain is moved to Deploy Armies and later closed reminders', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const deploymentOrder = view.slice(view.indexOf('v-else-if="isDeploymentOrderStep"'), view.indexOf('v-else-if="isDeployArmiesStep"'))
+  const deployArmies = view.slice(view.indexOf('v-else-if="isDeployArmiesStep"'), view.indexOf('v-else-if="isRoundStartStep"'))
+  assert.equal(deploymentOrder.includes('Wilderness Terrain'), false)
+  assert.ok(deployArmies.includes('Wilderness Terrain'))
+  assert.ok(view.includes('wilderness-terrain-reminder'))
+  assert.equal(/<details[^>]+wilderness-terrain-reminder[^>]+open/.test(view), false)
+})
+
+test('Chaos of War uses the first-turn player and the requested source-rule procedure', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes("chaosOfWarSide = computed<GameSide>(() => game.value?.firstPlayerConfirmed ? game.value.firstPlayer : 'player')"))
+  assert.ok(view.includes('turnViewSide.value === chaosOfWarSide.value'))
+  assert.ok(view.includes("from their second turn onwards, the player who took the first turn rolls a D6 at the beginning of each of their Start of Turn sub-phases"))
+  assert.ok(view.includes('chaosOfWarPreviousRolls.has(result.roll)'))
+})
+
+test('Hold no longer displays a zero-inch distance', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const remaining = view.slice(view.indexOf('isRemainingMoveStep'), view.indexOf('isCombatFightStep', view.indexOf('isRemainingMoveStep')))
+  assert.equal(remaining.includes('0&quot;'), false)
+})
+
+test('Shooting To Hit calculation follows BS table and cumulative penalties', () => {
+  assert.equal(shooting.shootingToHit(3, 0).label, '4+')
+  assert.equal(shooting.shootingToHit(3, -1).label, '5+')
+  assert.equal(shooting.shootingToHit(3, -3).label, '6 then 4+')
+  assert.equal(shooting.shootingToHit(3, -6).label, 'Impossible')
+  assert.equal(shooting.shootingToHit(6, 0).label, '2+ / 6+ re-roll')
+  assert.equal(shooting.shootingToHit(7, -1).label, '3+ / 5+ re-roll')
+})
+
+test('Shooting displays BS, calculated To Hit and expandable mixed-BS profiles', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('To Hit {{ shootingToHitLabel'))
+  assert.ok(view.includes('Different Ballistic Skills in this unit'))
+  assert.ok(view.includes('ballisticSkillRows'))
+  assert.ok(view.includes('shootingPenaltyOptions'))
+})
+
+test('Combat Step 1 separates checkbox interaction from explicit profile navigation', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('combat-fight-check'))
+  assert.ok(view.includes('combat-profile-roster-link'))
+  assert.equal(view.includes('combat-profile-clickable'), false)
+  assert.equal(view.includes('@click="openMatchUnitProfile'), false)
+})
+
+test('Combat joined-unit copy and match profile presentation use requested text', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const profile = read('src/views/MatchUnitProfileView.vue')
+  const css = read('src/styles/match.css')
+  assert.ok(view.includes('Combat Results Tracked by Joined Unit - {{ joinedHostName(unit.instanceId) }}'))
+  assert.ok(view.includes('>Joined to {{ joinedHostName'))
+  assert.equal(profile.includes('item.points'), false)
+  assert.ok(css.includes('.match-profile-row h2'))
+  assert.ok(css.includes('text-align: center'))
+})
+
+test('roster sharing is versioned, local, QR-capable and opens a transient route', () => {
+  const share = read('src/services/rosterShare.ts')
+  const home = read('src/views/HomeView.vue')
+  const list = read('src/views/ListView.vue')
+  const router = read('src/router.ts')
+  assert.ok(share.includes("ROSTER_SHARE_FORMAT = 'olddex-roster-share'"))
+  assert.ok(share.includes("import QRCode from 'qrcode'"))
+  assert.ok(share.includes("#odx="))
+  assert.ok(share.includes('parseSavedArmyLists'))
+  assert.ok(home.includes('Copy Link'))
+  assert.ok(home.includes('navigator.share'))
+  assert.ok(router.includes("name: 'list-shared'"))
+  assert.ok(list.includes('Add to My Rosters'))
+  assert.ok(list.includes('does not save anything to this device automatically'))
+})
+
+test('Dropbox roster cloud matches Brambleheart local-first manual App Folder architecture', () => {
+  const cloud = read('src/services/rosterCloud.ts')
+  const settings = read('src/views/SettingsView.vue')
+  assert.ok(cloud.includes('VITE_DROPBOX_APP_KEY'))
+  assert.ok(cloud.includes("token_access_type: 'offline'"))
+  assert.ok(cloud.includes("code_challenge_method: 'S256'"))
+  assert.ok(cloud.includes("files.metadata.read"))
+  assert.ok(cloud.includes('_ODX\\.json'))
+  assert.ok(settings.includes('Update from Cloud'))
+  assert.ok(settings.includes('Upload Local'))
+  assert.ok(settings.includes('Nothing is polled in the background'))
+  assert.ok(settings.includes('Cloud Sync never replaces local storage as the live roster database'))
+})
+
+test('Alpha 0.44 release metadata is synchronized', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '0.44.0')
+  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.44'))
+  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.44'))
+  assert.ok(read('public/sw.js').includes('v044'))
+  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.44'"))
 })
 
 let passed = 0
@@ -89,4 +211,4 @@ for (const [name, fn] of tests) {
   try { await fn(); passed += 1 }
   catch (error) { console.error(`FAIL: ${name}`); throw error }
 }
-console.log(`ODX 0.43 regressions passed: ${passed}/${tests.length}`)
+console.log(`ODX 0.44 regressions passed: ${passed}/${tests.length}`)

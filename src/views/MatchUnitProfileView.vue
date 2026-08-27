@@ -75,7 +75,7 @@ onMounted(async () => {
 
         <section v-if="rosterRow.magicItems?.length" class="card-surface match-profile-section">
           <p class="eyebrow">MAGICAL ITEMS</p>
-          <div class="match-profile-magic-list"><article v-for="item in rosterRow.magicItems" :key="item.id"><strong>{{ item.name }}</strong><span>{{ item.type }} · {{ item.points }} pts<template v-if="item.count > 1"> · ×{{ item.count }}</template></span></article></div>
+          <div class="match-profile-magic-list"><article v-for="item in rosterRow.magicItems" :key="item.id"><strong>{{ item.name }}</strong><span>{{ item.type }}<template v-if="item.count > 1"> · ×{{ item.count }}</template></span></article></div>
         </section>
 
         <section v-if="profile.rules.length" class="card-surface match-profile-section">
