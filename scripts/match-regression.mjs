@@ -168,18 +168,22 @@ test('Combat joined-unit copy and match profile presentation use requested text'
   assert.ok(css.includes('text-align: center'))
 })
 
-test('roster sharing is versioned, local, QR-capable and opens a transient route', () => {
+test('roster sharing uses staged Share Codes and a short receiver route', () => {
   const share = read('src/services/rosterShare.ts')
   const home = read('src/views/HomeView.vue')
   const list = read('src/views/ListView.vue')
   const router = read('src/router.ts')
   assert.ok(share.includes("ROSTER_SHARE_FORMAT = 'olddex-roster-share'"))
-  assert.ok(share.includes("import QRCode from 'qrcode'"))
-  assert.ok(share.includes("#odx="))
+  assert.ok(share.includes("ROSTER_SHARE_CODE_PREFIX = 'ODX1:'"))
+  assert.ok(share.includes('stageRosterShareCode'))
+  assert.ok(share.includes("/lists/shared"))
   assert.ok(share.includes('parseSavedArmyLists'))
-  assert.ok(home.includes('Copy Link'))
+  assert.equal(share.includes("import QRCode from 'qrcode'"), false)
+  assert.ok(home.includes('Copy Share Code'))
   assert.ok(home.includes('navigator.share'))
+  assert.ok(home.includes('shareShortUrl'))
   assert.ok(router.includes("name: 'list-shared'"))
+  assert.ok(list.includes('history.replaceState'))
   assert.ok(list.includes('Add to My Rosters'))
   assert.ok(list.includes('does not save anything to this device automatically'))
 })
@@ -198,12 +202,91 @@ test('Dropbox roster cloud matches Brambleheart local-first manual App Folder ar
   assert.ok(settings.includes('Cloud Sync never replaces local storage as the live roster database'))
 })
 
-test('Alpha 0.44 release metadata is synchronized', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '0.44.0')
-  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.44'))
-  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.44'))
-  assert.ok(read('public/sw.js').includes('v044'))
-  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.44'"))
+
+test('Settings uses Access & Community and Brambleheart-style donation/changelog rows', () => {
+  const settings = read('src/views/SettingsView.vue')
+  assert.ok(settings.includes('ACCESS &amp; COMMUNITY'))
+  assert.ok(settings.includes('Join Discord'))
+  assert.ok(settings.includes('Share Old.dex'))
+  assert.ok(settings.includes("Play the Olddex 'Murderin' when the installed app opens."))
+  assert.ok(settings.includes('DONATION'))
+  assert.ok(settings.includes('Recurring Support'))
+  assert.ok(settings.includes('CHANGELOG &amp; UPDATES'))
+  assert.ok(settings.includes('Site Changelog - Alpha 0.45'))
+})
+
+test('Roster transfer removes QR machinery while keeping the QR-shaped row icon as Share Code', () => {
+  const home = read('src/views/HomeView.vue')
+  const pkg = JSON.parse(read('package.json'))
+  assert.equal(pkg.dependencies.jsqr, undefined)
+  assert.equal(pkg.dependencies.qrcode, undefined)
+  assert.equal(pkg.devDependencies['@types/qrcode'], undefined)
+  assert.equal(home.includes("import jsQR from 'jsqr'"), false)
+  assert.equal(home.includes('capture="environment"'), false)
+  assert.equal(home.includes('Scan QR'), false)
+  assert.equal(home.includes('roster-share-qr'), false)
+  assert.ok(home.includes('Enter Share Code'))
+  assert.ok(home.includes('aria-label="Share roster code"'))
+  assert.ok(home.includes('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z'))
+  assert.equal(home.includes('Import custom data'), false)
+})
+
+test('Global page tools include Discord and Share between Report and Install', () => {
+  const app = read('src/App.vue')
+  const report = app.indexOf('>Report</button>')
+  const discord = app.indexOf('>Discord</button>')
+  const share = app.indexOf('>Share</button>')
+  const install = app.indexOf("Install Old.dex")
+  assert.ok(report >= 0 && discord > report && share > discord && install > share)
+})
+
+test('Tips master control is a switch without changing individual tip checkboxes', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const css = read('src/styles/match.css')
+  assert.ok(view.includes('match-tip-switch-input'))
+  assert.ok(css.includes('.match-tip-switch-input:checked'))
+})
+
+test('Spell cards use smaller hierarchy with pills below title and normalized icons', () => {
+  const card = read('src/components/MatchSpellChoiceCard.vue')
+  const css = read('src/styles/match.css')
+  assert.ok(card.indexOf('match-spell-title-row') < card.indexOf('match-spell-pills'))
+  assert.ok(card.includes('match-spell-rule-link'))
+  assert.ok(css.includes('.match-spell-title-row .rule-tone-icon'))
+  assert.ok(css.includes('width:14px;height:14px'))
+})
+
+test('Disruptive Weather is always visible with inline result controls and gating', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const start = view.indexOf('v-else-if=\"isDeploymentOrderStep\"')
+  const end = view.indexOf('v-else-if=\"isDeployArmiesStep\"', start)
+  const section = view.slice(start, end)
+  assert.ok(section.includes('disruptive-weather-required'))
+  assert.ok(section.includes('type="radio"'))
+  assert.ok(section.includes('Required before continuing'))
+  assert.equal(section.includes('<details v-for="option in deploymentBattlefieldConditions"'), false)
+})
+
+test('magic item resolver isolates exact item sections and permits collection-only fallback', () => {
+  const source = read('src/services/magicItemReference.ts')
+  assert.ok(source.includes('magicItemHeadingPattern'))
+  assert.ok(source.includes('minimumUsefulScore'))
+  assert.ok(source.includes('Some valid items exist only on a collection page'))
+  assert.ok(source.includes("type === 'weapon' ? 13 : 8"))
+})
+
+test('match content uses a shared inner gutter instead of per-panel edge fixes', () => {
+  const css = read('src/styles/match.css')
+  assert.ok(css.includes('Shared inner gutter'))
+  assert.ok(css.includes('padding-inline: clamp(12px, 2.4vw, 18px)'))
+})
+
+test('Alpha 0.45 release metadata is synchronized', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '0.45.0')
+  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.45'))
+  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.45'))
+  assert.ok(read('public/sw.js').includes('v045'))
+  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.45'"))
 })
 
 let passed = 0
@@ -211,4 +294,4 @@ for (const [name, fn] of tests) {
   try { await fn(); passed += 1 }
   catch (error) { console.error(`FAIL: ${name}`); throw error }
 }
-console.log(`ODX 0.44 regressions passed: ${passed}/${tests.length}`)
+console.log(`ODX 0.45 regressions passed: ${passed}/${tests.length}`)

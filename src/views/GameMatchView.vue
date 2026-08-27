@@ -849,7 +849,7 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
           <div class="game-step-heading-tools">
             <label class="match-tip-master-toggle" title="Show or hide Tip panels during this match">
               <span>Tips</span>
-              <input type="checkbox" :checked="tipsVisible" :disabled="isReadOnly" @change="setTipsVisible(($event.target as HTMLInputElement).checked)" />
+              <input class="match-tip-switch-input" type="checkbox" :checked="tipsVisible" :disabled="isReadOnly" @change="setTipsVisible(($event.target as HTMLInputElement).checked)" />
             </label>
             <div v-if="isBattleTurnPhase" class="turn-context-actions compact-turn-context" role="group" aria-label="Turn view">
               <button type="button" class="turn-context-button friendly" :class="{ active: turnViewSide === 'player' }" :disabled="isReadOnly" @click="selectTurnContext('player')">Friendly Turn</button>
@@ -909,14 +909,14 @@ onMounted(() => { matchLocked.value = Boolean(game.value && isGameLocked(game.va
           <MatchTipPanel v-if="tipsVisible" title="Tip — Deployment Order" :text="deploymentTip" :collapsed="currentTipCollapsed" @toggle="setCurrentTipCollapsed" />
           <section v-if="deploymentBattlefieldConditions.length" class="condition-resolution-panel card-inset">
             <div class="setup-section-heading"><div><p class="eyebrow">BATTLE CONDITIONS</p><h3>Resolve before deployment</h3></div></div>
-            <details v-for="option in deploymentBattlefieldConditions" :key="`deployment-condition-${option.id}`" class="condition-resolution-entry condition-resolution-details">
-              <summary><strong>{{ option.label }}</strong><span v-if="battlefieldResolvedRow(option.id)" class="value-chip">D6: {{ battlefieldResolvedRow(option.id)?.roll }}</span></summary>
+            <article v-for="option in deploymentBattlefieldConditions" :key="`deployment-condition-${option.id}`" class="condition-resolution-entry disruptive-weather-required">
+              <div class="condition-resolution-header"><strong>{{ option.label }}</strong><span v-if="battlefieldResolvedRow(option.id)" class="value-chip">D6: {{ battlefieldResolvedRow(option.id)?.roll }}</span></div>
               <div class="condition-resolution-body"><RouterLink :to="`/rules/read${option.path}`">Open rules</RouterLink><p>This Battle Condition must be rolled before deployment begins. Record the D6 result here before continuing.</p><strong v-if="!battlefieldResult(option.id)" class="condition-required-label">Required before continuing</strong>
                 <p v-if="randomHappeningLoading.has(option.id)" class="setup-inline-status">Loading D6 table...</p>
                 <div v-else-if="randomHappeningTables[option.id]?.results.length" class="random-happening-table"><div class="random-happening-table-head"><strong>D6</strong><strong>Result</strong></div><label v-for="result in randomHappeningTables[option.id]?.results || []" :key="`${option.id}-${result.roll}`" class="random-happening-row" :class="{ selected: battlefieldResult(option.id) === result.roll }"><span class="random-happening-roll"><input type="radio" :name="`deployment-random-${option.id}`" :checked="battlefieldResult(option.id) === result.roll" :disabled="isReadOnly" @change="setBattlefieldResult(option.id, result.roll)" /><strong>{{ result.roll }}</strong></span><span><strong>{{ result.title }}:</strong> {{ result.text }}</span></label></div>
                 <div v-if="battlefieldResolvedRow(option.id)" class="resolved-condition-result"><strong>Recorded — {{ battlefieldResolvedRow(option.id)?.roll }}: {{ battlefieldResolvedRow(option.id)?.title }}</strong><p>{{ battlefieldResolvedRow(option.id)?.text }}</p></div>
               </div>
-            </details>
+            </article>
           </section>
           <section class="deployment-guidance-panel card-inset"><p class="eyebrow">SCENARIO DEPLOYMENT</p><h3>{{ game.scenario }}</h3><div class="scenario-deployment-body"><p v-if="scenarioGuidance?.setupText"><strong>Set-up:</strong> {{ scenarioGuidance.setupText }}</p><p v-if="scenarioGuidance?.deploymentText"><strong>Deployment:</strong> {{ scenarioGuidance.deploymentText }}</p><p v-else>No additional scenario-specific deployment rules are listed. Use the standard deployment procedure.</p><p v-for="rule in scenarioGuidance?.scenarioRules || []" :key="`deployment-${rule}`">{{ rule }}</p><img v-if="scenarioGuidance?.mapImageUrl" class="scenario-deployment-map scenario-rules-bottom-image" :src="scenarioGuidance.mapImageUrl" :alt="`${game.scenario} battlefield and deployment map`" loading="lazy" decoding="async" /></div></section>
           <section class="deployment-order-panel card-inset"><p class="eyebrow">FIRST TO DEPLOY</p><h3>Who begins deployment?</h3><div class="deployment-side-actions"><button type="button" class="secondary-button" :class="{ active: game.deploymentFirstSide === 'player' }" :disabled="isReadOnly" @click="chooseDeploymentFirstSide('player')">{{ game.playerName }}</button><button type="button" class="secondary-button" :class="{ active: game.deploymentFirstSide === 'opponent' }" :disabled="isReadOnly" @click="chooseDeploymentFirstSide('opponent')">{{ game.opponentName }}</button></div></section>

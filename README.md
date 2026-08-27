@@ -2,7 +2,7 @@
 
 **Old.dex** is an unofficial companion web app for **Warhammer: The Old World** focused on army building, rules reference, roster validation, and guided match play.
 
-Current public version: **Alpha Build 0.44**
+Current public version: **Alpha Build 0.45**
 
 ## What Old.dex Does
 
@@ -26,7 +26,7 @@ Old.dex combines several tools into one browser-based application:
 - Install as a Progressive Web App on supported desktop and mobile browsers.
 
 
-Alpha Build 0.44 adds account-free QR/link roster sharing, optional Dropbox App Folder roster sync, canonical spell-detail recovery, and another guided-match refinement pass covering Battle Conditions, Shooting To Hit calculations, Combat profile interaction, and match-profile readability.
+Alpha Build 0.45 refines roster Share Code transfer, settings/community controls, magic-item rule resolution, match spacing, spell-card sizing, Tip controls, and required Disruptive Weather handling.
 
 ## Current Alpha Focus
 
@@ -60,7 +60,7 @@ Custom units:
 
 `M / WS / BS / S / T / W / I / A / Ld`
 
-Custom data can be imported from the roster workflow or from the Data & Content section in Settings.
+Custom data is imported from the Data & Content section in Settings.
 
 Old.dex also includes a bundled custom **Grimgor Ironhide** implementation for Orc & Goblin Tribes.
 

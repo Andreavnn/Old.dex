@@ -13,6 +13,11 @@
   width: 100%;
   overflow-wrap: anywhere;
 }
+/* Shared inner gutter: match content should never sit directly against a panel border. */
+.game-match-page .game-step-card > :is(.game-setup-content,.game-overview-dashboard,.deployment-step-content,.round-start-content,.turn-guidance-shell) {
+  padding-inline: clamp(12px, 2.4vw, 18px);
+  padding-bottom: 16px;
+}
 .game-match-page :is(p,small,strong,span,a,dd,dt) { overflow-wrap: anywhere; }
 .game-match-page :is(.match-setup-summary-grid,.start-round-rule-columns,.overview-composition-columns,.deployment-roster-grid) {
   grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
@@ -53,53 +58,49 @@
 .match-spell-choice-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent); }
 .match-spell-choice-card.unavailable { opacity: 1; }
 .match-spell-card-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px 13px 7px;
+  gap: 8px;
+  padding: 10px 11px 4px;
   min-width: 0;
 }
-.match-spell-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.match-spell-pills { display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-width:0;padding:0 11px 9px; }
+.match-spell-pills :is(.old-rule-phase,.value-chip){font-size:calc(7.5px + var(--font-offset));padding:4px 6px}
 .match-spell-title-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 9px;
-  padding: 3px 13px 11px;
+  gap: 7px;
+  padding: 0;
   min-width: 0;
 }
 .match-spell-title-row strong {
   min-width: 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: calc(15px + var(--font-offset));
+  font-size: calc(13px + var(--font-offset));
   line-height: 1.16;
   color: var(--ink);
 }
 .match-spell-select {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--paper-2);
-  color: var(--ink);
-  font-weight: 800;
+  display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;min-height:27px;padding:2px 6px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2);color:var(--ink);font-weight:800;font-size:calc(9px + var(--font-offset));
 }
-.match-spell-select input { width: 18px; height: 18px; margin: 0; }
+.match-spell-select input { width:14px;height:14px;margin:0; }
+.match-spell-title-row .rule-tone-icon{width:21px;height:21px;min-width:21px;padding:0;border:0;background:transparent;box-shadow:none}
+.match-spell-title-row .rule-tone-icon img{width:19px;height:19px;object-fit:contain}
+.match-spell-rule-body{font-size:calc(10.5px + var(--font-offset));line-height:1.45}
+.match-spell-rule-body p{font-size:inherit;line-height:1.45}
+.match-spell-rule-link{font-size:calc(10px + var(--font-offset))}
 .match-spell-select input:disabled + span { color: var(--ink-soft); }
 .match-spell-rule-body { border-top: 1px solid var(--line); }
 .match-spell-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
 .match-spell-meta div { padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper-2); }
-.match-spell-meta dt { font-size: calc(8px + var(--font-offset)); font-weight: 850; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
-.match-spell-meta dd { margin: 2px 0 0; font-weight: 850; color: var(--ink); }
+.match-spell-meta dt { font-size: calc(7px + var(--font-offset)); font-weight: 850; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+.match-spell-meta dd { margin:2px 0 0;font-weight:850;color:var(--ink);font-size:calc(11px + var(--font-offset)); }
 
 /* Battle March condition handling. Expandable condition references default
    closed and remain normal flow content even after navigating to their rules. */
-.condition-resolution-panel { display: grid; gap: 12px; padding: 14px 16px; margin: 0 16px 14px; width: calc(100% - 32px) !important; }
+.condition-resolution-panel { display:grid;gap:12px;padding:14px 16px;margin:0 0 14px;width:100% !important; }
 .condition-resolution-details,
 .wilderness-terrain-reminder {
   border: 1px solid var(--line);
@@ -175,7 +176,7 @@
 .match-profile-rules { display: flex; flex-wrap: wrap; gap: 6px; }
 
 @media (max-width: 620px) {
-  .condition-resolution-panel { margin-inline: 10px; width: calc(100% - 20px) !important; }
+  .condition-resolution-panel { margin-inline:0;width:100% !important; }
   .game-match-page .game-step-heading { padding-inline: 12px; }
   .game-match-page :is(.turn-guidance-panel,.match-procedure-panel) { margin-inline: 10px; max-width: calc(100% - 20px); }
   .match-spell-card-head { align-items: flex-start; }
@@ -184,3 +185,25 @@
   .shooting-bs-breakdown > div > span { align-items: flex-start; flex-direction: column; gap: 2px; }
   .match-profile-magic-list article { flex-direction: column; gap: 3px; }
 }
+
+.condition-resolution-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:var(--paper-2)}
+.disruptive-weather-required .condition-resolution-body{border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px;padding:10px 12px 12px;background:var(--paper-2)}
+.match-tip-master-toggle{display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.match-tip-switch-input{appearance:none;-webkit-appearance:none;width:38px;height:22px;margin:0;border:1px solid var(--line-dark);border-radius:999px;background:var(--paper-2);position:relative;cursor:pointer;transition:background .16s ease,border-color .16s ease}
+.match-tip-switch-input::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--ink-soft);transition:transform .16s ease,background .16s ease}
+.match-tip-switch-input:checked{background:var(--accent-wash);border-color:var(--accent)}
+.match-tip-switch-input:checked::after{transform:translateX(16px);background:var(--accent-dark)}
+.match-tip-switch-input:disabled{opacity:.55;cursor:not-allowed}
+/* Shared panel interior spacing for common match surfaces. */
+.game-match-page :is(
+  .overview-battlefield-panel,
+  .overview-composition-options,
+  .overview-magic-panel,
+  .deployment-guidance-panel,
+  .deployment-order-panel,
+  .game-first-turn-window,
+  .start-round-rule-panel,
+  .turn-guidance-panel,
+  .match-procedure-panel,
+  .deployment-roster-panel
+){padding:clamp(12px,2.2vw,16px)}

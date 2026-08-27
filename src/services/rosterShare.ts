@@ -1,10 +1,11 @@
-import QRCode from 'qrcode'
 import type { BuilderRosterSelection } from '../domain/rosterTypes'
 import { parseSavedArmyLists } from '../domain/schemas'
 import type { SavedArmyList } from './savedLists'
 
 export const ROSTER_SHARE_FORMAT = 'olddex-roster-share'
 export const ROSTER_SHARE_VERSION = 1
+export const ROSTER_SHARE_CODE_PREFIX = 'ODX1:'
+const SHARE_SESSION_KEY = 'olddex.rosterShare.pending.v1'
 const MAX_DECODED_BYTES = 512_000
 
 export type SharedRosterData = {
@@ -105,9 +106,6 @@ function validateSharedRoster(value: unknown): SharedRosterData {
     updatedAt: now,
   }])[0]
   if (!parsed || !Array.isArray(parsed.roster) || parsed.roster.length !== row.roster.length) throw new Error('The shared roster failed Old.dex validation and cannot be opened.')
-  // Validation/migration must not throw away newer snapshot fields that an older
-  // persisted schema does not yet know about. Preserve the exact shared roster
-  // rows after confirming every row passes the normal Old.dex roster parser.
   return clone({
     name: parsed.name, army: parsed.army, armyName: parsed.armyName, composition: parsed.composition, compositionName: parsed.compositionName,
     rule: parsed.rule, points: parsed.points, options: parsed.options || [], description: parsed.description || '', roster: row.roster as BuilderRosterSelection[], locked: Boolean(row.locked),
@@ -117,35 +115,74 @@ function validateSharedRoster(value: unknown): SharedRosterData {
   })
 }
 
-export async function createRosterShareLink(row: SavedArmyList, origin = window.location.origin) {
-  const payload: SharePayload = { format: ROSTER_SHARE_FORMAT, version: ROSTER_SHARE_VERSION, appVersion: '0.44', roster: sharedData(row) }
-  const raw = new TextEncoder().encode(JSON.stringify(payload))
-  const packed = await compress(raw)
-  const encoded = `${packed.kind}.${bytesToBase64Url(packed.bytes)}`
-  return `${origin.replace(/\/$/, '')}/lists/shared#odx=${encoded}`
+function legacyHashPayload(value: string) {
+  const source = String(value || '').trim()
+  const hashIndex = source.indexOf('#')
+  const fragment = (hashIndex >= 0 ? source.slice(hashIndex + 1) : source).replace(/^#/, '')
+  const params = new URLSearchParams(fragment)
+  return params.get('odx') || (fragment.startsWith('odx=') ? fragment.slice(4) : '')
 }
 
-export async function decodeRosterShareHash(hash: string) {
-  const rawHash = String(hash || '').replace(/^#/, '')
-  const params = new URLSearchParams(rawHash)
-  const encoded = params.get('odx') || ''
+export function rosterShareCodeFromValue(value: string) {
+  const source = String(value || '').trim()
+  if (!source) return ''
+  const embedded = source.match(/ODX1:[dj]\.[A-Za-z0-9_-]+/)
+  if (embedded) return embedded[0]
+  const legacy = legacyHashPayload(source)
+  if (legacy) return `${ROSTER_SHARE_CODE_PREFIX}${legacy}`
+  if (source.startsWith(ROSTER_SHARE_CODE_PREFIX)) return source
+  if (/^[dj]\.[A-Za-z0-9_-]+$/.test(source)) return `${ROSTER_SHARE_CODE_PREFIX}${source}`
+  return source
+}
+
+export async function createRosterShareCode(row: SavedArmyList) {
+  const payload: SharePayload = { format: ROSTER_SHARE_FORMAT, version: ROSTER_SHARE_VERSION, appVersion: '0.45', roster: sharedData(row) }
+  const raw = new TextEncoder().encode(JSON.stringify(payload))
+  const packed = await compress(raw)
+  return `${ROSTER_SHARE_CODE_PREFIX}${packed.kind}.${bytesToBase64Url(packed.bytes)}`
+}
+
+export function rosterShareShortUrl(origin = window.location.origin) {
+  return `${origin.replace(/\/$/, '')}/lists/shared`
+}
+
+export async function decodeRosterShareValue(value: string) {
+  const code = rosterShareCodeFromValue(value)
+  if (!code.startsWith(ROSTER_SHARE_CODE_PREFIX)) throw new Error('No Old.dex Share Code was found.')
+  const encoded = code.slice(ROSTER_SHARE_CODE_PREFIX.length)
   const separator = encoded.indexOf('.')
-  if (separator < 1) throw new Error('No Old.dex roster share payload was found in this link.')
+  if (separator < 1) throw new Error('This Old.dex Share Code is incomplete.')
   const kind = encoded.slice(0, separator)
   const packed = base64UrlToBytes(encoded.slice(separator + 1))
   if (packed.byteLength > MAX_DECODED_BYTES) throw new Error('This shared roster is too large to open safely.')
   const bytes = await decompress(kind, packed)
   let payload: SharePayload
   try { payload = JSON.parse(new TextDecoder().decode(bytes)) as SharePayload }
-  catch { throw new Error('The shared roster link is damaged or incomplete.') }
+  catch { throw new Error('This Old.dex Share Code is damaged or incomplete.') }
   if (payload?.format !== ROSTER_SHARE_FORMAT || Number(payload.version) !== ROSTER_SHARE_VERSION) throw new Error('This roster share version is not supported by this build of Old.dex.')
   return validateSharedRoster(payload.roster)
 }
 
-export async function rosterShareQrDataUrl(link: string) {
-  try {
-    return await QRCode.toDataURL(link, { errorCorrectionLevel: 'M', margin: 2, width: 320 })
-  } catch {
-    throw new Error('This roster is too large for a reliable QR code. Copy the share link instead.')
-  }
+// Legacy links from Alpha 0.44 remain readable, but Alpha 0.45 no longer creates
+// payload-bearing URLs. Received legacy links are converted into the local staged
+// Share Code flow so the address bar can immediately return to /lists/shared.
+export async function decodeRosterShareHash(hash: string) {
+  return decodeRosterShareValue(hash)
+}
+
+export function stageRosterShareCode(value: string) {
+  const code = rosterShareCodeFromValue(value)
+  if (!code.startsWith(ROSTER_SHARE_CODE_PREFIX)) throw new Error('Paste a valid Old.dex Share Code.')
+  if (typeof sessionStorage === 'undefined') throw new Error('This browser cannot stage a Share Code for review.')
+  sessionStorage.setItem(SHARE_SESSION_KEY, code)
+  return code
+}
+
+export function pendingRosterShareCode() {
+  if (typeof sessionStorage === 'undefined') return ''
+  return sessionStorage.getItem(SHARE_SESSION_KEY) || ''
+}
+
+export function clearPendingRosterShareCode() {
+  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(SHARE_SESSION_KEY)
 }

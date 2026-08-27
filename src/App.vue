@@ -6,7 +6,7 @@ import { initializeBuilderData } from './services/armyData'
 import { reportAppError } from './services/appErrors'
 import { useInstallApp } from './services/installApp'
 import { loadOwbRuleCatalog } from './services/owbRuleResolver'
-import BootAudioSetting from './components/BootAudioSetting.vue'
+import { OLDDEX_DISCORD_URL, shareOldDex } from './services/siteShare'
 
 const { bootAudioEnabled } = useSettings()
 const route = useRoute()
@@ -107,6 +107,11 @@ async function installFromFooter() {
 function reportPlaceholder() {
   if (typeof window !== 'undefined') window.alert('Old.dex reporting is being prepared. This button will open the reporting workflow in a later update.')
 }
+function openDiscord() { if (typeof window !== 'undefined') window.open(OLDDEX_DISCORD_URL, '_blank', 'noopener,noreferrer') }
+async function shareSite() {
+  const result = await shareOldDex()
+  if (!result.ok && result.message !== 'Share cancelled.' && typeof window !== 'undefined') window.alert(result.message)
+}
 
 onMounted(() => {
   startInstalledLaunchScene()
@@ -122,22 +127,22 @@ onMounted(() => {
       <section v-if="launchSceneVisible" class="olddex-launch-scene" aria-label="Old.dex launching">
         <audio v-if="bootAudioEnabled" ref="launchAudioElement" src="/audio/ready_for_murderin_orc.mp3" preload="auto" autoplay playsinline></audio>
         <img src="/icons/icon-192.png" alt="" aria-hidden="true" />
-        <div><strong>OLD.DEX</strong><small>ALPHA BUILD 0.44</small></div>
+        <div><strong>OLD.DEX</strong><small>ALPHA BUILD 0.45</small></div>
       </section>
     </Transition>
 
     <RouterView />
-    <BootAudioSetting v-if="route.name === 'settings'" />
-
     <section v-if="showGlobalPageTools" class="page-utility-shell" aria-label="Old.dex page tools">
       <div class="page-utility-actions">
         <button type="button" class="secondary-button footer-tool-button" @click="reportPlaceholder">Report</button>
+        <button type="button" class="secondary-button footer-tool-button" @click="openDiscord">Discord</button>
+        <button type="button" class="secondary-button footer-tool-button" @click="shareSite">Share</button>
         <button type="button" class="secondary-button footer-tool-button" :disabled="installedApp" @click="installFromFooter">{{ installedApp ? 'Installed' : 'Install Old.dex' }}</button>
       </div>
     </section>
 
     <footer v-if="showGlobalPageTools" class="app-footer olddex-legal-footer">
-      <span>Old.dex Alpha Build 0.44</span>
+      <span>Old.dex Alpha Build 0.45</span>
       <span>Olddex is not affiliated with Games Workshop. It displays data from BSData.</span>
     </footer>
   </div>

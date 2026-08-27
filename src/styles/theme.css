@@ -50,3 +50,21 @@ html[data-theme="dark"] .match-spell-select {
   border-color: var(--line-dark) !important;
   color: var(--ink) !important;
 }
+
+
+/* Alpha 0.45 — shared settings row structure adapted from Brambleheart. */
+.settings-page .settings-card{overflow:hidden;margin-bottom:13px}
+.settings-page .settings-card>.setting-row,.settings-page .settings-card>details{margin:0}
+.settings-page .settings-card>details{border-top:0;border-bottom:1px solid var(--line)}
+.settings-page .settings-card>details:last-child{border-bottom:0}
+.settings-page .settings-card>details>summary{list-style:none;min-height:69px;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;gap:15px;cursor:pointer;color:var(--ink)}
+.settings-page .settings-card>details>summary::-webkit-details-marker{display:none}
+.settings-page .settings-card>details>summary>span:first-child{display:grid;gap:3px;min-width:0}
+.settings-page .settings-card>details>summary small{display:block;color:var(--ink-soft);font-weight:400;line-height:1.4}
+.settings-page .settings-card>details>.custom-data-actions,.settings-page .settings-card>details>.reset-data-option-list{border-top:1px solid var(--line);background:var(--paper-2)}
+.settings-page .settings-card>details>.custom-data-actions .setting-row,.settings-page .settings-card>details>.reset-data-option-list .setting-row{background:transparent}
+.settings-page .download-link-button,.settings-page a.secondary-button[download],.settings-page a.settings-compact-action{text-decoration:none !important}
+.settings-page .donation-setting-row{align-items:center}
+.settings-page .compact-support-buttons{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.page-utility-actions{flex-wrap:wrap}
+@media(max-width:680px){.settings-page .settings-card>details>summary{align-items:flex-start}.settings-page .donation-setting-row{align-items:stretch;flex-direction:column}.settings-page .compact-support-buttons{width:100%;justify-content:stretch}.settings-page .compact-support-buttons>*{flex:1 1 auto}}
