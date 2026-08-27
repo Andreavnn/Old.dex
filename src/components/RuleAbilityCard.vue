@@ -7,7 +7,7 @@ import { extractMechanicalRuleText } from '../services/ruleText'
 import { reportAppError } from '../services/appErrors'
 import RuleToneIcon from './RuleToneIcon.vue'
 
-const props = defineProps<{ rule: PrototypeUnit['specialRules'][number]; kindLabel?: 'Special Rule' | 'Magical Item' }>()
+const props = defineProps<{ rule: PrototypeUnit['specialRules'][number]; kindLabel?: string }>()
 
 const displayRule = computed(() => splitRuleCallout(props.rule.name))
 const ownRulePath = computed(() => props.rule.path || props.rule.keywords[0]?.path || '')

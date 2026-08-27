@@ -6,6 +6,7 @@ export type MatchTurnUnitState = {
   chargeDeclared?: boolean
   chargeHeld?: boolean
   chargeSuccessful?: boolean
+  inCombat?: boolean
   chargeReaction?: 'hold' | 'stand-shoot' | 'flee' | 'counter-charge' | ''
   compulsoryMoved?: boolean
   remainingMoved?: boolean
@@ -120,6 +121,7 @@ function normalizeState(value: unknown): MatchTrackingState {
           chargeDeclared: Boolean(source.chargeDeclared),
           chargeHeld: Boolean(source.chargeHeld),
           chargeSuccessful: Boolean(source.chargeSuccessful),
+          inCombat: Boolean(source.inCombat),
           chargeReaction: ['hold', 'stand-shoot', 'flee', 'counter-charge'].includes(String(source.chargeReaction)) ? source.chargeReaction : '',
           compulsoryMoved: Boolean(source.compulsoryMoved),
           remainingMoved: Boolean(source.remainingMoved),

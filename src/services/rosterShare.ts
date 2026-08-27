@@ -136,7 +136,7 @@ export function rosterShareCodeFromValue(value: string) {
 }
 
 export async function createRosterShareCode(row: SavedArmyList) {
-  const payload: SharePayload = { format: ROSTER_SHARE_FORMAT, version: ROSTER_SHARE_VERSION, appVersion: '0.45', roster: sharedData(row) }
+  const payload: SharePayload = { format: ROSTER_SHARE_FORMAT, version: ROSTER_SHARE_VERSION, appVersion: '0.46', roster: sharedData(row) }
   const raw = new TextEncoder().encode(JSON.stringify(payload))
   const packed = await compress(raw)
   return `${ROSTER_SHARE_CODE_PREFIX}${packed.kind}.${bytesToBase64Url(packed.bytes)}`
@@ -163,7 +163,7 @@ export async function decodeRosterShareValue(value: string) {
   return validateSharedRoster(payload.roster)
 }
 
-// Legacy links from Alpha 0.44 remain readable, but Alpha 0.45 no longer creates
+// Legacy links from Alpha 0.44 remain readable, but Alpha 0.45 and later no longer create
 // payload-bearing URLs. Received legacy links are converted into the local staged
 // Share Code flow so the address bar can immediately return to /lists/shared.
 export async function decodeRosterShareHash(hash: string) {

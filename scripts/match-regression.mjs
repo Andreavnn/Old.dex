@@ -56,17 +56,19 @@ test('match profiles use a saved match roster route', () => {
   assert.ok(view.includes('`/games/${game.value.id}/unit/${row.instanceId}`'))
 })
 
-test('Setup spell generation uses the shared spell card and recovered canonical metadata', () => {
+test('Setup spell generation uses the canonical RuleAbilityCard with a Select control', () => {
   const view = read('src/views/GameMatchView.vue')
   const spell = read('src/services/spellReference.ts')
   const card = read('src/components/MatchSpellChoiceCard.vue')
+  const ruleCard = read('src/components/RuleAbilityCard.vue')
   assert.ok(view.includes('MatchSpellChoiceCard'))
   assert.ok(view.includes('enrichMagicChoices'))
   assert.ok(spell.includes("`/spell/${slug(choice.name)}`"))
   assert.ok(spell.includes('parseSpellFromLore'))
-  assert.ok(card.includes('Casting Value'))
-  assert.ok(card.includes('Open spell rules'))
-  assert.equal(card.includes('old-rule-title-row'), false)
+  assert.ok(card.includes("import RuleAbilityCard from './RuleAbilityCard.vue'"))
+  assert.ok(card.includes('<RuleAbilityCard'))
+  assert.ok(card.includes('match-spell-select'))
+  assert.ok(ruleCard.includes('kindLabel?: string'))
 })
 
 test('selected spell metadata is persisted before later subphase guidance is built', () => {
@@ -212,7 +214,7 @@ test('Settings uses Access & Community and Brambleheart-style donation/changelog
   assert.ok(settings.includes('DONATION'))
   assert.ok(settings.includes('Recurring Support'))
   assert.ok(settings.includes('CHANGELOG &amp; UPDATES'))
-  assert.ok(settings.includes('Site Changelog - Alpha 0.45'))
+  assert.ok(settings.includes('Site Changelog - Alpha 0.46'))
 })
 
 test('Roster transfer removes QR machinery while keeping the QR-shaped row icon as Share Code', () => {
@@ -244,27 +246,31 @@ test('Tips master control is a switch without changing individual tip checkboxes
   const view = read('src/views/GameMatchView.vue')
   const css = read('src/styles/match.css')
   assert.ok(view.includes('match-tip-switch-input'))
-  assert.ok(css.includes('.match-tip-switch-input:checked'))
+  assert.ok(css.includes('label.match-tip-master-toggle > input.match-tip-switch-input'))
+  assert.ok(css.includes('width: 38px !important'))
+  assert.ok(css.includes('height: 22px !important'))
 })
 
-test('Spell cards use smaller hierarchy with pills below title and normalized icons', () => {
+test('Spell cards reuse canonical rule boxes instead of bespoke spell markup', () => {
   const card = read('src/components/MatchSpellChoiceCard.vue')
-  const css = read('src/styles/match.css')
-  assert.ok(card.indexOf('match-spell-title-row') < card.indexOf('match-spell-pills'))
-  assert.ok(card.includes('match-spell-rule-link'))
-  assert.ok(css.includes('.match-spell-title-row .rule-tone-icon'))
-  assert.ok(css.includes('width:14px;height:14px'))
+  assert.ok(card.includes('<RuleAbilityCard'))
+  assert.ok(card.includes("tone: 'magic'"))
+  assert.ok(card.includes('Casting Value'))
+  assert.ok(card.includes('Range'))
+  assert.equal(card.includes('match-spell-title-row'), false)
+  assert.equal(card.includes('match-spell-pills'), false)
 })
 
-test('Disruptive Weather is always visible with inline result controls and gating', () => {
+test('Disruptive Weather uses the standard rule-panel shape with inline result controls and gating', () => {
   const view = read('src/views/GameMatchView.vue')
-  const start = view.indexOf('v-else-if=\"isDeploymentOrderStep\"')
-  const end = view.indexOf('v-else-if=\"isDeployArmiesStep\"', start)
+  const start = view.indexOf('v-else-if="isDeploymentOrderStep"')
+  const end = view.indexOf('v-else-if="isDeployArmiesStep"', start)
   const section = view.slice(start, end)
-  assert.ok(section.includes('disruptive-weather-required'))
+  assert.ok(section.includes('phase-rule-details condition-resolution-details disruptive-weather-required'))
+  assert.ok(section.includes('<details v-for="option in deploymentBattlefieldConditions"'))
+  assert.ok(section.includes(' open class='))
   assert.ok(section.includes('type="radio"'))
   assert.ok(section.includes('Required before continuing'))
-  assert.equal(section.includes('<details v-for="option in deploymentBattlefieldConditions"'), false)
 })
 
 test('magic item resolver isolates exact item sections and permits collection-only fallback', () => {
@@ -281,11 +287,84 @@ test('match content uses a shared inner gutter instead of per-panel edge fixes',
   assert.ok(css.includes('padding-inline: clamp(12px, 2.4vw, 18px)'))
 })
 
-test('Alpha 0.45 release metadata is synchronized', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '0.45.0')
-  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.45'))
-  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.45'))
-  assert.ok(read('public/sw.js').includes('v045'))
+
+test('castable phase spells use canonical cards with tracked Successful and Failed results', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const card = read('src/components/MatchSpellChoiceCard.vue')
+  assert.ok(view.includes('match-phase-spell-grid'))
+  assert.ok(view.includes(':track-result="true"'))
+  assert.ok(view.includes(':result="spellResult(rule)"'))
+  assert.ok(view.includes('@result="setSpellResult(rule, $event)"'))
+  assert.ok(view.includes('spellResultCheckId'))
+  assert.ok(card.includes('>Successful</span>'))
+  assert.ok(card.includes('>Failed</span>'))
+})
+
+test('Deployment Step 2 enforces group order instead of only sorting rows', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('function deploymentRankReady(rank: number)'))
+  assert.ok(view.includes('function deploymentRowLocked(row: BuilderRosterSelection)'))
+  assert.ok(view.includes('Complete the previous deployment group first.'))
+  assert.ok(view.includes(':disabled="isReadOnly || deploymentRowLocked(row)'))
+})
+
+test('successful chargers are marked Charged in Combat Step 1', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('function unitChargedThisTurn(instanceId: string)'))
+  assert.ok(view.includes('class="value-chip combat-charged-chip">Charged</span>'))
+})
+
+test('depleted limited-use actions lock their checkbox immediately', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const start = view.indexOf('function guidanceDisabled')
+  const end = view.indexOf('function toggleGuidanceCheck', start)
+  const block = view.slice(start, end)
+  assert.ok(block.includes('ruleUseRemaining(rule) === 0'))
+  assert.equal(block.includes('&& !guidanceChecked'), false)
+})
+
+test('Movement Step 2 includes mutually exclusive In Combat and Hold states', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const tracking = read('src/services/matchTracking.ts')
+  assert.ok(tracking.includes('inCombat?: boolean'))
+  assert.ok(view.includes('function setChargeInCombat'))
+  assert.ok(view.includes('<span>In Combat</span>'))
+  assert.ok(view.includes("chargeInCombat(rule.unitRefs?.[0]?.instanceId || '') || chargeDeclared"))
+  assert.ok(view.includes("chargeHeld(rule.unitRefs?.[0]?.instanceId || '') || chargeInCombat"))
+})
+
+test('match Back and Next navigation uses compact bounded controls', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const css = read('src/styles/match.css')
+  assert.ok(view.includes("return 'Next'"))
+  assert.ok(view.includes("return 'Start Battle'"))
+  assert.ok(css.includes('.game-match-page .match-sticky-nav'))
+  assert.ok(css.includes('min-width: 88px'))
+  assert.ok(css.includes('max-width: min(180px, 42vw)'))
+})
+
+test('roster entry actions follow the compact management button set', () => {
+  const home = read('src/views/HomeView.vue')
+  const start = home.indexOf('<div v-if="!deleteMode" class="saved-list-row-actions">')
+  const end = home.indexOf('</div>', start)
+  const row = home.slice(start, end)
+  assert.ok(row.indexOf('roster-export-action') < row.indexOf('roster-lock-action'))
+  assert.ok(row.indexOf('roster-lock-action') < row.indexOf('enemy-roster-toggle'))
+  assert.ok(row.indexOf('enemy-roster-toggle') < row.indexOf('Copy roster'))
+  assert.ok(row.indexOf('Copy roster') < row.indexOf('Share roster code'))
+  assert.ok(row.indexOf('Share roster code') < row.indexOf('roster-delete-action'))
+  assert.equal(row.includes('View roster'), false)
+  assert.ok(home.includes('function deleteRoster(list: SavedArmyList)'))
+  assert.ok(home.includes('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z'))
+})
+
+
+test('Alpha 0.46 release metadata is synchronized', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '0.46.0')
+  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.46'))
+  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.46'))
+  assert.ok(read('public/sw.js').includes('v046'))
+  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.46'"))
   assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.45'"))
 })
 
@@ -294,4 +373,4 @@ for (const [name, fn] of tests) {
   try { await fn(); passed += 1 }
   catch (error) { console.error(`FAIL: ${name}`); throw error }
 }
-console.log(`ODX 0.45 regressions passed: ${passed}/${tests.length}`)
+console.log(`ODX 0.46 regressions passed: ${passed}/${tests.length}`)

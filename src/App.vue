@@ -127,7 +127,7 @@ onMounted(() => {
       <section v-if="launchSceneVisible" class="olddex-launch-scene" aria-label="Old.dex launching">
         <audio v-if="bootAudioEnabled" ref="launchAudioElement" src="/audio/ready_for_murderin_orc.mp3" preload="auto" autoplay playsinline></audio>
         <img src="/icons/icon-192.png" alt="" aria-hidden="true" />
-        <div><strong>OLD.DEX</strong><small>ALPHA BUILD 0.45</small></div>
+        <div><strong>OLD.DEX</strong><small>ALPHA BUILD 0.46</small></div>
       </section>
     </Transition>
 
@@ -142,7 +142,7 @@ onMounted(() => {
     </section>
 
     <footer v-if="showGlobalPageTools" class="app-footer olddex-legal-footer">
-      <span>Old.dex Alpha Build 0.45</span>
+      <span>Old.dex Alpha Build 0.46</span>
       <span>Olddex is not affiliated with Games Workshop. It displays data from BSData.</span>
     </footer>
   </div>

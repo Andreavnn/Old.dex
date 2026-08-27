@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import RuleToneIcon from './RuleToneIcon.vue'
+import { computed } from 'vue'
+import type { PrototypeUnit } from '../data/builderPrototype'
 import type { GameMagicChoice } from '../services/games'
+import RuleAbilityCard from './RuleAbilityCard.vue'
 
 const props = withDefaults(defineProps<{
   choice: GameMagicChoice
@@ -8,39 +10,61 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   selectable?: boolean
   kindLabel?: string
+  sourceLabel?: string
+  trackResult?: boolean
+  result?: 'success' | 'fail' | ''
 }>(), {
   selected: false,
   disabled: false,
   selectable: true,
   kindLabel: 'Spell',
+  sourceLabel: '',
+  trackResult: false,
+  result: '',
 })
 
-const emit = defineEmits<{ toggle: [selected: boolean] }>()
+const emit = defineEmits<{
+  toggle: [selected: boolean]
+  result: [result: 'success' | 'fail' | '']
+}>()
+
+const rule = computed(() => {
+  const meta = [
+    props.choice.castingValue ? `Casting Value ${props.choice.castingValue}` : '',
+    props.choice.range ? `Range ${props.choice.range}` : '',
+  ].filter(Boolean).join(' · ')
+  const summary = [meta ? `${meta}.` : '', props.choice.summary || ''].filter(Boolean).join(' ')
+  const path = props.choice.path || '/the-lores-of-magic'
+  return {
+    name: props.choice.name,
+    path,
+    timing: props.choice.type || props.kindLabel,
+    tone: 'magic',
+    summary,
+    keywords: props.choice.signature ? [{ label: 'Signature Spell', path }] : [],
+  } as PrototypeUnit['specialRules'][number]
+})
 </script>
 
 <template>
-  <article class="old-rule-card static-rule-card match-spell-choice-card tone-magic" :class="{ selected: props.selected, unavailable: props.disabled }">
-    <div class="match-spell-card-head">
-      <div class="match-spell-title-row">
-        <RuleToneIcon tone="magic" :label="props.choice.type || props.kindLabel" />
-        <strong>{{ props.choice.name }}</strong>
+  <div class="match-spell-choice-shell" :class="{ selected: props.selected, unavailable: props.disabled }">
+    <RuleAbilityCard class="match-spell-choice-card" :rule="rule" :kind-label="props.kindLabel" />
+    <label v-if="props.selectable" class="match-spell-select" @click.stop>
+      <input type="checkbox" :checked="props.selected" :disabled="props.disabled" @change="emit('toggle', ($event.target as HTMLInputElement).checked)" />
+      <span>Select</span>
+    </label>
+    <div v-if="props.sourceLabel || props.trackResult" class="match-spell-tracking-footer">
+      <small v-if="props.sourceLabel" class="match-spell-source">{{ props.sourceLabel }}</small>
+      <div v-if="props.trackResult" class="match-spell-result-controls" role="group" :aria-label="`${props.choice.name} casting result`">
+        <label :class="{ selected: props.result === 'success' }">
+          <input type="checkbox" :checked="props.result === 'success'" :disabled="props.disabled" @change="emit('result', ($event.target as HTMLInputElement).checked ? 'success' : '')" />
+          <span>Successful</span>
+        </label>
+        <label :class="{ selected: props.result === 'fail' }">
+          <input type="checkbox" :checked="props.result === 'fail'" :disabled="props.disabled" @change="emit('result', ($event.target as HTMLInputElement).checked ? 'fail' : '')" />
+          <span>Failed</span>
+        </label>
       </div>
-      <label v-if="props.selectable" class="match-spell-select" @click.stop>
-        <input type="checkbox" :checked="props.selected" :disabled="props.disabled" @change="emit('toggle', ($event.target as HTMLInputElement).checked)" />
-        <span>Select</span>
-      </label>
     </div>
-    <div class="match-spell-pills">
-      <span class="old-rule-phase">{{ props.choice.type || props.kindLabel }}</span>
-      <span v-if="props.choice.signature" class="value-chip">Signature Spell</span>
-    </div>
-    <div class="old-rule-body match-spell-rule-body">
-      <dl v-if="props.choice.castingValue || props.choice.range" class="spell-rule-meta match-spell-meta">
-        <div v-if="props.choice.castingValue"><dt>Casting Value</dt><dd>{{ props.choice.castingValue }}</dd></div>
-        <div v-if="props.choice.range"><dt>Range</dt><dd>{{ props.choice.range }}</dd></div>
-      </dl>
-      <p v-if="props.choice.summary">{{ props.choice.summary }}</p>
-      <RouterLink v-if="props.choice.path" class="match-spell-rule-link" :to="`/rules/read${props.choice.path}`">{{ props.kindLabel === 'Prayer' ? 'Open prayer rules' : 'Open spell rules' }}</RouterLink>
-    </div>
-  </article>
+  </div>
 </template>

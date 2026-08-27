@@ -181,7 +181,7 @@ onMounted(async () => {
     </section></section>
 
     <section class="settings-group" aria-label="Changelog and updates"><div class="settings-group-heading"><p class="eyebrow settings-group-title">CHANGELOG &amp; UPDATES</p></div><section class="settings-card">
-      <div class="setting-row static-row"><span><strong>Site Changelog - Alpha 0.45</strong><small>Review changes, fixes, and feature updates included in the current Old.dex build.</small></span><RouterLink to="/changelog" class="secondary-button settings-compact-action">Open</RouterLink></div>
+      <div class="setting-row static-row"><span><strong>Site Changelog - Alpha 0.46</strong><small>Review changes, fixes, and feature updates included in the current Old.dex build.</small></span><RouterLink to="/changelog" class="secondary-button settings-compact-action">Open</RouterLink></div>
     </section></section>
   </main>
 </template>

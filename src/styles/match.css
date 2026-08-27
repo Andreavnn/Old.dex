@@ -207,3 +207,191 @@
   .match-procedure-panel,
   .deployment-roster-panel
 ){padding:clamp(12px,2.2vw,16px)}
+
+
+/* Alpha 0.46: Match spell cards use the canonical RuleAbilityCard surface. */
+.match-spell-choice-shell {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+.match-spell-choice-shell > .match-spell-choice-card {
+  min-width: 0;
+  height: 100%;
+}
+.match-spell-choice-shell.selected > .match-spell-choice-card {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.match-spell-choice-shell.unavailable > .match-spell-choice-card { opacity: .72; }
+.match-spell-choice-shell > .match-spell-choice-card .old-rule-summary {
+  padding-right: 92px;
+}
+.match-spell-choice-shell > .match-spell-select {
+  position: absolute;
+  z-index: 2;
+  top: 9px;
+  right: 9px;
+  min-height: 28px;
+  padding: 3px 7px;
+  font-size: calc(8.5px + var(--font-offset));
+  background: var(--paper);
+}
+.match-spell-tracking-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 11px 11px;
+  background: var(--paper-2);
+}
+.match-spell-source {
+  min-width: 0;
+  color: var(--ink-soft);
+  font-weight: 800;
+}
+.match-spell-result-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.match-spell-result-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 29px;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: calc(8.5px + var(--font-offset));
+  font-weight: 800;
+}
+.match-spell-result-controls label.selected {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+.match-spell-result-controls input { margin: 0; }
+.match-phase-spell-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 10px;
+}
+
+/* Fix the Tips switch against the older generic checkbox size selector. */
+label.match-tip-master-toggle > input.match-tip-switch-input {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 22px !important;
+  margin: 0 !important;
+  border: 1px solid var(--line-dark);
+  border-radius: 999px;
+  background: var(--paper-2);
+  position: relative;
+  cursor: pointer;
+  accent-color: initial;
+}
+label.match-tip-master-toggle > input.match-tip-switch-input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ink-soft);
+  transition: transform .16s ease, background .16s ease;
+}
+label.match-tip-master-toggle > input.match-tip-switch-input:checked {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+}
+label.match-tip-master-toggle > input.match-tip-switch-input:checked::after {
+  transform: translateX(16px);
+  background: var(--accent-dark);
+}
+
+/* Enforce deployment stages instead of only sorting them visually. */
+.deployment-category-group.locked { opacity: .78; }
+.deployment-unit-row.locked { opacity: .62; }
+.deployment-stage-lock-note {
+  color: var(--danger) !important;
+  font-weight: 800;
+}
+.deployment-unit-row.locked input { cursor: not-allowed; }
+
+/* Battle Conditions use the same expandable rule-panel geometry as match rules. */
+.disruptive-weather-required {
+  margin: 0;
+  background: var(--paper-2);
+}
+.disruptive-weather-required > summary {
+  min-height: 42px;
+}
+.disruptive-weather-required .condition-resolution-body {
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  padding: 11px 12px 12px;
+}
+
+/* Four mutually exclusive charge-state controls fit the Movement Step 2 row. */
+.charge-resolution-checks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.declare-resolve-charge-row.inCombat {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--line));
+  background: color-mix(in srgb, var(--accent-wash) 18%, var(--paper));
+}
+
+/* Carry a successful charge forward into Combat Step 1. */
+.combat-unit-name-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.combat-charged-chip {
+  flex: 0 0 auto;
+  font-size: calc(7.5px + var(--font-offset));
+}
+
+/* Keep Back/Next inside the card instead of stretching across the full panel. */
+.game-match-page .match-sticky-nav {
+  grid-template-columns: repeat(2, minmax(0, auto));
+  justify-content: center;
+  align-items: center;
+  padding-inline: clamp(12px, 2.4vw, 18px);
+}
+.game-match-page .match-sticky-nav > :is(.primary-button,.secondary-button) {
+  width: auto;
+  min-width: 88px;
+  max-width: min(180px, 42vw);
+  min-height: 38px;
+  padding-inline: 14px;
+  justify-self: center;
+}
+
+@media (max-width: 620px) {
+  .match-spell-choice-shell > .match-spell-choice-card .old-rule-summary { padding-right: 70px; }
+  .match-spell-choice-shell > .match-spell-select span { display: inline; }
+  .match-spell-tracking-footer { align-items: stretch; flex-direction: column; }
+  .match-spell-result-controls { display: grid; grid-template-columns: 1fr 1fr; }
+  .match-spell-result-controls label { justify-content: center; }
+  .charge-resolution-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .game-match-page .match-sticky-nav > :is(.primary-button,.secondary-button) {
+    min-width: 76px;
+    padding-inline: 10px;
+  }
+}
