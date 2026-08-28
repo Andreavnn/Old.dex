@@ -281,6 +281,8 @@
 .match-phase-spell-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  grid-auto-rows: max-content;
+  align-items: start;
   gap: 10px;
 }
 
@@ -412,8 +414,12 @@ label.match-tip-master-toggle > input.match-tip-switch-input:checked::after {
 .ongoing-battle-conditions {
   display: grid;
   gap: 9px;
-  margin: 0 clamp(12px,2.4vw,18px) 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
   padding: 11px 12px;
+  box-sizing: border-box;
   border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
   background: color-mix(in srgb, var(--accent-wash) 16%, var(--paper));
 }
@@ -445,7 +451,7 @@ label.match-tip-master-toggle > input.match-tip-switch-input:checked::after {
 .tracked-use-status.depleted small { color:inherit; }
 
 /* Total Power / Miscast resolution. */
-.match-phase-spell-entry { display:grid;gap:8px;min-width:0; }
+.match-phase-spell-entry { display:grid;align-self:start;gap:8px;min-width:0; }
 .match-phase-spell-entry.locked { opacity:.72; }
 .spell-power-controls { display:flex;align-items:center;gap:7px;flex-wrap:wrap; }
 .spell-power-controls > label {
@@ -490,9 +496,29 @@ label.match-tip-master-toggle > input.match-tip-switch-input:checked::after {
 
 @media(max-width:620px){
   .match-spell-choice-shell > .match-spell-select { top:13px; }
-  .ongoing-battle-conditions { margin-inline:10px; }
   .ongoing-battle-conditions-heading { align-items:flex-start;flex-direction:column;gap:3px; }
   .tracked-use-status { display:grid;margin:6px 0 0;width:max-content;max-width:100%; }
   .spell-power-controls > label { flex:1 1 auto;justify-content:center; }
   .follow-up-outcome-grid { grid-template-columns:1fr; }
 }
+
+
+/* Alpha 0.48 — Combat Step 1 profile target excludes only the checkbox area. */
+.combat-fight-profile-area {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.combat-fight-profile-area:hover,
+.combat-fight-profile-area:focus-visible {
+  background: color-mix(in srgb, var(--accent-wash) 24%, transparent);
+  outline: none;
+}
+.combat-fight-profile-area strong,
+.combat-fight-profile-area small { color: inherit; }

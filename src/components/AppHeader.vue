@@ -26,9 +26,9 @@ function goBack() {
       <div v-else class="header-spacer"></div>
 
       <div class="brand-stack">
-        <RouterLink to="/lists" class="brand" aria-label="Old.dex Army Lists">
+        <RouterLink to="/lists" class="brand" aria-label="Old.dex Army Rosters">
           <span class="brand-wordmark"><span class="brand-old">OLD</span><span class="brand-dot">.</span><span class="brand-dex">DEX</span></span>
-          <small class="alpha-build">ALPHA BUILD 0.47</small>
+          <small class="alpha-build">ALPHA BUILD 0.48</small>
         </RouterLink>
         <RouterLink to="/changelog" class="changelog-link">Changelog</RouterLink>
       </div>

@@ -112,14 +112,15 @@ test('Disruptive Weather blocks deployment progression until a result is recorde
   assert.ok(view.includes('advanceButtonDisabled'))
 })
 
-test('Wilderness Terrain remains at deployment and battle conditions use a universal phase-top reminder', () => {
+test('Wilderness Terrain remains at deployment and battle conditions use the shared ongoing panel', () => {
   const view = read('src/views/GameMatchView.vue')
+  const panel = read('src/components/OngoingBattleConditionsPanel.vue')
   const deploymentOrder = view.slice(view.indexOf('v-else-if="isDeploymentOrderStep"'), view.indexOf('v-else-if="isDeployArmiesStep"'))
   const deployArmies = view.slice(view.indexOf('v-else-if="isDeployArmiesStep"'), view.indexOf('v-else-if="isRoundStartStep"'))
   assert.equal(deploymentOrder.includes('Wilderness Terrain'), false)
   assert.ok(deployArmies.includes('Wilderness Terrain'))
-  assert.ok(view.includes('ONGOING BATTLE CONDITIONS'))
-  assert.ok(view.includes('ongoingBattleConditions'))
+  assert.ok(panel.includes('ONGOING BATTLE CONDITIONS'))
+  assert.ok(view.includes('ongoingBattleConditionDisplayRows'))
   assert.equal((view.match(/class="wilderness-terrain-reminder card-inset"/g) || []).length, 0)
 })
 
@@ -435,14 +436,64 @@ test('End of Round score is flattened into the step content', () => {
   assert.equal(view.includes('class="end-round-score-panel card-inset"'), false)
 })
 
-test('Alpha 0.47 release metadata is synchronized', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '0.47.0')
-  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.47'))
-  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.47'))
-  assert.ok(read('src/views/SettingsView.vue').includes('Site Changelog - Alpha 0.47'))
-  assert.ok(read('public/sw.js').includes('v047'))
+test('locked roster overview routes back to the Builder', () => {
+  const router = read('src/router.ts')
+  const home = read('src/views/HomeView.vue')
+  assert.ok(router.includes("to.name === 'list-view'"))
+  assert.ok(router.includes('if (list?.locked) return savedArmyListRoute(list)'))
+  assert.ok(home.includes('function rosterOpenRoute(list: SavedArmyList)'))
+  assert.ok(home.includes('list.locked ? savedArmyListRoute(list)'))
+})
+
+test('ongoing Battle Conditions sit below Tip panels and stay contained', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const css = read('src/styles/match.css')
+  const tip = view.indexOf('Tip — Start of Round')
+  const ongoing = view.indexOf('OngoingBattleConditionsPanel', tip)
+  assert.ok(tip >= 0 && ongoing > tip)
+  assert.ok(css.includes('.ongoing-battle-conditions {'))
+  assert.ok(css.includes('max-width: 100%'))
+  assert.ok(css.includes('box-sizing: border-box'))
+  assert.equal(css.includes('.ongoing-battle-conditions { margin-inline:10px; }'), false)
+})
+
+test('Miscast expansion does not stretch neighboring spell columns', () => {
+  const css = read('src/styles/match.css')
+  assert.ok(css.includes('grid-auto-rows: max-content'))
+  assert.ok(css.includes('align-items: start'))
+  assert.ok(css.includes('.match-phase-spell-entry { display:grid;align-self:start;'))
+})
+
+test('Combat Step 1 profile target excludes the checkbox area', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const css = read('src/styles/match.css')
+  assert.ok(view.includes('<label class="turn-action-check combat-fight-check">'))
+  assert.ok(view.includes('<RouterLink class="combat-fight-unit-copy combat-fight-profile-area"'))
+  assert.ok(css.includes('.combat-fight-profile-area'))
+})
+
+test('requested labels and text-link alignment are applied', () => {
+  const nav = read('src/components/PrimaryNav.vue')
+  const header = read('src/components/AppHeader.vue')
+  const settings = read('src/views/SettingsView.vue')
+  const theme = read('src/styles/theme.css')
+  assert.ok(nav.includes('>Army Rosters</RouterLink>'))
+  assert.ok(header.includes('aria-label="Old.dex Army Rosters"'))
+  assert.ok(settings.includes('Adjust standard interface and rules-reader text.'))
+  assert.ok(theme.includes('.create-list-cancel'))
+  assert.ok(theme.includes('.settings-page .settings-compact-action'))
+  assert.ok(theme.includes('justify-content: center'))
+})
+
+
+test('Alpha 0.48 release metadata is synchronized', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '0.48.0')
+  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.48'))
+  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.48'))
+  assert.ok(read('src/views/SettingsView.vue').includes('Site Changelog - Alpha 0.48'))
+  assert.ok(read('public/sw.js').includes('v048'))
+  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.48'"))
   assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.47'"))
-  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.46'"))
 })
 
 let passed = 0
@@ -450,4 +501,4 @@ for (const [name, fn] of tests) {
   try { await fn(); passed += 1 }
   catch (error) { console.error(`FAIL: ${name}`); throw error }
 }
-console.log(`ODX 0.47 regressions passed: ${passed}/${tests.length}`)
+console.log(`ODX 0.48 regressions passed: ${passed}/${tests.length}`)

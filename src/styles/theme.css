@@ -81,3 +81,13 @@
   color:#25231f !important;
 }
 :is(.roster-included-chip,.roster-option-chip,.configured-rule-line > a) :is(strong,span,small,em,a){color:inherit !important}
+
+
+/* Alpha 0.48 — text-link buttons keep their label geometrically centered. */
+.create-list-cancel,
+.settings-page .settings-compact-action {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}

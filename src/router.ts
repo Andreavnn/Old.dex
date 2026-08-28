@@ -16,6 +16,7 @@ import RuleIndexGroupView from './views/RuleIndexGroupView.vue'
 import ChangelogView from './views/ChangelogView.vue'
 import WelcomeView from './views/WelcomeView.vue'
 import { hasSeenWelcome } from './services/welcome'
+import { getSavedArmyList, savedArmyListRoute } from './services/savedLists'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -43,8 +44,12 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.name === 'welcome' || hasSeenWelcome()) return true
-  return { name: 'welcome', query: { continue: to.fullPath } }
+  if (to.name !== 'welcome' && !hasSeenWelcome()) return { name: 'welcome', query: { continue: to.fullPath } }
+  if (to.name === 'list-view') {
+    const list = getSavedArmyList(String(to.params.listId || ''))
+    if (list?.locked) return savedArmyListRoute(list)
+  }
+  return true
 })
 
 export default router

@@ -2,7 +2,7 @@
 
 **Old.dex** is an unofficial companion web app for **Warhammer: The Old World** focused on army building, rules reference, roster validation, and guided match play.
 
-Current public version: **Alpha Build 0.47**
+Current public version: **Alpha Build 0.48**
 
 ## What Old.dex Does
 
@@ -26,7 +26,7 @@ Old.dex combines several tools into one browser-based application:
 - Install as a Progressive Web App on supported desktop and mobile browsers.
 
 
-Alpha Build 0.47 consolidates roster transfer controls, restores the requested saved-roster action order, makes pill UI theme-independent, improves scenario round defaults, adds universal ongoing Battle Conditions and deeper spell/miscast tracking, and refines Shooting, Combat Result, and End of Round match presentation.
+Alpha Build 0.48 removes the locked-roster overview detour, corrects ongoing-condition and Miscast layout behavior, expands Combat profile click targets without capturing checkboxes, and applies the requested roster/navigation/settings wording and alignment refinements.
 
 ## Current Alpha Focus
 

@@ -136,7 +136,7 @@ export function rosterShareCodeFromValue(value: string) {
 }
 
 export async function createRosterShareCode(row: SavedArmyList) {
-  const payload: SharePayload = { format: ROSTER_SHARE_FORMAT, version: ROSTER_SHARE_VERSION, appVersion: '0.47', roster: sharedData(row) }
+  const payload: SharePayload = { format: ROSTER_SHARE_FORMAT, version: ROSTER_SHARE_VERSION, appVersion: '0.48', roster: sharedData(row) }
   const raw = new TextEncoder().encode(JSON.stringify(payload))
   const packed = await compress(raw)
   return `${ROSTER_SHARE_CODE_PREFIX}${packed.kind}.${bytesToBase64Url(packed.bytes)}`

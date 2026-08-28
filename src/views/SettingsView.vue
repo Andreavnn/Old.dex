@@ -145,7 +145,7 @@ onMounted(async () => {
     <section class="settings-group" aria-label="Display settings"><div class="settings-group-heading"><p class="eyebrow settings-group-title">DISPLAY</p></div><section class="settings-card">
       <label class="setting-row"><span><strong>Dark mode</strong><small>The same theme setting controlled by the light/dark button in the top-right header.</small></span><input v-model="darkMode" type="checkbox" /></label>
       <label class="setting-row"><span><strong>Compact rows</strong><small>Reduce list and reference row height throughout Old.dex.</small></span><input v-model="compactRows" type="checkbox" /></label>
-      <div class="setting-row"><span><strong>Text size</strong><small>Choose from two steps below or above the normal interface text size. Normal uses the original site-wide interface scale; the enlarged Old.dex header is independent of this setting.</small></span><div class="font-size-control" role="group" aria-label="Text size"><button v-for="option in fontOptions" :key="option.value" type="button" :class="{ active: fontSize === option.value }" @click="fontSize = option.value">{{ option.label }}</button></div></div>
+      <div class="setting-row"><span><strong>Text size</strong><small>Adjust standard interface and rules-reader text.</small></span><div class="font-size-control" role="group" aria-label="Text size"><button v-for="option in fontOptions" :key="option.value" type="button" :class="{ active: fontSize === option.value }" @click="fontSize = option.value">{{ option.label }}</button></div></div>
       <label class="setting-row"><span><strong>Bold text</strong><small>Increase the weight of normal interface and reference text.</small></span><input v-model="boldText" type="checkbox" /></label>
       <label class="setting-row"><span><strong>Launch Audio</strong><small>Play the Olddex 'Murderin' when the installed app opens.</small></span><input v-model="bootAudioEnabled" type="checkbox" /></label>
       <details class="theme-settings-panel"><summary><span><strong>Themes</strong><small>Faction themes change the Old.dex palette while preserving the selected light or dark mode.</small></span><span class="value-chip">{{ currentThemeLabel }}</span></summary><div class="theme-option-list"><label v-for="theme in themeOptions" :key="theme.value" class="theme-option-row setting-row"><span><strong>{{ theme.label }}</strong><small>{{ theme.note }}</small></span><input :checked="visualTheme === theme.value" type="checkbox" @change="toggleVisualTheme(theme.value, $event)" /></label></div></details>
@@ -181,7 +181,7 @@ onMounted(async () => {
     </section></section>
 
     <section class="settings-group" aria-label="Changelog and updates"><div class="settings-group-heading"><p class="eyebrow settings-group-title">CHANGELOG &amp; UPDATES</p></div><section class="settings-card">
-      <div class="setting-row static-row"><span><strong>Site Changelog - Alpha 0.47</strong><small>Review changes, fixes, and feature updates included in the current Old.dex build.</small></span><RouterLink to="/changelog" class="secondary-button settings-compact-action">Open</RouterLink></div>
+      <div class="setting-row static-row"><span><strong>Site Changelog - Alpha 0.48</strong><small>Review changes, fixes, and feature updates included in the current Old.dex build.</small></span><RouterLink to="/changelog" class="secondary-button settings-compact-action">Open</RouterLink></div>
     </section></section>
   </main>
 </template>

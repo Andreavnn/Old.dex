@@ -34,7 +34,7 @@ const alpha045ChangelogEntry: ChangelogEntry = {
   ],
 }
 
-export const latestChangelogEntry: ChangelogEntry = {
+const alpha047ChangelogEntry: ChangelogEntry = {
   version: '0.47',
   title: 'Roster transfer consolidation, persistent magic state, and match presentation refinements',
   notes: [
@@ -54,8 +54,25 @@ export const latestChangelogEntry: ChangelogEntry = {
   ],
 }
 
+export const latestChangelogEntry: ChangelogEntry = {
+  version: '0.48',
+  title: 'Locked-roster routing and match layout corrections',
+  notes: [
+    'Locked saved rosters now open directly in the Army Builder in locked/read-only state instead of routing through the separate roster overview page, including View actions reached from the Builder.',
+    'Moved Ongoing Battle Conditions immediately below the current Tip panel and corrected their width containment so the shared condition panel cannot overhang match-step edges.',
+    'Disconnected spell-column heights during Total Power and Miscast resolution so an expanded Miscast table no longer stretches neighboring spell entries.',
+    'Expanded Combat Step 1 profile navigation to the entire unit information area while keeping the completion checkbox as an independent click target.',
+    'Centered the Create Army Roster Cancel label and the Settings Changelog Open label inside their buttons.',
+    'Changed the Display Text Size detail to “Adjust standard interface and rules-reader text.”',
+    'Renamed the primary Army Lists navigation label to Army Rosters.',
+    'Retained the scenario-aware minimum-round default introduced in Alpha 0.47.',
+    'Bumped package, header, footer, Settings changelog label, Share Code metadata, and PWA cache metadata to Alpha Build 0.48.',
+  ],
+}
+
 export const recentChangelogEntries: ChangelogEntry[] = [
   latestChangelogEntry,
+  alpha047ChangelogEntry,
   alpha046ChangelogEntry,
   alpha045ChangelogEntry,
 ]
