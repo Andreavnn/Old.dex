@@ -1,15 +1,17 @@
 import { loadLiveUnitProfile } from '../data/liveBuilderUnits'
 import type { ProfileKey, PrototypeEquipmentOption, PrototypeWeapon } from '../data/builderPrototype'
 import type { BuilderRosterSelection } from '../domain/rosterTypes'
-import { applyProfileEffects, incrementCharacteristic, optionAppliesToProfile, profileRoleForName } from '../domain/profileEffects'
+import { applyProfileEffects, incrementCharacteristic, normalizedModelName, optionAppliesToProfile, profileRoleForName } from '../domain/profileEffects'
 import { weaponIsEquipped } from '../domain/loadout'
 import { loadMagicItemReference } from './magicItemReference'
 import { getSavedArmyList } from './savedLists'
+import { reportAppError } from './appErrors'
 import type { SavedGame } from './games'
 
 export type MatchProfileRow = {
   name: string
   profile: Record<string, string>
+  count: number
 }
 
 export type MatchWeaponSnapshot = {
@@ -83,30 +85,66 @@ function applyPersistentOptionModifiers(
   return next
 }
 
-function weaponCount(rosterRow: BuilderRosterSelection, weapon: PrototypeWeapon) {
+function weaponSelectionKey(value: string) {
+  return String(value || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function weaponCount(unit: NonNullable<Awaited<ReturnType<typeof loadLiveUnitProfile>>>, rosterRow: BuilderRosterSelection, weapon: PrototypeWeapon) {
   const stored = Math.max(0, Number(rosterRow.weaponCounts?.[weapon.id] || 0))
   if (stored > 0) return stored
-  if (weapon.requiresSelection) return 1
+  if (weapon.requiresSelection) {
+    const source = unit.equipmentOptions.find((option) => option.id === weapon.requiresSelection)
+    if (source && (rosterRow.equipmentIds || []).includes(source.id)) {
+      const storedSourceCount = Math.max(0, Number(rosterRow.equipmentCounts?.[source.id] || 0))
+      if (storedSourceCount > 0) return storedSourceCount
+      if (source.kind === 'role' || source.addsProfile) return 1
+      return Math.max(1, equipmentCount(rosterRow, source))
+    }
+    // Older saved rosters can retain the atomic weapon id while omitting the
+    // parent option id. Preserve the roster's explicit weapon selection rather
+    // than dropping a legitimate upgrade from Match/Shooting.
+    if ((rosterRow.weaponIds || []).includes(weapon.id)) return Math.max(1, Number(rosterRow.modelCount || 1))
+    return 0
+  }
   return Math.max(1, Number(rosterRow.modelCount || 1))
 }
 
 function selectedWeapons(unit: NonNullable<Awaited<ReturnType<typeof loadLiveUnitProfile>>>, rosterRow: BuilderRosterSelection) {
   const selectedIds = new Set(rosterRow.weaponIds || [])
-  for (const weapon of unit.weapons) if (weapon.default || weapon.locked || weapon.alwaysIncluded) selectedIds.add(weapon.id)
   const selectedEquipmentIds = new Set(rosterRow.equipmentIds || [])
+  const selectedLabels = new Set([...(rosterRow.includedEquipment || []), ...(rosterRow.optionalSelections || [])].map(weaponSelectionKey))
+  const selectedByParent = (weapon: PrototypeWeapon) => Boolean(weapon.requiresSelection && selectedEquipmentIds.has(weapon.requiresSelection))
+  const selectedByLabel = (weapon: PrototypeWeapon) => selectedLabels.has(weaponSelectionKey(weapon.sourceName || weapon.name)) || selectedLabels.has(weaponSelectionKey(weapon.name))
+
+  // Some OWB weapon upgrades are represented as an equipment/option selection
+  // whose linked PrototypeWeapon carries requiresSelection. Treat that active
+  // selection as the weapon being equipped even when an older roster snapshot
+  // did not duplicate the weapon id into weaponIds. Label fallback covers older
+  // snapshots that retained the human-readable selection but not its atomic id.
+  for (const weapon of unit.weapons) {
+    if (weapon.default || weapon.locked || weapon.alwaysIncluded || selectedByParent(weapon) || selectedByLabel(weapon)) selectedIds.add(weapon.id)
+  }
+
   return unit.weapons
-    .filter((weapon) => !weapon.requiresSelection || selectedEquipmentIds.has(weapon.requiresSelection))
-    .filter((weapon) => weaponIsEquipped(unit, weapon, selectedIds, rosterRow.weaponCounts || {}))
-    .map((weapon) => ({
-      id: weapon.id,
-      name: weapon.name,
-      kind: weapon.kind,
-      range: String(weapon.range || (weapon.kind === 'missile' ? 'See rule' : 'Combat')),
-      strength: String(weapon.strength || 'See rule'),
-      ap: String(weapon.ap || '—'),
-      rules: [...new Set(weapon.rules || [])],
-      count: weaponCount(rosterRow, weapon),
-    }))
+    .filter((weapon) => !weapon.requiresSelection || selectedByParent(weapon) || selectedIds.has(weapon.id))
+    // Per-model weapons normally read weaponCounts. A source-linked parent or
+    // preserved roster label is equally authoritative in an older snapshot, so
+    // it must not disappear merely because that historic count field is absent.
+    .filter((weapon) => selectedByParent(weapon) || selectedByLabel(weapon) || weaponIsEquipped(unit, weapon, selectedIds, rosterRow.weaponCounts || {}))
+    .map((weapon) => {
+      const storedCount = weaponCount(unit, rosterRow, weapon)
+      const fallbackCount = selectedByLabel(weapon) && storedCount <= 0 ? Math.max(1, Number(rosterRow.modelCount || 1)) : storedCount
+      return {
+        id: weapon.id,
+        name: weapon.name,
+        kind: weapon.kind,
+        range: String(weapon.range || (weapon.kind === 'missile' ? 'See rule' : 'Combat')),
+        strength: String(weapon.strength || 'See rule'),
+        ap: String(weapon.ap || '—'),
+        rules: [...new Set(weapon.rules || [])],
+        count: Math.max(1, fallbackCount),
+      }
+    })
 }
 
 async function selectedMagicWeapons(rosterRow: BuilderRosterSelection) {
@@ -135,64 +173,108 @@ async function selectedMagicWeapons(rosterRow: BuilderRosterSelection) {
 export async function loadMatchUnitProfile(game: SavedGame, rosterRow: BuilderRosterSelection): Promise<MatchUnitProfileSnapshot | null> {
   const armySlug = gameArmySlug(game)
   if (!armySlug) return null
-  const unit = await loadLiveUnitProfile(armySlug, game.playerArmyName, rosterRow.unitId, gameCompositionId(game))
+
+  const unit = await loadLiveUnitProfile(armySlug, game.playerArmyName, rosterRow.unitId, gameCompositionId(game)).catch((error) => {
+    reportAppError(error, 'MATCH_UNIT_PROFILE_SOURCE', { gameId: game.id, unitId: rosterRow.unitId, instanceId: rosterRow.instanceId })
+    return null
+  })
   if (!unit) return null
+  const resolvedUnit = unit
 
   const selectedIds = new Set(rosterRow.equipmentIds || [])
-  const equipment = selectedEquipment(unit, rosterRow)
-  const rules = activeRules(unit, selectedIds)
+  const equipment = selectedEquipment(resolvedUnit, rosterRow)
+  const rules = activeRules(resolvedUnit, selectedIds)
   const bigUnsSelected = equipment.some((option) => /^Big [’']Uns$/i.test(String(option.sourceName || option.name)))
   const modelCount = Math.max(1, Number(rosterRow.modelCount || 1))
-  const optionalProfiles = (unit.optionalProfiles || []).filter((row) => selectedIds.has(row.selectionId))
+  const optionalProfiles = (resolvedUnit.optionalProfiles || []).filter((row) => selectedIds.has(row.selectionId))
   const isBigUnProfile = (name: string) => /\bBig\s*[’']?Uns?\b/i.test(name)
-  let baseProfiles = (unit.profiles?.length ? unit.profiles : [{ name: unit.name, profile: unit.profile }]).map((row) => ({ ...row }))
+  let baseProfiles = (resolvedUnit.profiles?.length ? resolvedUnit.profiles : [{ name: resolvedUnit.name, profile: resolvedUnit.profile }]).map((row) => ({ ...row, selectionId: undefined as string | undefined }))
   const explicitBigUnRows = baseProfiles.filter((row) => isBigUnProfile(row.name || ''))
-  const explicitBigUnRoles = new Set(explicitBigUnRows.map((row) => profileRoleForName(unit, row.name || unit.name)))
+  const explicitBigUnRoles = new Set(explicitBigUnRows.map((row) => profileRoleForName(resolvedUnit, row.name || resolvedUnit.name)))
   if (!bigUnsSelected) {
     baseProfiles = baseProfiles.filter((row) => !isBigUnProfile(row.name || ''))
   } else if (explicitBigUnRows.length) {
     baseProfiles = baseProfiles.filter((row) => {
-      const name = row.name || unit.name
+      const name = row.name || resolvedUnit.name
       if (isBigUnProfile(name)) return true
-      return !explicitBigUnRoles.has(profileRoleForName(unit, name))
+      return !explicitBigUnRoles.has(profileRoleForName(resolvedUnit, name))
     })
   }
-  let sourceRows = [...baseProfiles, ...optionalProfiles]
+  let sourceRows = [...baseProfiles, ...optionalProfiles.map((row) => ({ ...row }))]
 
-  // Preserve the same semantic display order as roster profiles: unit, champion,
-  // special model, then mount. This also prevents selected mount rows from
-  // displacing the unit's fighting profile in the match reference.
+  // Preserve the canonical source order for rider, champion and special-model
+  // rows while keeping true mount profiles after the models that ride them.
+  // This avoids reordering source profile cards merely because a rider name
+  // contains a mount word (for example Boss, Boar Boy, War Boar).
   sourceRows = sourceRows
     .map((row, index) => ({ ...row, index }))
     .sort((a, b) => {
-      const weight = { unit: 0, champion: 1, special: 2, mount: 3 } as const
-      return weight[profileRoleForName(unit, a.name || unit.name)] - weight[profileRoleForName(unit, b.name || unit.name)] || a.index - b.index
+      const aMount = profileRoleForName(resolvedUnit, a.name || resolvedUnit.name) === 'mount' ? 1 : 0
+      const bMount = profileRoleForName(resolvedUnit, b.name || resolvedUnit.name) === 'mount' ? 1 : 0
+      return aMount - bMount || a.index - b.index
     })
+
+  function profileOwnerOption(entry: (typeof sourceRows)[number]) {
+    const selectionId = String(entry.selectionId || '')
+    if (selectionId) return resolvedUnit.equipmentOptions.find((candidate) => candidate.id === selectionId)
+    const profileKey = normalizedModelName(String(entry.name || resolvedUnit.name))
+    if (!profileKey) return undefined
+    return resolvedUnit.equipmentOptions.find((candidate) => {
+      const target = normalizedModelName(String(candidate.addsProfile || candidate.name || ''))
+      return Boolean(target && target === profileKey)
+    })
+  }
+  function selectedProfileOptionCount(entry: (typeof sourceRows)[number]) {
+    const option = profileOwnerOption(entry)
+    if (!option) return 1
+    if (!equipment.some((candidate) => candidate.id === option.id)) return 0
+    const stored = Math.max(0, Number(rosterRow.equipmentCounts?.[option.id] || 0))
+    if (stored > 0) return stored
+    const role = profileRoleForName(resolvedUnit, String(entry.name || resolvedUnit.name))
+    // Command/special models are single models unless an explicit roster count
+    // says otherwise. A unit-toggle option must not multiply a champion by the
+    // unit's model count.
+    if (role === 'champion' || role === 'special') return 1
+    return Math.max(1, equipmentCount(rosterRow, option))
+  }
+
+  const championCount = sourceRows.reduce((sum, entry) => {
+    if (profileRoleForName(resolvedUnit, String(entry.name || resolvedUnit.name)) !== 'champion') return sum
+    return sum + selectedProfileOptionCount(entry)
+  }, 0)
+
+  function profileCount(entry: (typeof sourceRows)[number]) {
+    const name = String(entry.name || resolvedUnit.name)
+    const role = profileRoleForName(resolvedUnit, name)
+    if (role === 'mount') return modelCount
+    if (role === 'champion' || role === 'special') return selectedProfileOptionCount(entry)
+    return Math.max(0, modelCount - championCount)
+  }
 
   const rows = sourceRows.map((entry) => {
     const name = String(entry.name || rosterRow.name)
-    const role = profileRoleForName(unit, name)
+    const role = profileRoleForName(resolvedUnit, name)
     const explicitUpgradeRow = isBigUnProfile(name)
     const applyBigUnsFallback = bigUnsSelected && (role === 'unit' || role === 'champion') && !explicitUpgradeRow && !explicitBigUnRoles.has(role)
     let profile = applyProfileEffects({
       baseProfile: { ...entry.profile },
       profileName: name,
-      unit,
+      unit: resolvedUnit,
       selectedEquipment: equipment,
       equipmentCount: (option) => equipmentCount(rosterRow, option),
       modelCount,
       activeRules: rules,
       bigUnsSelected: applyBigUnsFallback,
     })
-    profile = applyPersistentOptionModifiers(unit, name, profile, equipment)
-    return { name, profile: cleanProfile(profile) }
-  }).filter((entry) => Object.keys(entry.profile).length > 0)
+    profile = applyPersistentOptionModifiers(resolvedUnit, name, profile, equipment)
+    return { name, profile: cleanProfile(profile), count: profileCount(entry) }
+  }).filter((entry) => Object.keys(entry.profile).length > 0 && entry.count > 0)
 
-  const weapons = [...selectedWeapons(unit, rosterRow), ...(await selectedMagicWeapons(rosterRow))]
+  const weapons = [...selectedWeapons(resolvedUnit, rosterRow), ...(await selectedMagicWeapons(rosterRow))]
 
   return {
     name: rosterRow.name,
-    troopType: String(rosterRow.troopType || unit.details.troopType || ''),
+    troopType: String(rosterRow.troopType || resolvedUnit.details.troopType || ''),
     rows,
     equipment: [...new Set([...(rosterRow.includedEquipment || []), ...(rosterRow.optionalSelections || [])])],
     rules: (rosterRow.specialRules || []).map((rule) => ({ ...rule })),

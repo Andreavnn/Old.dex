@@ -4,7 +4,7 @@ import { getSavedArmyList } from './savedLists'
 import { fetchRuleDocument } from './ruleContent'
 import { extractMechanicalRuleText } from './ruleText'
 import { loadMagicItemReference } from './magicItemReference'
-import { chargeRangeContribution, formatMaximumDeclarationRange, type ChargeRangeContribution } from '../core/matchEffects'
+import { chargeRangeContribution, formatChargeRollSequence, formatMaximumDeclarationRange, type ChargeRangeContribution } from '../core/matchEffects'
 import { extractMatchUseLimit, type MatchUseScope } from '../core/matchUsage'
 import { loadMatchRosterProfile } from './matchRosterProfiles'
 import {
@@ -16,7 +16,12 @@ import {
   type MatchStartRoundRule,
 } from './matchIntelligence'
 
-export type MatchGuidanceRule = BaseMatchGuidanceRule & {
+export type MatchGuidanceUnitRef = NonNullable<BaseMatchGuidanceRule['unitRefs']>[number] & {
+  chargeRollNote?: string
+}
+
+export type MatchGuidanceRule = Omit<BaseMatchGuidanceRule, 'unitRefs'> & {
+  unitRefs?: MatchGuidanceUnitRef[]
   useScope?: MatchUseScope
   useLimit?: number
   useKey?: string
@@ -101,11 +106,13 @@ async function repairChargeRows(game: SavedGame, rows: MatchGuidanceRule[]) {
       const rosterRow = rosterMap.get(ref.instanceId)
       if (!rosterRow) return ref
       const movement = await movementFor(game, rosterRow)
-      const declaration = formatMaximumDeclarationRange(movement, await chargeContributions(rosterRow))
+      const contributions = await chargeContributions(rosterRow)
+      const declaration = formatMaximumDeclarationRange(movement, contributions)
       return {
         ...ref,
         chargeRange: declaration.total ? `${declaration.total}"` : 'See Movement profile',
         chargeRangeNote: declaration.text,
+        chargeRollNote: formatChargeRollSequence(contributions),
       }
     }))
     rule.unitRefs = repaired

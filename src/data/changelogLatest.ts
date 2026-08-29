@@ -54,7 +54,7 @@ const alpha047ChangelogEntry: ChangelogEntry = {
   ],
 }
 
-export const latestChangelogEntry: ChangelogEntry = {
+const alpha048ChangelogEntry: ChangelogEntry = {
   version: '0.48',
   title: 'Locked-roster routing and match layout corrections',
   notes: [
@@ -70,8 +70,28 @@ export const latestChangelogEntry: ChangelogEntry = {
   ],
 }
 
+
+export const latestChangelogEntry: ChangelogEntry = {
+  version: '0.49',
+  title: 'Match deployment, charge, profile, shooting, and score stability',
+  notes: [
+    'Corrected Deployment Step 2 so each War Machine roster entry keeps its own deployed/reserve state instead of one War Machine checkbox toggling every War Machine in the army.',
+    'Removed the Miscast table heading row from selectable outcomes by hardening the shared random-table parser to reject D6/2D6 Result header rows.',
+    'Renamed the voluntary Declare Charges state from Hold to Stay without changing the rules-defined Hold charge reaction elsewhere, highlighted MUST CHARGE IF POSSIBLE, removed filler charge copy, and added the live Charge Roll modifier chain such as Charge Roll > +D6 > +D3.',
+    'Deduplicated joined Character and host-unit charge/reaction rules by canonical visible rule identity so the same Special Rule is not repeated when both models have it.',
+    'Hardened match weapon hydration for source-linked and older roster snapshots so selected Warbows and other missile/melee upgrades are retained in Shooting and match unit profiles even when their source parent selection or historic count fields differ.',
+    'Match roster profiles now display the quantity represented by each profile row, including champion/special model counts and one mount per mounted model where appropriate.',
+    'Corrected canonical rider-versus-mount profile identity so profiles such as Boar Boy remain rider/unit profiles while War Boar remains a mount; rider-targeted persistent effects now apply to the correct profile.',
+    'Allowed failed/transient match profile hydration to retry instead of permanently caching an unavailable profile for the rest of the screen session.',
+    'Rebuilt End of Round score/action geometry with dedicated responsive columns so the score and four round controls no longer overlap.',
+    'Reviewed the Match source path against the canonical architecture and retained Warbow classification in the core missile-weapon vocabulary; the missing-shooter failure was traced to roster-selection hydration rather than weapon classification.',
+    'Bumped package, header, footer, Settings changelog label, Share Code metadata, and PWA cache metadata to Alpha Build 0.49.',
+  ],
+}
+
 export const recentChangelogEntries: ChangelogEntry[] = [
   latestChangelogEntry,
+  alpha048ChangelogEntry,
   alpha047ChangelogEntry,
   alpha046ChangelogEntry,
   alpha045ChangelogEntry,

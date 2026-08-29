@@ -16,6 +16,7 @@ function isShieldOption(option: PrototypeEquipmentOption) { return isShieldSeman
 
 const championPattern = /\b(?:champion|boss|captain|sergeant|champ|championess)\b/i
 const specialModelPattern = /\b(?:musician|standard bearer|crew|bully|handler|master moulder|team|loader|spotter)\b/i
+const mountedRiderPattern = /\b(?:boy|rider|knight|archer|raider|reaver|marauder|outrider|yeoman|warrior)\b/i
 
 export function profileRoleForName(unit: PrototypeUnit, profileName: string): ProfileRole {
   const normalized = normalizedModelName(profileName)
@@ -26,7 +27,8 @@ export function profileRoleForName(unit: PrototypeUnit, profileName: string): Pr
   if (championPattern.test(profileName) && normalized !== unitName) return 'champion'
   if (specialModelPattern.test(profileName) && normalized !== unitName) return 'special'
   const profileWords = normalized.split(' ').filter(Boolean)
-  const unitIdentity = normalized === unitName || (profileWords.length >= 3 && (unitName.includes(normalized) || normalized.includes(unitName)))
+  const riderIdentity = isMountProfileName(profileName) && mountedRiderPattern.test(profileName) && Boolean(normalized && unitName.includes(normalized))
+  const unitIdentity = normalized === unitName || riderIdentity || (profileWords.length >= 3 && (unitName.includes(normalized) || normalized.includes(unitName)))
   if (unitIdentity) return 'unit'
   if (isMountProfileName(profileName)) return 'mount'
   return 'unit'

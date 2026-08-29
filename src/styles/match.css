@@ -522,3 +522,94 @@ label.match-tip-master-toggle > input.match-tip-switch-input:checked::after {
 }
 .combat-fight-profile-area strong,
 .combat-fight-profile-area small { color: inherit; }
+
+/* Alpha 0.49 — charge rows expose the actual roll chain without crowding the range. */
+.declare-resolve-charge-row > header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(160px, auto);
+  align-items: start;
+  gap: 10px 16px;
+}
+.required-charge-label {
+  display: block;
+  margin-top: 3px;
+  color: var(--accent);
+  font-weight: 900;
+  letter-spacing: .035em;
+}
+.charge-roll-sequence {
+  align-self: center;
+  justify-self: center;
+  color: var(--ink);
+  font-size: calc(10px + var(--font-offset));
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+}
+.declare-charge-range { min-width: 0; }
+
+/* Match snapshot model profiles include the quantity represented by each row. */
+.match-profile-model-count {
+  display: block;
+  margin: -7px 0 11px;
+  color: var(--ink-soft);
+  font-size: calc(10px + var(--font-offset));
+  font-weight: 800;
+  text-align: center;
+}
+
+/* End-of-round scoring owns a full-width responsive layout instead of inheriting
+   the generic two-button step grid. */
+.end-round-score-content {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 12px 16px 0;
+  overflow: hidden;
+}
+.end-round-score-board {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+}
+.end-round-score-board .game-score-side,
+.end-round-score-board .game-score-side > div { min-width: 0; }
+.end-round-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 12px 16px 16px;
+}
+.end-round-actions > button {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 8px;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+@media (max-width: 720px) {
+  .declare-resolve-charge-row > header {
+    grid-template-columns: minmax(0, 1fr) minmax(135px, auto);
+  }
+  .charge-roll-sequence {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: start;
+    white-space: normal;
+    text-align: left;
+  }
+  .end-round-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 460px) {
+  .declare-resolve-charge-row > header { grid-template-columns: 1fr; }
+  .charge-roll-sequence,
+  .declare-charge-range { grid-column: 1; justify-self: start; text-align: left; }
+  .end-round-score-board { grid-template-columns: 1fr; justify-items: stretch; }
+  .end-round-score-board .game-score-divider { display: none; }
+}

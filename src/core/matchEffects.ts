@@ -35,7 +35,8 @@ export function extractChargeMatchEffects(label: string, text: string): ChargeMa
   // Declaration reach is a distinct contract from the resolved Charge roll.
   // Swiftstride contributes +3 to maximum declaration range; the actual charge
   // still resolves with the dice/rules printed by the core charge procedure.
-  const canonical = /^Swiftstride(?:\s|\(|$)/i.test(label || '') ? 3 : 0
+  const swiftstride = /^Swiftstride(?:\s|\(|$)/i.test(label || '')
+  const canonical = swiftstride ? 3 : 0
 
   const explicitRange = highestBonus(source, [
     /(?:increases?|increase|increased)\s+(?:its|the unit'?s|this model'?s|the bearer'?s)?\s*(?:maximum (?:possible )?)?charge range\s+by\s+(\d+|D3|D6)\s*["”']?/gi,
@@ -54,7 +55,7 @@ export function extractChargeMatchEffects(label: string, text: string): ChargeMa
   // two descriptions of one source of reach and are counted once.
   return {
     maximumChargeRangeBonus: Math.max(canonical, explicitRange, rollMaximum),
-    chargeRollModifier: rollModifier ? String(rollModifier).toUpperCase() : undefined,
+    chargeRollModifier: rollModifier ? String(rollModifier).toUpperCase() : (swiftstride ? 'D6' : undefined),
   }
 }
 
@@ -77,4 +78,9 @@ export function formatMaximumDeclarationRange(movement: number, contributions: C
   if (!m) return { total: 0, text: 'Maximum declaration range could not be derived from the saved match snapshot.' }
   const extras = active.map((row) => ` + ${Math.max(0, Number(row.bonus || 0))} ${row.label}`).join('')
   return { total, text: `Maximum declaration range: M ${m} + ${base}${extras} = ${total}"` }
+}
+
+export function formatChargeRollSequence(contributions: ChargeRangeContribution[]) {
+  const modifiers = contributions.map((row) => String(row.chargeRollModifier || '').trim().toUpperCase()).filter(Boolean)
+  return `Charge Roll${modifiers.map((value) => ` > +${value.replace(/^\+/, '')}`).join('')}`
 }

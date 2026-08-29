@@ -52,7 +52,7 @@ onMounted(async () => {
       <p v-if="loading" class="setup-inline-status">Building the profile from the roster snapshot used to start this match...</p>
       <template v-else-if="profile">
         <section v-for="row in profile.rows" :key="row.name" class="match-profile-row card-surface">
-          <h2>{{ row.name }}</h2>
+          <h2>{{ row.name }}</h2><small class="match-profile-model-count">×{{ row.count }}</small>
           <div class="stat-grid match-profile-stat-grid">
             <div v-for="stat in visibleStats(row.profile)" :key="`${row.name}-${stat}`" class="stat-circle">
               <CharacteristicIcon :stat="stat" />

@@ -7,6 +7,7 @@ const root = process.cwd()
 const effects = await import(pathToFileURL(resolve(root, 'src/core/matchEffects.ts')).href)
 const usage = await import(pathToFileURL(resolve(root, 'src/core/matchUsage.ts')).href)
 const shooting = await import(pathToFileURL(resolve(root, 'src/core/shootingToHit.ts')).href)
+const randomTables = await import(pathToFileURL(resolve(root, 'src/core/randomHappeningTable.ts')).href)
 const read = (path) => readFileSync(resolve(root, path), 'utf8')
 
 const tests = []
@@ -157,10 +158,10 @@ test('Shooting displays calculated To Hit and expands only genuinely different B
   assert.ok(row.indexOf('shooting-weapon-list') < row.indexOf('shooting-penalty-options'))
 })
 
-test('Combat Step 1 separates checkbox interaction from explicit profile navigation', () => {
+test('Combat Step 1 separates checkbox interaction from the full profile target area', () => {
   const view = read('src/views/GameMatchView.vue')
   assert.ok(view.includes('combat-fight-check'))
-  assert.ok(view.includes('combat-profile-roster-link'))
+  assert.ok(view.includes('combat-fight-unit-copy combat-fight-profile-area'))
   assert.equal(view.includes('combat-profile-clickable'), false)
   assert.equal(view.includes('@click="openMatchUnitProfile'), false)
 })
@@ -220,7 +221,7 @@ test('Settings uses Access & Community and Brambleheart-style donation/changelog
   assert.ok(settings.includes('DONATION'))
   assert.ok(settings.includes('Recurring Support'))
   assert.ok(settings.includes('CHANGELOG &amp; UPDATES'))
-  assert.ok(settings.includes('Site Changelog - Alpha 0.47'))
+  assert.ok(settings.includes('Site Changelog - Alpha 0.49'))
 })
 
 test('Roster transfer removes QR machinery while keeping the QR-shaped row icon as Share Code', () => {
@@ -329,12 +330,13 @@ test('depleted limited-use actions lock their checkbox immediately', () => {
   assert.equal(block.includes('&& !guidanceChecked'), false)
 })
 
-test('Movement Step 2 includes mutually exclusive In Combat and Hold states', () => {
+test('Movement Step 2 includes mutually exclusive In Combat and Stay states', () => {
   const view = read('src/views/GameMatchView.vue')
   const tracking = read('src/services/matchTracking.ts')
   assert.ok(tracking.includes('inCombat?: boolean'))
   assert.ok(view.includes('function setChargeInCombat'))
   assert.ok(view.includes('<span>In Combat</span>'))
+  assert.ok(view.includes('<span>Stay</span>'))
   assert.ok(view.includes("chargeInCombat(rule.unitRefs?.[0]?.instanceId || '') || chargeDeclared"))
   assert.ok(view.includes("chargeHeld(rule.unitRefs?.[0]?.instanceId || '') || chargeInCombat"))
 })
@@ -486,14 +488,103 @@ test('requested labels and text-link alignment are applied', () => {
 })
 
 
-test('Alpha 0.48 release metadata is synchronized', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '0.48.0')
-  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.48'))
-  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.48'))
-  assert.ok(read('src/views/SettingsView.vue').includes('Site Changelog - Alpha 0.48'))
-  assert.ok(read('public/sw.js').includes('v048'))
+
+test('War Machines retain independent deployment state inside their shared stage', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const start = view.indexOf('function toggleDeployedUnit')
+  const end = view.indexOf('function handleDeployedUnit', start)
+  const block = view.slice(start, end)
+  assert.ok(block.includes('const ids = [instanceId]'))
+  assert.equal(block.includes("playerRoster.value.filter((entry) => isWarMachine(entry)"), false)
+  assert.ok(view.includes('WAR MACHINE · TRACK THIS UNIT SEPARATELY'))
+})
+
+test('Miscast parsing rejects the source table heading row', () => {
+  const html = '<h1>Miscast Table</h1><table><tr><td>2D6</td><td>Result</td></tr><tr><td>2-4</td><td>Dimensional Cascade: Bad things happen.</td></tr><tr><td>5-6</td><td>Calamitous Detonation: More bad things happen.</td></tr></table>'
+  const table = randomTables.parseRandomHappeningTable(html, '/magic/miscast-table')
+  assert.deepEqual(table.results.map((row) => row.roll), ['2-4', '5-6'])
+})
+
+test('Charge roll sequence exposes Swiftstride and Waaagh Banner dice in order', () => {
+  const swift = effects.chargeRangeContribution('Swiftstride', 'Swiftstride')
+  const banner = effects.chargeRangeContribution('Waaagh! Banner', 'This unit increases its maximum possible charge range by 3" and adds +D3 to its Charge roll.')
+  assert.equal(effects.formatChargeRollSequence([swift, banner].filter(Boolean)), 'Charge Roll > +D6 > +D3')
+  const guidance = read('src/services/matchGuidance.ts')
+  assert.ok(guidance.includes('chargeRollNote: formatChargeRollSequence(contributions)'))
+})
+
+test('required charge rows use orange emphasis and remove optional filler copy', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const css = read('src/styles/match.css')
+  assert.ok(view.includes('class="required-charge-label">MUST CHARGE IF POSSIBLE</small>'))
+  assert.equal(view.includes('Declare this charge only if the unit is eligible and you choose to charge.'), false)
+  assert.ok(css.includes('.required-charge-label'))
+  assert.ok(css.includes('color: var(--accent)'))
+})
+
+test('joined Character charge rules dedupe by canonical visible rule identity', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const start = view.indexOf('function matchRuleIdentity')
+  const end = view.indexOf('function ordinaryDeploymentResolved', start)
+  const block = view.slice(start, end)
+  assert.ok(block.includes('return label || path'))
+  assert.ok(block.includes('dedupeMatchRules'))
+  assert.ok(block.includes('joinedCharacterChargeRules'))
+  assert.ok(block.includes('chargeRelatedRules'))
+})
+
+test('match profile hydration preserves source-linked and older snapshot weapon upgrades', () => {
+  const source = read('src/services/matchUnitProfiles.ts')
+  assert.ok(source.includes('selectedByParent'))
+  assert.ok(source.includes('selectedByLabel'))
+  assert.ok(source.includes('weapon.requiresSelection'))
+  assert.ok(source.includes('weaponIsEquipped'))
+  assert.ok(source.includes('historic count field is absent'))
+  const view = read('src/views/GameMatchView.vue')
+  const ensureStart = view.indexOf('async function ensureCombatProfile')
+  const ensureEnd = view.indexOf('function combatProfile', ensureStart)
+  const ensureBlock = view.slice(ensureStart, ensureEnd)
+  assert.ok(ensureBlock.includes('combatProfiles.value[row.instanceId]'))
+  assert.equal(ensureBlock.includes('Object.prototype.hasOwnProperty'), false)
+})
+
+test('mounted rider profile names are not misclassified as mount profiles', () => {
+  const core = read('src/core/profileEngine.ts')
+  assert.ok(core.includes('mountedRiderPattern'))
+  assert.ok(core.includes('const riderIdentity = isMountProfileName(profileName)'))
+  assert.ok(core.includes('unitName.includes(normalized)'))
+  assert.ok(core.includes('normalized === unitName || riderIdentity'))
+})
+
+test('match model profiles display roster-derived model quantities including champions and mounts', () => {
+  const source = read('src/services/matchUnitProfiles.ts')
+  const profile = read('src/views/MatchUnitProfileView.vue')
+  assert.ok(source.includes('count: number'))
+  assert.ok(source.includes("if (role === 'mount') return modelCount"))
+  assert.ok(source.includes("if (role === 'champion' || role === 'special') return selectedProfileOptionCount(entry)"))
+  assert.ok(source.includes('modelCount - championCount'))
+  assert.ok(profile.includes('match-profile-model-count'))
+  assert.ok(profile.includes('×{{ row.count }}'))
+})
+
+test('End of Round score and four actions use dedicated responsive geometry', () => {
+  const css = read('src/styles/match.css')
+  assert.ok(css.includes('.end-round-score-board'))
+  assert.ok(css.includes('grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);'))
+  assert.ok(css.includes('.end-round-actions'))
+  assert.ok(css.includes('grid-template-columns: repeat(4, minmax(0, 1fr));'))
+  assert.ok(css.includes('grid-template-columns: repeat(2, minmax(0, 1fr));'))
+  assert.equal(css.includes('end-round-score-board { grid-template-columns: 1fr !important'), false)
+})
+
+test('Alpha 0.49 release metadata is synchronized', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '0.49.0')
+  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.49'))
+  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.49'))
+  assert.ok(read('src/views/SettingsView.vue').includes('Site Changelog - Alpha 0.49'))
+  assert.ok(read('public/sw.js').includes('v049'))
+  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.49'"))
   assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.48'"))
-  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.47'"))
 })
 
 let passed = 0
@@ -501,4 +592,4 @@ for (const [name, fn] of tests) {
   try { await fn(); passed += 1 }
   catch (error) { console.error(`FAIL: ${name}`); throw error }
 }
-console.log(`ODX 0.48 regressions passed: ${passed}/${tests.length}`)
+console.log(`ODX 0.49 regressions passed: ${passed}/${tests.length}`)

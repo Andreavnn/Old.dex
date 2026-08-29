@@ -20,6 +20,12 @@ function splitResult(value: string) {
   return match ? { title: compact(match[1]), text: compact(match[2]) } : { title: 'Result', text: clean }
 }
 
+function isHeaderRow(roll: string, value: string) {
+  const left = compact(roll)
+  const right = compact(value)
+  return /^(?:\d+)?D6$/i.test(left) && /^(?:result|effect|outcome)$/i.test(right)
+}
+
 function parseWithDom(html: string, path: string): RandomHappeningTable | null {
   if (typeof DOMParser === 'undefined') return null
   const doc = new DOMParser().parseFromString(`<main>${html}</main>`, 'text/html')
@@ -39,7 +45,7 @@ function parseWithDom(html: string, path: string): RandomHappeningTable | null {
     if (cells.length < 2) return []
     const roll = compact(cells[0].textContent || '')
     const value = compact(cells.slice(1).map((cell) => cell.textContent || '').join(' '))
-    if (!roll || !value || /^D6$/i.test(roll)) return []
+    if (!roll || !value || isHeaderRow(roll, value) || /^D6$/i.test(roll)) return []
     const split = splitResult(value)
     return [{ roll, ...split }]
   })
@@ -52,9 +58,12 @@ function parseWithRegex(html: string, path: string): RandomHappeningTable {
   const results: RandomHappeningResult[] = []
   for (const row of tableHtml.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)) {
     const cells = [...row[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((cell) => stripTags(cell[1]))
-    if (cells.length < 2 || !cells[0] || /^D6$/i.test(cells[0])) continue
-    const split = splitResult(cells.slice(1).join(' '))
-    results.push({ roll: cells[0], ...split })
+    if (cells.length < 2 || !cells[0]) continue
+    const roll = cells[0]
+    const value = cells.slice(1).join(' ')
+    if (/^D6$/i.test(roll) || isHeaderRow(roll, value)) continue
+    const split = splitResult(value)
+    results.push({ roll, ...split })
   }
   return { path, title, intro: '', results }
 }
