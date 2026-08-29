@@ -1,25 +1,34 @@
-# Old.dex Alpha 0.49
+# Old.dex Alpha 0.50
 
-Alpha 0.49 is a Match stability pass focused on deployment state, charge guidance, shooting/profile hydration, and responsive end-of-round layout.
+Alpha 0.50 is a no-feature maintenance release. It addresses the repository-wide technician audit after Alpha 0.49 and tightens the canonical architecture without changing the intended roster, rules, or match workflows.
 
-## Match fixes
-- War Machines now remain separate roster entries during Deployment Step 2. Deploying or reserving one War Machine no longer changes every War Machine in the roster.
-- The Miscast table no longer exposes its `2D6 / Result` heading row as a selectable outcome.
-- Declare Charges now uses `Stay` for the non-charge state while rules-defined Hold charge reactions remain unchanged.
-- `MUST CHARGE IF POSSIBLE` is emphasized in orange and the redundant optional charge instruction is removed.
-- Charge rows now show the actual detected roll-modifier chain, for example `Charge Roll > +D6 > +D3` for Swiftstride plus Waaagh! Banner.
-- Joined Characters and host units no longer repeat the same charge/reaction Special Rule when both possess it.
-- Shooting and match profiles now preserve source-linked Warbows and other weapon upgrades from the saved roster snapshot, including compatibility fallbacks for older selection/count storage.
-- Failed profile hydration can retry instead of leaving a unit permanently absent from Shooting/profile-dependent match tools.
-- Match roster profile rows now show model quantities. Champion and special-model selections are counted separately and mounted profiles represent one mount per mounted model where appropriate.
-- Corrected the canonical profile-role heuristic so rider profiles whose names contain mount words (for example Boar Boy) are treated as riders rather than mounts; true mount rows such as War Boar remain mounts. This also restores rider-targeted persistent equipment/profile effects.
-- End of Round Step 2 now owns a responsive score/action layout so Round & Score Calculation cannot overlap its four controls.
+## Architecture and validation
+- Routed Dropbox OAuth/API/content/revoke requests through the shared HTTP timeout/error boundary. Provider error bodies can still be inspected without bypassing Old.dex networking.
+- Returned `matchGuidance.ts` and `matchRosterProfiles.ts` to thin compatibility facades. Charge/use-limit mechanics now live in `matchIntelligence.ts`; magical profile effects live in `matchUnitProfiles.ts`.
+- Consolidated all runtime CSS into `src/styles.css`, removed the obsolete broad Dark Mode pill override, and reduced legacy `!important` usage from 186 runtime declarations to 81.
+- Expanded static analysis to check all runtime CSS, compatibility-facade ownership, service-worker precache assets, dead infrastructure, repository hygiene, network/storage boundaries, dependency cycles, and existing canonical semantics.
 
-## Stability review
-- Confirmed Warbow/Warbows already belong to the canonical missile-weapon vocabulary; the missing-shooter defect was downstream roster hydration, which is corrected at the shared match-profile adapter.
-- Kept declaration-range calculation and charge-roll modifiers separate while exposing both from the same active-rule/item contribution set.
-- Added regression coverage for per-unit War Machine deployment, Miscast header filtering, stacked charge-roll display, joined-rule deduplication, weapon snapshot hydration, profile quantities, and responsive score geometry.
-- Checked the repository for obsolete ODX verification markers; none are present in the current source.
+## Repository cleanup
+- Removed the obsolete standalone review/preview scripts and their package commands.
+- Removed the unused `BootAudioSetting.vue` and `SegmentTabs.vue` components plus the placeholder `ArmyView.vue` route/view.
+- Added `.gitignore` for dependencies, builds, Vercel state, local environment files, logs, editor files, generated previews, and ZIP artifacts.
+- Removed the nonexistent bundled OWB catalog from the PWA/core fallback contract. Live OWB refresh remains authoritative and the last successful catalog remains persisted locally for offline fallback after an online load.
 
-## Release
-- Updated package, header, footer, Settings changelog label, Share Code metadata, changelog, and PWA cache to Alpha Build 0.49.
+## Runtime maintenance
+- Replaced the placeholder Report control with a GitHub issue workflow prefilled with the current build, page, browser, and recent local diagnostics.
+- Centralized the Old.dex runtime build number in `src/version.ts`.
+- Documented the saved-roster export schema version as separate from the application build version; the existing `0.65` schema identifier is retained for compatibility.
+- Consolidated Alpha 0.43 onward back into the canonical changelog and removed the recent-changelog sidecar.
+- Updated the core architecture document to record the network, storage, style, versioning, PWA, and Match facade boundaries.
+
+## Validation
+- Core regressions: 43/43 passed.
+- Match/maintenance regressions: 66/66 passed.
+- Static analysis: passed with 106 source files checked, 81 `!important` declarations, and zero style-version markers.
+- Strict TypeScript semantic checking of the changed non-Vue service/core files passed using the repository TypeScript version and audit-only framework declarations.
+- Full `vue-tsc`/Vite validation still requires installing the declared project dependencies; dependency installation is unavailable in the current audit environment.
+
+## External validation still required
+- A trustworthy `package-lock.json` could not be generated because the npm registry is unavailable in the audit environment. The direct dependency versions remain pinned exactly in `package.json`.
+- The full `vue-tsc` and Vite production build could not run without the project dependencies. `npm run check` now passes lint and all 109 regressions, then stops only because `vue-tsc` is not installed in this isolated environment.
+- The connected Vercel account exposes the Olddex team but no project through the connector, so production deployment/runtime logs could not be inspected as part of this maintenance pass.

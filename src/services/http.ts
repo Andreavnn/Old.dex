@@ -5,6 +5,8 @@ export type FetchOptions = RequestInit & {
   retries?: number
   retryDelayMs?: number
   source?: string
+  /** Return non-2xx responses to callers that need to inspect an API error body. */
+  allowHttpError?: boolean
 }
 
 const DEFAULT_TIMEOUT_MS = 12_000
@@ -45,6 +47,7 @@ export async function fetchWithTimeout(input: RequestInfo | URL, options: FetchO
     retries,
     retryDelayMs = DEFAULT_RETRY_DELAY_MS,
     source = String(input),
+    allowHttpError = false,
     signal,
     ...request
   } = options
@@ -66,7 +69,7 @@ export async function fetchWithTimeout(input: RequestInfo | URL, options: FetchO
 
     try {
       const response = await fetch(input, { ...request, signal: controller.signal })
-      if (!response.ok) {
+      if (!response.ok && !allowHttpError) {
         const statusError = new AppError('HTTP_STATUS', `Request failed (${response.status})`, { source, status: response.status, attempt })
         if (attempt < retryCount && retryableStatus(response.status)) {
           lastError = statusError

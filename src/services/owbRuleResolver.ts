@@ -6,7 +6,6 @@ import { readStorage, removeStorage, writeStorage } from './storage'
 const OWB_ROOT = 'https://raw.githubusercontent.com/nthiebes/old-world-builder/refs/heads/main'
 const RULE_INDEX_URL = `${OWB_ROOT}/src/components/rules-index/rules-index-export.json`
 const RULE_MAP_URL = `${OWB_ROOT}/src/components/rules-index/rules-map.js`
-const BUNDLED_CATALOG_URL = '/data/owb-rule-catalog.json'
 
 export type OwbRuleIndexStat = Record<string, string | number | null | undefined> & { Name?: string }
 export type OwbRuleIndexEntry = {
@@ -26,19 +25,6 @@ const STORAGE_KEY = 'olddex.owb-rule-catalog.v3'
 const STORAGE_TTL_MS = 12 * 60 * 60 * 1000
 
 type PersistedCatalog = { savedAt: number; catalog: OwbRuleCatalog }
-type BundledCatalog = OwbRuleCatalog & { generatedFrom?: string }
-
-async function loadBundledCatalog() {
-  try {
-    const response = await fetchWithTimeout(BUNDLED_CATALOG_URL, { cache: 'default', source: 'owb-rule-index-bundled', retries: 0 })
-    const value = await response.json() as BundledCatalog
-    if (!value?.rules || !value.synonyms || Object.keys(value.rules).length < 500) return null
-    return { rules: value.rules, synonyms: value.synonyms } satisfies OwbRuleCatalog
-  } catch {
-    return null
-  }
-}
-
 function readPersistedCatalog(allowStale = false) {
   try {
     const parsed = JSON.parse(readStorage(STORAGE_KEY) || 'null') as PersistedCatalog | null
@@ -117,10 +103,8 @@ export async function loadOwbRuleCatalog(force = false): Promise<OwbRuleCatalog>
     if (persisted) { catalogCache = persisted; return persisted }
   }
 
-  // Old.dex ships the current OWB rule index with the application so its core
-  // name-to-rule resolver remains available even when raw.githubusercontent.com
-  // is unavailable. A live OWB refresh still wins when it succeeds.
-  const bundled = await loadBundledCatalog()
+  // A live OWB refresh is authoritative. The most recent successful catalog is
+  // persisted locally, so installed sessions retain a fallback after one online load.
   const refresh = force ? `?olddex-refresh=${Date.now()}` : ''
   try {
     const [indexResponse, mapResponse] = await Promise.all([
@@ -140,7 +124,6 @@ export async function loadOwbRuleCatalog(force = false): Promise<OwbRuleCatalog>
     if (catalogCache) return catalogCache
     const stale = readPersistedCatalog(true)
     if (stale) { catalogCache = stale; return stale }
-    if (bundled) { catalogCache = bundled; persistCatalog(bundled); return bundled }
     return { rules: {}, synonyms: {} }
   }
 }

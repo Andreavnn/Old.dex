@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { createRequire } from 'node:module'
 const require = createRequire(import.meta.url)
@@ -34,17 +34,35 @@ for (const path of sourceFiles) {
   if (/\b(?:eval|Function)\s*\(/.test(source)) failures.push(`${rel}: executable dynamic-code API is forbidden`)
 }
 
-// Preview verification runs after `build:review`. Static analysis inspects the
-// canonical source and the generator contract, never a checked-in preview artifact.
-const previewBuilder = readFileSync(join(root, 'scripts/inline-preview.mjs'), 'utf8')
-if (!previewBuilder.includes('ODX-STANDALONE-PREVIEW')) failures.push('review builder must mark preview.html as a generated artifact')
-if (!previewBuilder.includes('SOURCE-SHA256')) failures.push('review builder must fingerprint the canonical application source')
+const styleFiles = sourceFiles.filter((path) => path.endsWith('.css'))
+const styleText = styleFiles.map((path) => readFileSync(path, 'utf8')).join('\n')
+const importantCount = (styleText.match(/!important/g) || []).length
+if (importantCount > 150) failures.push(`runtime CSS contains ${importantCount} !important declarations (hard limit 150)`); else if (importantCount > 100) warnings.push(`runtime CSS contains ${importantCount} legacy !important declarations; continue consolidating specificity during maintenance passes`)
+const versionMarkers = (styleText.match(/v0\.\d+/gi) || []).length
+if (versionMarkers > 0) failures.push(`runtime CSS contains ${versionMarkers} version-specific v0.x markers (limit 0)`)
+if (styleFiles.length !== 1 || !styleFiles[0].endsWith('/src/styles.css')) failures.push(`runtime styles must remain consolidated in src/styles.css (found ${styleFiles.length} CSS files)`)
 
-const styles = readFileSync(join(root, 'src/styles.css'), 'utf8')
-const importantCount = (styles.match(/!important/g) || []).length
-if (importantCount > 150) failures.push(`src/styles.css contains ${importantCount} !important declarations (hard limit 150)`); else if (importantCount > 20) warnings.push(`src/styles.css contains ${importantCount} legacy !important declarations; consolidate specificity as components are migrated to the core UI layer`)
-const versionMarkers = (styles.match(/v0\.\d+/gi) || []).length
-if (versionMarkers > 0) failures.push(`src/styles.css contains ${versionMarkers} version-specific markers (limit 0)`)
+const obsoleteFiles = [
+  'scripts/inline-preview.mjs',
+  'scripts/verify-preview.mjs',
+  'scripts/source-fingerprint.mjs',
+  'src/components/BootAudioSetting.vue',
+  'src/components/SegmentTabs.vue',
+  'src/views/ArmyView.vue',
+  'src/data/changelogLatest.ts',
+]
+for (const rel of obsoleteFiles) if (existsSync(join(root, rel))) failures.push(`obsolete/dead file remains: ${rel}`)
+if (!existsSync(join(root, '.gitignore'))) failures.push('repository .gitignore is missing')
+
+// Service-worker precache paths must map to real public assets. A missing entry
+// can abort installation or cache the SPA shell under the wrong content type.
+const sw = readFileSync(join(root, 'public/sw.js'), 'utf8')
+const coreLiteral = sw.match(/const CORE = \[([\s\S]*?)\]/)?.[1] || ''
+for (const match of coreLiteral.matchAll(/['"](\/[^'"]+)['"]/g)) {
+  const path = match[1]
+  if (path === '/') continue
+  if (!existsSync(join(root, 'public', path.replace(/^\//, '')))) failures.push(`service worker precaches missing public asset: ${path}`)
+}
 
 const loadout = readFileSync(join(root, 'src/domain/loadout.ts'), 'utf8')
 if (/selectionModeFor(?:Weapon|Equipment)[\s\S]{0,220}stackable/.test(loadout)) failures.push('selection mode still falls back to legacy stackable state')
@@ -53,6 +71,10 @@ const semantics = readFileSync(join(root, 'src/core/sourceSemantics.ts'), 'utf8'
 if (!semantics.includes("return 'shield'")) failures.push('canonical Shield semantic invariant is missing')
 const profileFacade = readFileSync(join(root, 'src/domain/profileEffects.ts'), 'utf8')
 if (!profileFacade.includes("export * from '../core/profileEngine'")) failures.push('domain/profileEffects must be a compatibility facade over the canonical profile engine')
+const matchGuidanceFacade = readFileSync(join(root, 'src/services/matchGuidance.ts'), 'utf8')
+if (matchGuidanceFacade.split(/\r?\n/).filter(Boolean).length > 12 || /fetchRuleDocument|chargeRangeContribution|extractMatchUseLimit/.test(matchGuidanceFacade)) failures.push('services/matchGuidance must remain a thin compatibility facade over matchIntelligence')
+const matchRosterFacade = readFileSync(join(root, 'src/services/matchRosterProfiles.ts'), 'utf8')
+if (matchRosterFacade.split(/\r?\n/).filter(Boolean).length > 6 || /loadMagicItemReference|persistentModelCharacteristicModifiers|resolveArmourSave/.test(matchRosterFacade)) failures.push('services/matchRosterProfiles must remain a thin compatibility facade over matchUnitProfiles')
 const forbiddenRuntimeFiles = ['gameTurnGuidanceV033.ts','gameTurnGuidanceV034.ts','gameLocksV034.ts','matchTrackingV036.ts','matchUnitProfilesV036.ts','magicItemReferenceV038.ts']
 for (const name of forbiddenRuntimeFiles) if (sourceFiles.some((path) => path.endsWith(`/services/${name}`))) failures.push(`obsolete versioned runtime service remains: ${name}`)
 if (sourceFiles.some((path) => /styles-v\d+\.css$/.test(path))) failures.push('version-suffixed runtime stylesheet remains')

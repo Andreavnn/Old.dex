@@ -49,7 +49,7 @@ const equipmentCounts = ref(new Map<string, number>())
 
 const backPath = computed(() => {
   const candidate = String(route.query.return || '')
-  return candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : (army.value ? `/army/${army.value.slug}` : '/lists')
+  return candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : '/lists'
 })
 const compositionId = computed(() => {
   const direct = String(route.query.composition || '')

@@ -1,4 +1,3 @@
-import { loadLiveUnitProfile } from '../data/liveBuilderUnits'
 import type { BuilderRosterSelection } from '../domain/rosterTypes'
 import {
   analyzeMatchRuleTiming,
@@ -13,9 +12,11 @@ import { getSavedArmyList } from './savedLists'
 import { hydrateMagicSetupForSide, loadMagicChoices, randomHappeningOptions } from './gameSetup'
 import type { GameMagicChoice, GameSide, SavedGame } from './games'
 import { matchRuleVisibleForTurn } from '../core/matchTurnVisibility'
-import { extractChargeMatchEffects } from '../core/matchEffects'
+import { chargeRangeContribution, formatChargeRollSequence, formatMaximumDeclarationRange, type ChargeRangeContribution } from '../core/matchEffects'
+import { extractMatchUseLimit, type MatchUseScope } from '../core/matchUsage'
 import { loadMagicItemReference } from './magicItemReference'
 import { loadRandomHappeningTable } from './randomHappenings'
+import { loadMatchRosterProfile } from './matchRosterProfiles'
 
 export type MatchRuleSide = 'player' | 'opponent' | 'battle'
 export type MatchRuleSourceKind = 'unit' | 'magic-item' | 'scenario' | 'battlefield' | 'army-composition' | 'battle-composition' | 'spell' | 'core'
@@ -25,6 +26,7 @@ export type MatchUnitRef = {
   name: string
   chargeRange?: string
   chargeRangeNote?: string
+  chargeRollNote?: string
 }
 
 export type MatchGuidanceRule = {
@@ -44,6 +46,9 @@ export type MatchGuidanceRule = {
   relatedRules?: Array<{ source: string; label: string; path?: string; summary: string }>
   quantity?: number
   remainingQuantity?: number
+  useScope?: MatchUseScope
+  useLimit?: number
+  useKey?: string
 }
 
 export type MatchDeploymentRule = {
@@ -473,65 +478,51 @@ function chargeTestKey(game: SavedGame, side: 'player' | 'opponent', instanceId:
 }
 
 
-function numericMovement(row: BuilderRosterSelection) {
-  const value = Number(row.movement || 0)
-  return Number.isFinite(value) && value > 0 ? value : 0
-}
-
-function gameArmySlug(game: SavedGame) { return game.playerArmyId || getSavedArmyList(game.playerListId)?.army || '' }
-function gameCompositionId(game: SavedGame) { return getSavedArmyList(game.playerListId)?.composition || '' }
-
-async function fallbackMovement(game: SavedGame, row: BuilderRosterSelection) {
-  const stored = numericMovement(row)
-  if (stored) return stored
-  const armySlug = gameArmySlug(game)
-  if (!armySlug) return 0
+async function movementFor(game: SavedGame, row: BuilderRosterSelection) {
+  const stored = Number(row.movement || 0)
+  if (Number.isFinite(stored) && stored > 0) return stored
   try {
-    const unit = await loadLiveUnitProfile(armySlug, game.playerArmyName, row.unitId, gameCompositionId(game))
-    if (!unit) return 0
-    const selectedIds = new Set(row.equipmentIds || [])
-    const optionalProfiles = (unit.optionalProfiles || []) as Array<{ selectionId: string; profile: Record<string, string> }>
-    const selectedOptional = optionalProfiles.filter((profile) => selectedIds.has(profile.selectionId))
-    const optionalValues = selectedOptional.map((profile) => Number.parseInt(profile.profile.M || '', 10)).filter((value: number) => Number.isFinite(value) && value > 0)
-    if (optionalValues.length) return Math.max(...optionalValues)
-    const baseRows = (unit.profiles?.length ? unit.profiles : [{ name: unit.name, profile: unit.profile }]) as Array<{ name: string; profile: Record<string, string> }>
-    const values = baseRows.map((profile) => Number.parseInt(profile.profile.M || '', 10)).filter((value: number) => Number.isFinite(value) && value > 0)
-    return Math.max(0, ...values)
+    const profile = await loadMatchRosterProfile(game, row)
+    const values = (profile?.rows || [])
+      .map((entry) => Number.parseInt(String(entry.profile.M || ''), 10))
+      .filter((value) => Number.isFinite(value) && value > 0)
+    return values.length ? Math.max(...values) : 0
   } catch {
     return 0
   }
 }
 
-async function maximumChargeRangeBonus(row: BuilderRosterSelection) {
-  let bonus = 0
+async function chargeContributions(row: BuilderRosterSelection) {
+  const contributions: ChargeRangeContribution[] = []
   const seen = new Set<string>()
 
   for (const rule of row.specialRules || []) {
     const key = `rule:${rule.path || rule.label}`
     if (seen.has(key)) continue
     seen.add(key)
-    let text = rule.label
-    if (rule.path) text = await ruleText(rule.path, rule.label)
-    bonus += extractChargeMatchEffects(rule.label, text).maximumChargeRangeBonus
+    const text = await ruleText(rule.path || '', rule.label)
+    const contribution = chargeRangeContribution(rule.label, text)
+    if (contribution) contributions.push(contribution)
   }
 
   for (const item of row.magicItems || []) {
     const key = `magic:${item.id || item.slug || item.name}`
     if (seen.has(key)) continue
     seen.add(key)
-    const stored = Math.max(0, Number(item.maximumChargeRangeBonus || 0))
-    if (stored > 0) { bonus += stored; continue }
-    if (!item.slug) continue
-    try {
-      const reference = await loadMagicItemReference({ name: item.name, type: item.type, itemPath: `/magic-item/${item.slug}` })
-      bonus += extractChargeMatchEffects(item.name, reference.bodyText || reference.summary || '').maximumChargeRangeBonus
-    } catch {
-      // Older roster snapshots may not contain structured effects. Failing to
-      // refresh one item must not prevent the rest of the charge row loading.
+    let text = item.name
+    if (item.slug && !Number(item.maximumChargeRangeBonus || 0)) {
+      try {
+        const reference = await loadMagicItemReference({ name: item.name, type: item.type, itemPath: `/magic-item/${item.slug}` })
+        text = reference.bodyText || reference.summary || item.name
+      } catch {
+        text = item.name
+      }
     }
+    const contribution = chargeRangeContribution(item.name, text, Number(item.maximumChargeRangeBonus || 0), item.chargeRollModifier)
+    if (contribution) contributions.push(contribution)
   }
 
-  return bonus
+  return contributions
 }
 
 async function declareChargeRows(game: SavedGame, relatedEvents: CompiledRuleEvent[] = []): Promise<MatchGuidanceRule[]> {
@@ -539,15 +530,15 @@ async function declareChargeRows(game: SavedGame, relatedEvents: CompiledRuleEve
   return Promise.all(rows.map(async (unit) => {
     const result = game.chargeTests?.[chargeTestKey(game, 'player', unit.instanceId)]
     const required = result === 'fail'
-    const movement = await fallbackMovement(game, unit)
-    const bonus = await maximumChargeRangeBonus(unit)
-    const maximum = movement > 0 ? movement + 6 + bonus : 0
-    const bonusText = bonus > 0 ? ` + ${bonus} rule bonus` : ''
+    const movement = await movementFor(game, unit)
+    const contributions = await chargeContributions(unit)
+    const declaration = formatMaximumDeclarationRange(movement, contributions)
     const ref: MatchUnitRef = {
       instanceId: unit.instanceId,
       name: unit.name,
-      chargeRange: maximum ? `${maximum}\"` : 'See Movement profile',
-      chargeRangeNote: maximum ? `Maximum declaration range: M ${movement} + 6${bonusText}.` : 'Maximum declaration range could not be derived from the saved match snapshot.',
+      chargeRange: declaration.total ? `${declaration.total}\"` : 'See Movement profile',
+      chargeRangeNote: declaration.text,
+      chargeRollNote: formatChargeRollSequence(contributions),
     }
     const seen = new Set<string>()
     const relatedRules = relatedEvents
@@ -576,11 +567,19 @@ function coreEnemyGuidance(step: MatchActionStep, viewSide: GameSide, enemyHasSp
   return rows
 }
 
-function toGuidance(rows: CompiledRuleEvent[], round: number) {
-  return rows.map(({ step: _step, turn: _turn, ...row }) => ({
-    ...row,
-    remainingQuantity: row.quantity ? Math.max(0, row.quantity - Math.max(0, round - 1)) : undefined,
-  }))
+function toGuidance(rows: CompiledRuleEvent[]) {
+  return rows.map(({ step: _step, turn: _turn, ...row }) => ({ ...row }))
+}
+
+function annotateUseLimits(rows: MatchGuidanceRule[]) {
+  return rows.map((rule) => {
+    let useLimit = extractMatchUseLimit(rule.summary || '', Number(rule.quantity || 1))
+    if (!useLimit && /^Fated Dispel$/i.test(rule.label)) useLimit = { scope: 'round' as const, limit: 1 }
+    const useKey = `${rule.sourceKind}|${rule.source}|${rule.label}|${rule.path || ''}`.toLowerCase()
+    return useLimit
+      ? { ...rule, useScope: useLimit.scope, useLimit: useLimit.limit, useKey, remainingQuantity: useLimit.limit }
+      : { ...rule, remainingQuantity: undefined }
+  })
 }
 
 function guidanceIdentity(row: MatchGuidanceRule) {
@@ -599,7 +598,7 @@ export async function loadMatchTurnGuidance(game: SavedGame, stepId: string, vie
   if (step === 'declare-charges' && viewSide === 'player') {
     const playerChargeEvents = knowledge.playerEvents.filter((row) => ['declare-charges', 'charge-moves'].includes(row.step) && visibleForTurn(row, viewSide))
     const battleChargeEvents = knowledge.battleEvents.filter((row) => ['declare-charges', 'charge-moves'].includes(row.step) && visibleForTurn(row, viewSide))
-    const rows = [...toGuidance(battleChargeEvents, game.round), ...(await declareChargeRows(game, playerChargeEvents))]
+    const rows = annotateUseLimits([...toGuidance(battleChargeEvents), ...(await declareChargeRows(game, playerChargeEvents))])
     const seen = new Set<string>()
     return rows.filter((row) => { const key = guidanceIdentity(row); if (seen.has(key)) return false; seen.add(key); return true })
   }
@@ -610,7 +609,7 @@ export async function loadMatchTurnGuidance(game: SavedGame, stepId: string, vie
   const acceptedSteps: MatchActionStep[] = step === 'combat-result' ? ['combat-result', 'break-test', 'follow-up'] : [step]
   const sourceRows = [...knowledge.battleEvents, ...knowledge.playerEvents, ...knowledge.opponentEvents]
     .filter((row) => acceptedSteps.includes(row.step) && visibleForTurn(row, viewSide))
-  const rows = [...toGuidance(sourceRows, game.round), ...coreEnemyGuidance(step, viewSide, knowledge.opponentSpellSteps.has(step), Boolean((game.magicSetup || []).some((caster) => caster.kind === 'Wizard')))]
+  const rows = annotateUseLimits([...toGuidance(sourceRows), ...coreEnemyGuidance(step, viewSide, knowledge.opponentSpellSteps.has(step), Boolean((game.magicSetup || []).some((caster) => caster.kind === 'Wizard')))])
   const seen = new Set<string>()
   return rows.filter((row) => { const key = guidanceIdentity(row); if (seen.has(key)) return false; seen.add(key); return true })
 }

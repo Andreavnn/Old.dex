@@ -2,6 +2,7 @@
 import { RouterLink, useRouter } from 'vue-router'
 import PrimaryNav from './PrimaryNav.vue'
 import { useSettings } from '../settings'
+import { OLDDEX_BUILD_LABEL } from '../version'
 
 const props = defineProps<{ compact?: boolean; backTo?: string; backLabel?: string; preferBackTo?: boolean; skipBackPrefix?: string }>()
 const router = useRouter()
@@ -28,7 +29,7 @@ function goBack() {
       <div class="brand-stack">
         <RouterLink to="/lists" class="brand" aria-label="Old.dex Army Rosters">
           <span class="brand-wordmark"><span class="brand-old">OLD</span><span class="brand-dot">.</span><span class="brand-dex">DEX</span></span>
-          <small class="alpha-build">ALPHA BUILD 0.49</small>
+          <small class="alpha-build">{{ OLDDEX_BUILD_LABEL.toUpperCase() }}</small>
         </RouterLink>
         <RouterLink to="/changelog" class="changelog-link">Changelog</RouterLink>
       </div>

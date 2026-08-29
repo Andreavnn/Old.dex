@@ -1,3 +1,4 @@
+import { OLDDEX_ROSTER_EXPORT_SCHEMA_VERSION } from '../version'
 import type { BuilderRosterMagicItem, BuilderRosterSelection } from '../domain/rosterTypes'
 import { parseSavedArmyLists } from '../domain/schemas'
 import { readJson, readStorage, removeStorage, writeJson } from './storage'
@@ -395,7 +396,7 @@ export function importSavedArmyListJson(text: string) {
 
 
 export function savedArmyListExportJson(row: SavedArmyList) {
-  return JSON.stringify({ format: 'olddex-army-roster', version: '0.65', ...row, roster: cloneRoster(row.roster || []) }, null, 2)
+  return JSON.stringify({ format: 'olddex-army-roster', version: OLDDEX_ROSTER_EXPORT_SCHEMA_VERSION, ...row, roster: cloneRoster(row.roster || []) }, null, 2)
 }
 
 export function exportSavedArmyList(row: SavedArmyList) {

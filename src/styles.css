@@ -78,9 +78,6 @@ button { color: inherit; }
 .hero-copy p:not(.eyebrow) { max-width: 560px; margin: 14px auto 0; }
 .eyebrow { font-size: calc(11px + var(--font-offset)); letter-spacing: .18em; font-weight: 800; color: var(--accent-dark); margin: 0 0 9px; }
 
-.segment-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; padding: 5px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.48); margin: 0 auto 15px; }
-.segment-tab { border: 0; border-radius: 10px; background: transparent; padding: 11px 16px; font-weight: 750; color: var(--ink-soft); cursor: pointer; }
-.segment-tab.active { background: var(--ink); color: var(--paper); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
 
 .search-bar { height: 48px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 13px; background: var(--paper); padding: 0 13px; box-shadow: 0 3px 12px rgba(37,35,31,.035); margin: 14px 0 18px; }
 .search-bar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(154,106,40,.12); }
@@ -2304,7 +2301,7 @@ a.rule-kind-pill:hover{border-color:var(--accent);background:var(--accent-wash);
 @media(max-width:620px){.builder-unit-control-column{min-width:0;width:100%;margin-top:11px}.builder-unit-control-column .builder-unit-actions{margin-top:0}.theme-settings-panel>summary{align-items:flex-start}.theme-settings-panel>summary .value-chip{display:none}.theme-option-row{padding-left:18px}}
 
 
-/* Alpha 0.57 — modal fit, palette contrast, magic pickers, backgrounds and Games groundwork. */
+/* modal fit, palette contrast, magic pickers, backgrounds and Games groundwork. */
 
 /* Header readability: previous micro-labels were too small at normal viewing distance. */
 .app-header-wrap .app-header{min-height:126px}
@@ -2462,7 +2459,7 @@ html[data-background]:not([data-background="none"]) body{background-position:cen
 .game-score-side{display:grid;justify-items:center;gap:4px}.game-score-side>small{max-width:130px;color:var(--ink-soft);font-size:calc(8px + var(--font-offset));text-align:center}.game-score-side>div{display:grid;grid-template-columns:30px minmax(36px,auto) 30px;align-items:center;gap:5px}.game-score-side button{width:30px;height:30px;border:1px solid var(--line);border-radius:7px;background:var(--paper-2);color:var(--ink);cursor:pointer}.game-score-side strong{font-size:calc(24px + var(--font-offset));text-align:center}
 
 
-/* Alpha 0.58 — typography scope, background legibility, unit picker, imports and expanded option details. */
+/* typography scope, background legibility, unit picker, imports and expanded option details. */
 /* The enlarged typography is intentionally restricted to the persistent site header. */
 .brand-stack .brand{font-size:clamp(48px,6vw,64px)!important}
 .app-header.compact .brand{font-size:clamp(44px,5.4vw,58px)!important}
@@ -2518,7 +2515,7 @@ html[data-background]:not([data-background="none"]) .brand-stack{padding:9px 15p
 .inline-empty-note{padding:12px;border:1px dashed var(--line-dark);border-radius:9px;color:var(--ink-soft);background:var(--paper-2)}
 @media(max-width:560px){.game-roster-source-row{align-items:stretch;flex-direction:column}.game-roster-source-row .secondary-button{width:100%;justify-content:center}}
 
-/* Alpha 0.59 — roster overview/export, match tools, magic-picker usability and visual polish. */
+/* roster overview/export, match tools, magic-picker usability and visual polish. */
 /* Image-backed copy remains theme-aware, but allows more of the selected art to show through. */
 html[data-background]:not([data-background="none"]) .page-title-block,
 html[data-background]:not([data-background="none"]) .hero-copy,
@@ -2623,7 +2620,7 @@ html[data-background]:not([data-background="none"]) .brand-stack{
 :root[data-theme="dark"] .support-settings-card a{color:var(--ink)}
 .saved-list-card:not(.delete-select-mode){grid-template-columns:minmax(0,1fr) auto!important}
 
-/* Alpha 0.60 — match setup, enemy rosters, support actions, and rule-detail reliability. */
+/* match setup, enemy rosters, support actions, and rule-detail reliability. */
 .games-filter-menu{position:relative}
 .games-filter-menu>summary{display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid var(--line-dark);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer;list-style:none}
 .games-filter-menu>summary::-webkit-details-marker{display:none}
@@ -2659,7 +2656,7 @@ html[data-background]:not([data-background="none"]) .brand-stack{
 .unit-reference-loading p{margin:0;color:var(--panel-text,#f5f1e8);font-size:.95rem;line-height:1.45}
 .unit-reference-loading strong{color:inherit}
 
-/* Alpha 0.61 — roster state clarity, games alignment, support sizing, and enemy read-only behavior. */
+/* roster state clarity, games alignment, support sizing, and enemy read-only behavior. */
 .games-page>.games-title-block{width:100%;max-width:none;margin-left:0;margin-right:0;box-sizing:border-box}
 .games-page>.game-start-card,.games-page>.games-section{width:100%;box-sizing:border-box}
 .games-section-heading{min-height:60px}
@@ -2683,7 +2680,7 @@ html[data-background]:not([data-background="none"]) .brand-stack{
 .enemy-roster-view-actions{min-width:84px}
 .local-clear-row .settings-compact-action{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 38%,var(--line))}
 
-/* Alpha 0.62 — installable app, roster-list cleanup, source-text filtering, and Setup/Overview match guidance. */
+/* installable app, roster-list cleanup, source-text filtering, and Setup/Overview match guidance. */
 .support-button-row{gap:8px;padding:6px 14px 4px}
 .support-action-button{flex:0 0 auto;width:max-content;min-width:0;min-height:34px;padding:0 9px;font-size:calc(8.5px + var(--font-offset));white-space:nowrap}
 @media(max-width:520px){.support-action-button{width:max-content;min-width:0;max-width:100%}.support-button-row{flex-direction:row;flex-wrap:wrap}}
@@ -2732,7 +2729,7 @@ html[data-background]:not([data-background="none"]) .brand-stack{
 .saved-list-delete-row{font:inherit;color:inherit;line-height:1.25}
 .saved-list-delete-row .saved-list-labels{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:4px}
 
-/* Alpha 0.62 hidden patch — first-visit shell, consistent Settings typography, and match lifecycle guidance. */
+/* First-visit shell, consistent Settings typography, and match lifecycle guidance. */
 .theme-settings-panel>summary strong,
 .background-settings-panel>summary strong,
 .reset-data-settings-panel>summary strong{font-size:calc(13px + var(--font-offset));line-height:1.2}
@@ -2776,7 +2773,7 @@ html[data-background]:not([data-background="none"]) .brand-stack{
 .game-step-list button span{font-size:calc(8px + var(--font-offset))}
 .spell-choice-grid label>span>strong small{font-size:calc(7px + var(--font-offset))}
 
-/* Alpha 0.62 hidden patch 3 — final-day visual, welcome, roster-state, and deployment refinements. */
+/* Final-day visual, welcome, roster-state, and deployment refinements. */
 /* Keep the four landing-page title blocks visually stable regardless of page copy length. */
 .page-title-block h1{font-size:clamp(38px,6vw,46px);line-height:1.02}
 .page-title-block p:not(.eyebrow){font-size:calc(12.5px + var(--font-offset));line-height:1.48}
@@ -2786,28 +2783,28 @@ html[data-background]:not([data-background="none"]) .brand-stack{
 @media(max-width:540px){.wip-banner{width:calc(100% - 88px);font-size:calc(11px + var(--font-offset));padding-inline:9px}}
 
 /* Roster-group headings remain legible over image backgrounds. */
-.roster-list-heading-panel{padding:11px 14px!important;background:color-mix(in srgb,var(--paper) 94%,transparent)!important;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
-html[data-background]:not([data-background="none"]) .roster-list-heading-panel{background:color-mix(in srgb,var(--paper) 82%,transparent)!important}
-.enemy-roster-group{border-top:0!important;padding-top:0!important}
+.roster-list-heading-panel{padding:11px 14px;background:color-mix(in srgb,var(--paper) 94%,transparent);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+html[data-background]:not([data-background="none"]) .roster-list-heading-panel{background:color-mix(in srgb,var(--paper) 82%,transparent)}
+.enemy-roster-group{border-top:0;padding-top:0}
 
 /* Roster state colors are intentionally visible at a glance while retaining theme text colors. */
-.saved-list-card.roster-status-valid{border-color:#55a26a!important;border-left-color:#3c8d54!important;background:color-mix(in srgb,#dcefe1 62%,var(--paper))!important}
-.saved-list-card.roster-status-invalid{border-color:#c65c55!important;border-left-color:#b64039!important;background:color-mix(in srgb,#f4d9d6 64%,var(--paper))!important}
-.saved-list-card.roster-status-warning{border-color:#cda347!important;border-left-color:#bc8c24!important;background:color-mix(in srgb,#f4e7bd 64%,var(--paper))!important}
-.saved-list-card.roster-status-valid .saved-list-card-meta small{color:#236a39!important}
-.saved-list-card.roster-status-invalid .saved-list-card-meta small{color:#8e2823!important}
-.saved-list-card.roster-status-warning .saved-list-card-meta small{color:#735512!important}
-:root[data-theme="dark"] .saved-list-card.roster-status-valid{background:color-mix(in srgb,#2d7441 30%,var(--paper))!important}
-:root[data-theme="dark"] .saved-list-card.roster-status-invalid{background:color-mix(in srgb,#8b312d 31%,var(--paper))!important}
-:root[data-theme="dark"] .saved-list-card.roster-status-warning{background:color-mix(in srgb,#8b681d 31%,var(--paper))!important}
-:root[data-theme="dark"] .saved-list-card.roster-status-valid .saved-list-card-meta small{color:#87d49b!important}
-:root[data-theme="dark"] .saved-list-card.roster-status-invalid .saved-list-card-meta small{color:#ef9189!important}
-:root[data-theme="dark"] .saved-list-card.roster-status-warning .saved-list-card-meta small{color:#e2bf67!important}
+.saved-list-card.roster-status-valid{border-color:#55a26a;border-left-color:#3c8d54;background:color-mix(in srgb,#dcefe1 62%,var(--paper))}
+.saved-list-card.roster-status-invalid{border-color:#c65c55;border-left-color:#b64039;background:color-mix(in srgb,#f4d9d6 64%,var(--paper))}
+.saved-list-card.roster-status-warning{border-color:#cda347;border-left-color:#bc8c24;background:color-mix(in srgb,#f4e7bd 64%,var(--paper))}
+.saved-list-card.roster-status-valid .saved-list-card-meta small{color:#236a39}
+.saved-list-card.roster-status-invalid .saved-list-card-meta small{color:#8e2823}
+.saved-list-card.roster-status-warning .saved-list-card-meta small{color:#735512}
+:root[data-theme="dark"] .saved-list-card.roster-status-valid{background:color-mix(in srgb,#2d7441 30%,var(--paper))}
+:root[data-theme="dark"] .saved-list-card.roster-status-invalid{background:color-mix(in srgb,#8b312d 31%,var(--paper))}
+:root[data-theme="dark"] .saved-list-card.roster-status-warning{background:color-mix(in srgb,#8b681d 31%,var(--paper))}
+:root[data-theme="dark"] .saved-list-card.roster-status-valid .saved-list-card-meta small{color:#87d49b}
+:root[data-theme="dark"] .saved-list-card.roster-status-invalid .saved-list-card-meta small{color:#ef9189}
+:root[data-theme="dark"] .saved-list-card.roster-status-warning .saved-list-card-meta small{color:#e2bf67}
 
 /* Welcome Support actions are compact controls rather than loose text boxes. */
 .welcome-support-block{align-items:center;padding:16px 17px}
 .welcome-support-actions{display:grid;grid-template-columns:repeat(2,max-content);align-items:center;justify-content:end;gap:8px}
-.welcome-support-actions .welcome-support-button{display:inline-flex;align-items:center;justify-content:center;min-width:142px;min-height:38px;padding:0 12px;border-color:var(--line-dark);background:var(--paper);font-size:calc(10px + var(--font-offset));font-weight:800;line-height:1.1;text-decoration:none!important;box-shadow:0 2px 7px color-mix(in srgb,var(--ink) 7%,transparent)}
+.welcome-support-actions .welcome-support-button{display:inline-flex;align-items:center;justify-content:center;min-width:142px;min-height:38px;padding:0 12px;border-color:var(--line-dark);background:var(--paper);font-size:calc(10px + var(--font-offset));font-weight:800;line-height:1.1;text-decoration:none;box-shadow:0 2px 7px color-mix(in srgb,var(--ink) 7%,transparent)}
 .welcome-support-actions .welcome-support-button:hover{border-color:var(--accent);background:var(--accent-wash)}
 .welcome-thanks-block{display:grid;gap:6px;padding:14px 16px;border:1px solid var(--line);border-radius:11px;background:color-mix(in srgb,var(--paper-2) 90%,transparent)}
 .welcome-thanks-block h2{margin:0;font-size:calc(17px + var(--font-offset))}
@@ -2821,7 +2818,7 @@ html[data-background]:not([data-background="none"]) .roster-list-heading-panel{b
 
 /* Wizard spell selection is presented as selectable rule cards with a persistent check marker. */
 .spell-rule-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-.spell-rule-choice-grid .spell-rule-choice{position:relative;display:grid!important;grid-template-columns:30px minmax(0,1fr)!important;align-items:stretch!important;gap:8px!important;padding:0!important;border:0!important;border-radius:10px!important;background:transparent!important;box-shadow:none!important;cursor:pointer}
+.spell-rule-choice-grid .spell-rule-choice{position:relative;display:grid;grid-template-columns:30px minmax(0,1fr);align-items:stretch;gap:8px;padding:0;border:0;border-radius:10px;background:transparent;box-shadow:none;cursor:pointer}
 .spell-rule-checkbox{position:absolute;opacity:0;pointer-events:none}
 .spell-rule-checkmark{display:grid;place-items:center;align-self:start;width:27px;height:27px;margin-top:10px;border:1px solid var(--line-dark);border-radius:7px;background:var(--paper);color:transparent;font-size:15px;font-weight:900}
 .spell-rule-choice.selected .spell-rule-checkmark{border-color:var(--accent);background:var(--accent);color:#fff}
@@ -2859,7 +2856,7 @@ html[data-background]:not([data-background="none"]) .roster-list-heading-panel{b
 .start-round-rule-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.start-round-rule-panel{display:grid;align-content:start;gap:8px;padding:12px}.start-round-rule-row{display:grid;gap:4px;padding:9px 0;border-top:1px solid var(--line)}.start-round-rule-row:first-of-type{border-top:0}.start-round-rule-row>div{display:flex;flex-wrap:wrap;align-items:center;gap:7px}.start-round-rule-row>div>strong{min-width:100px}.start-round-rule-row a{font-weight:700}.start-round-rule-row p{margin:0;color:var(--ink-soft);line-height:1.45}.start-round-rule-panel.battle{margin-top:2px}
 @media(max-width:700px){.setup-round-limit-card,.prebattle-overview-status-grid,.start-round-rule-columns{grid-template-columns:1fr}.deployment-unit-title{align-items:flex-start;flex-direction:column}.match-roster-issue-panel{grid-template-columns:1fr}}
 
-/* Alpha 0.65 — consistent non-editable interaction behavior. Non-input UI never
+/* consistent non-editable interaction behavior. Non-input UI never
    advertises a text caret; actual form fields retain a normal editing caret. */
 html,body,#app,.app-shell{caret-color:transparent}
 input,textarea,[contenteditable="true"]{caret-color:auto}
@@ -2876,7 +2873,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .magic-picker-expand:hover,.magic-picker-expand:focus-visible{background:var(--paper-2);color:var(--ink)}
 .magic-picker-expand .magic-picker-chevron{display:block;line-height:1}
 
-/* Alpha 0.65 — turn-context battle assistant */
+/* turn-context battle assistant */
 .turn-context-panel{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:12px 0;padding:12px 14px}
 .turn-context-panel>div:first-child{display:grid;gap:2px;min-width:0}.turn-context-panel h3{margin:0;font-family:Georgia,'Times New Roman',serif}.turn-context-panel p{margin:0;color:var(--ink-soft);line-height:1.4}
 .turn-context-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto}.turn-context-actions .secondary-button.active{background:var(--ink);color:var(--paper);border-color:var(--ink)}
@@ -2886,17 +2883,17 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 
 /* Renumbered build 0.29 match/rules interaction additions */
 .scenario-deployment-map{display:block;width:min(100%,760px);height:auto;margin:12px auto;border:1px solid var(--line);border-radius:10px;background:var(--paper-2)}
-.match-save-button{border-color:#a33!important;background:color-mix(in srgb,#a33 16%,var(--paper))!important;color:var(--ink)!important}
+.match-save-button{border-color:#a33;background:color-mix(in srgb,#a33 16%,var(--paper));color:var(--ink)}
 .prototype-option-grid label.unavailable,.weapon-equipment-option.unavailable{opacity:.55;border-style:dashed}
 .end-round-score-panel{margin:14px 0}.end-round-score-board{margin-top:12px}
 .rules-reference-links{display:inline}
 
-/* Alpha 0.30 — scenario popover, compact turn context, and spell-phase guidance */
+/* scenario popover, compact turn context, and spell-phase guidance */
 .battlefield-condition-options a{font-size:calc(10.5px + var(--font-offset));font-weight:850}
 .game-step-heading-tools{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex:0 0 auto;align-self:center}.game-step-counter{min-width:42px;color:var(--ink-soft);font-weight:850;text-align:right}.compact-turn-context{display:flex;align-items:center;justify-content:center;gap:5px}.turn-context-button{min-height:28px;padding:0 9px;border:1px solid var(--line-dark);border-radius:999px;font:inherit;font-size:calc(8px + var(--font-offset));font-weight:850;cursor:pointer}.turn-context-button.friendly{border-color:color-mix(in srgb,#2f7a4e 48%,var(--line));background:color-mix(in srgb,#2f7a4e 9%,var(--paper));color:color-mix(in srgb,#2f7a4e 78%,var(--ink))}.turn-context-button.enemy{border-color:color-mix(in srgb,var(--danger) 48%,var(--line));background:color-mix(in srgb,var(--danger) 9%,var(--paper));color:var(--danger)}.turn-context-button.friendly.active{background:color-mix(in srgb,#2f7a4e 78%,var(--paper));border-color:#2f7a4e;color:#fff}.turn-context-button.enemy.active{background:color-mix(in srgb,var(--danger) 80%,var(--paper));border-color:var(--danger);color:#fff}.turn-context-button:disabled{opacity:.55;cursor:default}
 .scenario-rules-popup-button{min-height:34px;padding:0 11px}.inline-rule-button{padding:0;border:0;background:transparent;color:var(--accent-dark);font:inherit;font-size:calc(9px + var(--font-offset));font-weight:850;text-decoration:underline;cursor:pointer}.setup-scenario-map{margin-top:10px;margin-bottom:10px}
 .scenario-rules-backdrop{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:18px;background:rgba(6,8,12,.64);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}.scenario-rules-dialog{width:min(820px,100%);max-height:min(88vh,920px);overflow:auto;padding:0}.scenario-rules-dialog>header{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--paper)}.scenario-rules-dialog h2{margin:0;font-family:Georgia,'Times New Roman',serif;font-size:calc(22px + var(--font-offset))}.scenario-dialog-close{display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2);color:var(--ink);font-size:22px;cursor:pointer}.scenario-rules-dialog>.scenario-deployment-map{width:min(calc(100% - 32px),760px);margin:16px auto}.scenario-rules-dialog-body{display:grid;gap:9px;padding:0 16px 16px}.scenario-rules-dialog-body section{display:grid;gap:5px;padding:11px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2)}.scenario-rules-dialog-body p{margin:0;color:var(--ink-soft);line-height:1.5}
-.spell-rule-choice-grid .spell-rule-choice{display:grid!important;grid-template-columns:1fr!important;gap:6px!important;padding:8px!important;border:1px solid var(--line)!important;border-radius:10px!important;background:var(--paper-2)!important}.spell-rule-select{display:flex;align-items:center;gap:7px;min-height:29px;cursor:pointer}.spell-rule-select>span:last-child{font-size:calc(8px + var(--font-offset));font-weight:850;color:var(--ink-soft)}.spell-rule-select .spell-rule-checkmark{margin:0;flex:0 0 auto}.spell-rule-dropdown{overflow:hidden}.spell-rule-dropdown>summary{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:7px;padding:10px;cursor:pointer;list-style:none}.spell-rule-dropdown>summary::-webkit-details-marker{display:none}.spell-rule-dropdown>summary>strong{font-family:Georgia,'Times New Roman',serif;font-size:calc(14px + var(--font-offset));line-height:1.2}.spell-rule-dropdown>summary>small{grid-column:2;color:var(--accent-dark);font-size:calc(8px + var(--font-offset));font-weight:800}.spell-dropdown-cue{grid-column:3;grid-row:1/3;color:var(--accent-dark);font-size:calc(8px + var(--font-offset));font-weight:850}.spell-rule-dropdown[open] .spell-dropdown-cue::after{content:' ▲'}.spell-rule-dropdown:not([open]) .spell-dropdown-cue::after{content:' ▼'}.spell-rule-card-body{border-top:1px solid var(--line);background:var(--paper)}.spell-rule-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:0;padding:9px 10px;border-bottom:1px solid var(--line);gap:6px}.spell-rule-meta>div{display:grid;gap:2px}.spell-rule-meta dt{color:var(--ink-soft);font-size:calc(7.5px + var(--font-offset));font-weight:800;text-transform:uppercase;letter-spacing:.05em}.spell-rule-meta dd{margin:0;font-weight:800}.spell-rule-card-body>p{margin:0;padding:10px;color:var(--ink-soft);line-height:1.48}.spell-rule-card-body footer{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-top:1px solid var(--line);background:var(--paper-2);font-size:calc(8px + var(--font-offset));font-weight:750}
+.spell-rule-choice-grid .spell-rule-choice{display:grid;grid-template-columns:1fr;gap:6px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--paper-2)}.spell-rule-select{display:flex;align-items:center;gap:7px;min-height:29px;cursor:pointer}.spell-rule-select>span:last-child{font-size:calc(8px + var(--font-offset));font-weight:850;color:var(--ink-soft)}.spell-rule-select .spell-rule-checkmark{margin:0;flex:0 0 auto}.spell-rule-dropdown{overflow:hidden}.spell-rule-dropdown>summary{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:7px;padding:10px;cursor:pointer;list-style:none}.spell-rule-dropdown>summary::-webkit-details-marker{display:none}.spell-rule-dropdown>summary>strong{font-family:Georgia,'Times New Roman',serif;font-size:calc(14px + var(--font-offset));line-height:1.2}.spell-rule-dropdown>summary>small{grid-column:2;color:var(--accent-dark);font-size:calc(8px + var(--font-offset));font-weight:800}.spell-dropdown-cue{grid-column:3;grid-row:1/3;color:var(--accent-dark);font-size:calc(8px + var(--font-offset));font-weight:850}.spell-rule-dropdown[open] .spell-dropdown-cue::after{content:' ▲'}.spell-rule-dropdown:not([open]) .spell-dropdown-cue::after{content:' ▼'}.spell-rule-card-body{border-top:1px solid var(--line);background:var(--paper)}.spell-rule-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:0;padding:9px 10px;border-bottom:1px solid var(--line);gap:6px}.spell-rule-meta>div{display:grid;gap:2px}.spell-rule-meta dt{color:var(--ink-soft);font-size:calc(7.5px + var(--font-offset));font-weight:800;text-transform:uppercase;letter-spacing:.05em}.spell-rule-meta dd{margin:0;font-weight:800}.spell-rule-card-body>p{margin:0;padding:10px;color:var(--ink-soft);line-height:1.48}.spell-rule-card-body footer{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-top:1px solid var(--line);background:var(--paper-2);font-size:calc(8px + var(--font-offset));font-weight:750}
 .overview-scenario-map-card{grid-column:span 1;align-content:start}.overview-scenario-map{display:block;width:100%;height:auto;max-height:150px;object-fit:contain;margin-top:3px;border:1px solid var(--line);border-radius:7px;background:var(--paper-2)}.overview-composition-options{display:grid;gap:10px;padding:12px}.overview-composition-columns{display:grid;grid-template-columns:1fr 1fr;gap:9px}.overview-composition-columns>article{display:grid;gap:7px;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2)}.overview-composition-columns p{margin:0;color:var(--ink-soft)}
 @media(max-width:760px){.game-step-heading{flex-direction:column}.game-step-heading-tools{width:100%;justify-content:space-between}.compact-turn-context{flex:1}.turn-context-button{flex:1}.spell-rule-meta,.overview-composition-columns{grid-template-columns:1fr}.scenario-rules-backdrop{padding:8px}.scenario-rules-dialog{max-height:94vh}}
 .welcome-thanks-plain{font-weight:400}
@@ -2934,7 +2931,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 
 
 /* Consolidated legacy override. */
-/* Old.dex Alpha Build 0.33 — in-match navigation, spacing, roster approvals. */
+/* in-match navigation, spacing, roster approvals. */
 
 .legacy-roster-label {
   font-weight: 850;
@@ -3155,19 +3152,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 
 
 /* Consolidated legacy override. */
-/* Old.dex Alpha Build 0.34 — match workflow corrections and theme contrast. */
+/* match workflow corrections and theme contrast. */
 
-/* Light pill/chip surfaces keep readable text regardless of the selected theme. */
-.value-chip,
-.app-option-label,
-.rule-kind-pill,
-.match-option-chips > span,
-.profile-loadout-chip,
-.legacy-roster-label,
-.required-charge-flag,
-.match-locked-pill {
-  color: #111 !important;
-}
 
 /* Open-match management. */
 .game-manage-row {
@@ -3309,7 +3295,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 
 
 /* Consolidated legacy override. */
-/* Old.dex Alpha Build 0.35 — compiled match intelligence and installed-app boot audio. */
+/* compiled match intelligence and installed-app boot audio. */
 
 /* Installed application launch scene. Browser-tab launches never render it. */
 .olddex-launch-scene {
@@ -3396,7 +3382,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 
 
 /* Consolidated legacy override. */
-/* Old.dex Alpha Build 0.36 — sequential charge/combat workflow and match tracking. */
+/* sequential charge/combat workflow and match tracking. */
 
 /* Start New Match: composition options are compact pills rather than detail cards. */
 .game-create-page .battle-composition-option-list {
@@ -3632,37 +3618,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 
 
 /* Consolidated legacy override. */
-/* Old.dex Alpha Build 0.37 — match presentation, rule-text cleanup and control polish. */
-
-/* Generic pill UI keeps the same light, high-contrast treatment in dark mode.
-   Semantic red/green roster state surfaces are intentionally not targeted. */
-html[data-theme="dark"] :is(
-  .value-chip,
-  .rule-kind-pill,
-  .match-option-chips > span,
-  .joined-character-pills > span,
-  .required-charge-flag,
-  .legacy-pill,
-  .legacy-army-pill
-) {
-  background: #e9eef5 !important;
-  border-color: #8293a8 !important;
-  color: #000 !important;
-}
-html[data-theme="dark"] :is(
-  .value-chip,
-  .rule-kind-pill,
-  .match-option-chips > span,
-  .joined-character-pills > span,
-  .required-charge-flag,
-  .legacy-pill,
-  .legacy-army-pill
-) :is(strong, span, small, em) { color: #000 !important; }
-
-/* Other pill/chip variants keep their semantic background but never inherit the
-   grey/white Dark Mode foreground that made their labels unreadable. */
-html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"], [class*="-chip "]) { color: #000 !important; }
-html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"], [class*="-chip "]) :is(strong, span, small, em) { color: inherit !important; }
+/* match presentation, rule-text cleanup and control polish. */
 
 /* Phase rails: protect the last label from the clipping edge and do not render
    arrow gutters for a phase that has only one step. */
@@ -3860,29 +3816,29 @@ html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"
 }
 .turn-context-button.friendly,
 .friendly-turn-action {
-  background: #e3f3e8 !important;
-  border-color: #2f7d4f !important;
-  color: #173f29 !important;
+  background: #e3f3e8;
+  border-color: #2f7d4f;
+  color: #173f29;
 }
 .turn-context-button.friendly.active,
 .friendly-turn-action.active,
 .friendly-turn-action:hover:not(:disabled) {
-  background: #2f7d4f !important;
-  border-color: #245f3d !important;
-  color: #fff !important;
+  background: #2f7d4f;
+  border-color: #245f3d;
+  color: #fff;
 }
 .turn-context-button.enemy,
 .enemy-turn-action {
-  background: #f8e7e4 !important;
-  border-color: #a5483f !important;
-  color: #65231e !important;
+  background: #f8e7e4;
+  border-color: #a5483f;
+  color: #65231e;
 }
 .turn-context-button.enemy.active,
 .enemy-turn-action.active,
 .enemy-turn-action:hover:not(:disabled) {
-  background: #a5483f !important;
-  border-color: #82362f !important;
-  color: #fff !important;
+  background: #a5483f;
+  border-color: #82362f;
+  color: #fff;
 }
 
 .scenario-setup-card,
@@ -3935,7 +3891,7 @@ html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--paper-2);
-  color: #111 !important;
+  color: #111;
   font-size: calc(8px + var(--font-offset));
   font-weight: 900;
 }
@@ -3949,7 +3905,7 @@ html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"
   padding: 2px 7px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  color: #111 !important;
+  color: #111;
   background: var(--paper-2);
   font-size: calc(7px + var(--font-offset));
   font-weight: 900;
@@ -4045,7 +4001,7 @@ html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"
   .casualty-stepper { width: 100%; justify-content: space-between; }
 }
 
-/* Alpha 0.41 — match turn ownership, shooting weapons, reactions, and layout hardening */
+/* match turn ownership, shooting weapons, reactions, and layout hardening */
 .game-match-shell,
 .game-step-card,
 .game-step-card > *,
@@ -4347,4 +4303,716 @@ html[data-theme="dark"] :is([class$="-pill"], [class*="-pill "], [class$="-chip"
   .break-outcome-grid,
   .follow-up-checks { grid-template-columns: 1fr; }
   .combat-loss-input { justify-content: space-between; }
+}
+
+/* Canonical theme-independent semantic surfaces. */
+/* Theme-independent semantic pills. Pills deliberately keep the same palette in light and dark modes. */
+:is(
+  .value-chip,
+  .prototype-pill,
+  .app-option-label,
+  .profile-loadout-chip,
+  .match-option-chips > span,
+  .joined-character-pills > span,
+  .required-charge-flag,
+  .legacy-pill,
+  .legacy-army-pill
+) {
+  background: #f4f1e9;
+  border-color: #d8d2c6;
+  color: #25231f;
+}
+:is(
+  .value-chip,
+  .prototype-pill,
+  .app-option-label,
+  .profile-loadout-chip,
+  .match-option-chips > span,
+  .joined-character-pills > span,
+  .required-charge-flag,
+  .legacy-pill,
+  .legacy-army-pill
+) :is(strong, span, small, em, a) { color: inherit; }
+
+/* Magic/rule pills retain their semantic purple/tan palette regardless of site theme. */
+:is(.composition-selected-label, .rule-kind-pill, .old-rule-phase) {
+  background: #ece2f3;
+  border-color: #d5c1e1;
+  color: #5f3b73;
+}
+:is(.composition-selected-label, .rule-kind-pill, .old-rule-phase) :is(strong, span, small, em, a) { color: inherit; }
+
+:is(.legacy-roster-label, .enemy-roster-label) {
+  background: #eee0c6;
+  border-color: #c9a56f;
+  color: #6f4918;
+}
+
+.match-spell-select {
+  background: #fbfaf6;
+  border-color: #d8d2c6;
+  color: #25231f;
+}
+
+
+/* shared settings row structure adapted from Brambleheart. */
+.settings-page .settings-card{overflow:hidden;margin-bottom:13px}
+.settings-page .settings-card>.setting-row,.settings-page .settings-card>details{margin:0}
+.settings-page .settings-card>details{border-top:0;border-bottom:1px solid var(--line)}
+.settings-page .settings-card>details:last-child{border-bottom:0}
+.settings-page .settings-card>details>summary{list-style:none;min-height:69px;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;gap:15px;cursor:pointer;color:var(--ink)}
+.settings-page .settings-card>details>summary::-webkit-details-marker{display:none}
+.settings-page .settings-card>details>summary>span:first-child{display:grid;gap:3px;min-width:0}
+.settings-page .settings-card>details>summary small{display:block;color:var(--ink-soft);font-weight:400;line-height:1.4}
+.settings-page .settings-card>details>.custom-data-actions,.settings-page .settings-card>details>.reset-data-option-list{border-top:1px solid var(--line);background:var(--paper-2)}
+.settings-page .settings-card>details>.custom-data-actions .setting-row,.settings-page .settings-card>details>.reset-data-option-list .setting-row{background:transparent}
+.settings-page .download-link-button,.settings-page a.secondary-button[download],.settings-page a.settings-compact-action{text-decoration:none}
+.settings-page .donation-setting-row{align-items:center}
+.settings-page .compact-support-buttons{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.page-utility-actions{flex-wrap:wrap}
+@media(max-width:680px){.settings-page .settings-card>details>summary{align-items:flex-start}.settings-page .donation-setting-row{align-items:stretch;flex-direction:column}.settings-page .compact-support-buttons{width:100%;justify-content:stretch}.settings-page .compact-support-buttons>*{flex:1 1 auto}}
+
+/* Builder roster chips are also fixed semantic pills rather than theme surfaces. */
+.roster-included-chip {
+  background:#25231f;
+  border-color:#25231f;
+  color:#fbfaf6;
+}
+.roster-option-chip {
+  background:#ece2f3;
+  border-color:#d5c1e1;
+  color:#5f3b73;
+}
+.configured-rule-line > a {
+  background:#f4f1e9;
+  border-color:#d8d2c6;
+  color:#25231f;
+}
+:is(.roster-included-chip,.roster-option-chip,.configured-rule-line > a) :is(strong,span,small,em,a){color:inherit}
+
+
+/* text-link buttons keep their label geometrically centered. */
+.create-list-cancel,
+.settings-page .settings-compact-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Canonical guided-match layout and interaction rules. */
+/* Guided-match layout and interaction rules. */
+.game-match-page .game-match-shell,
+.game-match-page .game-step-card,
+.game-match-page .game-step-card > *,
+.game-match-page :is(.game-setup-content,.game-overview-dashboard,.deployment-step-content,.round-start-content,.turn-guidance-shell),
+.game-match-page :is(.game-setup-content,.game-overview-dashboard,.deployment-step-content,.round-start-content,.turn-guidance-shell) > *,
+.game-match-page :is(.card-inset,.turn-guidance-panel,.match-procedure-panel,.deployment-roster-panel,.condition-resolution-panel) {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.game-match-page :is(.card-inset,.turn-guidance-panel,.match-procedure-panel,.deployment-roster-panel,.condition-resolution-panel) {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+/* Shared inner gutter: match content should never sit directly against a panel border. */
+.game-match-page .game-step-card > :is(.game-setup-content,.game-overview-dashboard,.deployment-step-content,.round-start-content,.turn-guidance-shell) {
+  padding-inline: clamp(12px, 2.4vw, 18px);
+  padding-bottom: 16px;
+}
+.game-match-page :is(p,small,strong,span,a,dd,dt) { overflow-wrap: anywhere; }
+.game-match-page :is(.match-setup-summary-grid,.start-round-rule-columns,.overview-composition-columns,.deployment-roster-grid) {
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+}
+.game-match-page .game-step-heading > div,
+.game-match-page .setup-section-heading > div,
+.game-match-page .shooting-unit-copy,
+.game-match-page .deployment-unit-copy { min-width: 0; }
+
+/* Steppers retain readable foreground/background contrast in either theme. */
+.game-match-page .casualty-stepper button,
+.game-match-page .game-score-side button {
+  color: var(--ink);
+  background: var(--paper);
+  border-color: var(--line-dark);
+}
+.game-match-page .casualty-stepper button:disabled,
+.game-match-page .game-score-side button:disabled {
+  color: var(--ink-soft);
+  background: var(--paper-2);
+}
+
+/* Spell generation uses a dedicated rule-card layout rather than inheriting the
+   compact generic rule summary grid. This keeps long spell names, icons and the
+   select control from colliding at normal and enlarged text sizes. */
+.canonical-spell-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 12px;
+}
+.match-spell-choice-card {
+  height: 100%;
+  display: grid;
+  align-content: start;
+  overflow: hidden;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.match-spell-choice-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent); }
+.match-spell-choice-card.unavailable { opacity: 1; }
+.match-spell-card-head {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 11px 4px;
+  min-width: 0;
+}
+.match-spell-pills { display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-width:0;padding:0 11px 9px; }
+.match-spell-pills :is(.old-rule-phase,.value-chip){font-size:calc(7.5px + var(--font-offset));padding:4px 6px}
+.match-spell-title-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  min-width: 0;
+}
+.match-spell-title-row strong {
+  min-width: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: calc(13px + var(--font-offset));
+  line-height: 1.16;
+  color: var(--ink);
+}
+.match-spell-select {
+  display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;min-height:27px;padding:2px 6px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2);color:var(--ink);font-weight:800;font-size:calc(9px + var(--font-offset));
+}
+.match-spell-select input { width:14px;height:14px;margin:0; }
+.match-spell-title-row .rule-tone-icon{width:21px;height:21px;min-width:21px;padding:0;border:0;background:transparent;box-shadow:none}
+.match-spell-title-row .rule-tone-icon img{width:19px;height:19px;object-fit:contain}
+.match-spell-rule-body{font-size:calc(10.5px + var(--font-offset));line-height:1.45}
+.match-spell-rule-body p{font-size:inherit;line-height:1.45}
+.match-spell-rule-link{font-size:calc(10px + var(--font-offset))}
+.match-spell-select input:disabled + span { color: var(--ink-soft); }
+.match-spell-rule-body { border-top: 1px solid var(--line); }
+.match-spell-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
+.match-spell-meta div { padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper-2); }
+.match-spell-meta dt { font-size: calc(7px + var(--font-offset)); font-weight: 850; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+.match-spell-meta dd { margin:2px 0 0;font-weight:850;color:var(--ink);font-size:calc(11px + var(--font-offset)); }
+
+/* Battle March condition handling. Expandable condition references default
+   closed and remain normal flow content even after navigating to their rules. */
+.condition-resolution-panel { display:grid;gap:12px;padding:14px 16px;margin:0 0 14px;width:100%; }
+.condition-resolution-details,
+.wilderness-terrain-reminder {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper-2);
+  overflow: hidden;
+}
+.condition-resolution-details > summary,
+.wilderness-terrain-reminder > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--ink);
+}
+.condition-resolution-details > summary::-webkit-details-marker,
+.wilderness-terrain-reminder > summary::-webkit-details-marker { display: none; }
+.condition-resolution-details > summary::after,
+.wilderness-terrain-reminder > summary::after { content: '⌄'; flex: 0 0 auto; color: var(--ink-soft); }
+.condition-resolution-details[open] > summary::after,
+.wilderness-terrain-reminder[open] > summary::after { content: '⌃'; }
+.condition-resolution-body,
+.wilderness-terrain-reminder > div { display: grid; gap: 9px; padding: 0 12px 12px; }
+.condition-required-label { color: var(--danger); font-size: calc(9px + var(--font-offset)); letter-spacing: .05em; text-transform: uppercase; }
+.resolved-condition-result { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--accent-wash) 32%, var(--paper)); }
+.resolved-condition-result p { margin: 0; line-height: 1.45; color: var(--ink); }
+.chaos-of-war-resolution { margin: 0 0 14px; width: 100%; }
+
+.deployment-category-group { display: grid; gap: 0; margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.deployment-category-group > header { display: grid; gap: 2px; padding: 10px 12px; background: var(--paper-2); border-bottom: 1px solid var(--line); }
+.deployment-category-group > header strong { font-size: calc(11px + var(--font-offset)); letter-spacing: .08em; }
+.deployment-category-group > header small { color: var(--ink-soft); }
+.deployment-category-group .deployment-unit-row:last-child { border-bottom: 0; }
+
+.rally-unit-list { display: grid; gap: 9px; }
+.rally-unit-list > article { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+
+/* Shooting characteristic/target calculation. */
+.shooting-unit-copy > header { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.shooting-bs-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.shooting-to-hit-chip { font-weight: 900; }
+.shooting-bs-breakdown { margin-top: 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper-2); }
+.shooting-bs-breakdown > summary { padding: 8px 10px; cursor: pointer; font-weight: 800; color: var(--ink); }
+.shooting-bs-breakdown > div { display: grid; gap: 5px; padding: 0 10px 10px; }
+.shooting-bs-breakdown > div > span { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); padding-top: 6px; }
+.shooting-bs-breakdown small { color: var(--ink-soft); }
+.shooting-penalty-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0; }
+.shooting-penalty-options label { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); color: var(--ink); cursor: pointer; }
+.shooting-penalty-options label.selected { border-color: var(--accent); background: var(--accent-wash); }
+.shooting-penalty-options label input { margin: 0; }
+.shooting-penalty-options label strong { margin-left: 2px; }
+
+/* Combat checkbox and profile-link targets are separate. The surrounding row is
+   deliberately not a navigation surface so attempts to hit the checkbox cannot
+   open the unit profile. */
+.combat-fight-unit { cursor: default; }
+.combat-fight-check { flex: 0 0 auto; }
+.combat-fight-unit-copy { display: grid; gap: 3px; min-width: 0; }
+.combat-profile-roster-link { width: max-content; max-width: 100%; }
+.combat-joined-note { display: block; margin-top: 2px; }
+
+.match-snapshot-profile-shell { display: grid; gap: 12px; }
+.match-profile-row,.match-profile-section { padding: 15px 17px; }
+.match-profile-row h2 { margin: 0 0 12px; font-family: Georgia, 'Times New Roman', serif; text-align: center; }
+.match-profile-stat-grid { grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); }
+.match-profile-magic-list { display: grid; gap: 8px; }
+.match-profile-magic-list article { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.match-profile-magic-list article:last-child { border-bottom: 0; }
+.match-profile-magic-list span { color: var(--ink-soft); }
+.match-profile-rules { display: flex; flex-wrap: wrap; gap: 6px; }
+
+@media (max-width: 620px) {
+  .condition-resolution-panel { margin-inline:0;width:100%; }
+  .game-match-page .game-step-heading { padding-inline: 12px; }
+  .game-match-page :is(.turn-guidance-panel,.match-procedure-panel) { margin-inline: 10px; max-width: calc(100% - 20px); }
+  .match-spell-card-head { align-items: flex-start; }
+  .match-spell-select span { display: none; }
+  .shooting-penalty-options label { width: 100%; justify-content: space-between; }
+  .shooting-bs-breakdown > div > span { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .match-profile-magic-list article { flex-direction: column; gap: 3px; }
+}
+
+.condition-resolution-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:var(--paper-2)}
+.disruptive-weather-required .condition-resolution-body{border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px;padding:10px 12px 12px;background:var(--paper-2)}
+.match-tip-master-toggle{display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.match-tip-switch-input{appearance:none;-webkit-appearance:none;width:38px;height:22px;margin:0;border:1px solid var(--line-dark);border-radius:999px;background:var(--paper-2);position:relative;cursor:pointer;transition:background .16s ease,border-color .16s ease}
+.match-tip-switch-input::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--ink-soft);transition:transform .16s ease,background .16s ease}
+.match-tip-switch-input:checked{background:var(--accent-wash);border-color:var(--accent)}
+.match-tip-switch-input:checked::after{transform:translateX(16px);background:var(--accent-dark)}
+.match-tip-switch-input:disabled{opacity:.55;cursor:not-allowed}
+/* Shared panel interior spacing for common match surfaces. */
+.game-match-page :is(
+  .overview-battlefield-panel,
+  .overview-composition-options,
+  .overview-magic-panel,
+  .deployment-guidance-panel,
+  .deployment-order-panel,
+  .game-first-turn-window,
+  .start-round-rule-panel,
+  .turn-guidance-panel,
+  .match-procedure-panel,
+  .deployment-roster-panel
+){padding:clamp(12px,2.2vw,16px)}
+
+
+/* Match spell cards use the canonical RuleAbilityCard surface. */
+.match-spell-choice-shell {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+.match-spell-choice-shell > .match-spell-choice-card {
+  min-width: 0;
+  height: 100%;
+}
+.match-spell-choice-shell.selected > .match-spell-choice-card {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.match-spell-choice-shell.unavailable > .match-spell-choice-card { opacity: .72; }
+.match-spell-choice-shell > .match-spell-choice-card .old-rule-summary {
+  padding-right: 92px;
+}
+.match-spell-choice-shell > .match-spell-select {
+  position: absolute;
+  z-index: 2;
+  top: 9px;
+  right: 9px;
+  min-height: 28px;
+  padding: 3px 7px;
+  font-size: calc(8.5px + var(--font-offset));
+  background: var(--paper);
+}
+.match-spell-tracking-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 11px 11px;
+  background: var(--paper-2);
+}
+.match-spell-source {
+  min-width: 0;
+  color: var(--ink-soft);
+  font-weight: 800;
+}
+.match-spell-result-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.match-spell-result-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 29px;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: calc(8.5px + var(--font-offset));
+  font-weight: 800;
+}
+.match-spell-result-controls label.selected {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+.match-spell-result-controls input { margin: 0; }
+.match-phase-spell-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  grid-auto-rows: max-content;
+  align-items: start;
+  gap: 10px;
+}
+
+/* Fix the Tips switch against the older generic checkbox size selector. */
+label.match-tip-master-toggle > input.match-tip-switch-input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 38px;
+  min-width: 38px;
+  height: 22px;
+  margin: 0;
+  border: 1px solid var(--line-dark);
+  border-radius: 999px;
+  background: var(--paper-2);
+  position: relative;
+  cursor: pointer;
+  accent-color: initial;
+}
+label.match-tip-master-toggle > input.match-tip-switch-input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ink-soft);
+  transition: transform .16s ease, background .16s ease;
+}
+label.match-tip-master-toggle > input.match-tip-switch-input:checked {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+}
+label.match-tip-master-toggle > input.match-tip-switch-input:checked::after {
+  transform: translateX(16px);
+  background: var(--accent-dark);
+}
+
+/* Enforce deployment stages instead of only sorting them visually. */
+.deployment-category-group.locked { opacity: .78; }
+.deployment-unit-row.locked { opacity: .62; }
+.deployment-stage-lock-note {
+  color: var(--danger);
+  font-weight: 800;
+}
+.deployment-unit-row.locked input { cursor: not-allowed; }
+
+/* Battle Conditions use the same expandable rule-panel geometry as match rules. */
+.disruptive-weather-required {
+  margin: 0;
+  background: var(--paper-2);
+}
+.disruptive-weather-required > summary {
+  min-height: 42px;
+}
+.disruptive-weather-required .condition-resolution-body {
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  padding: 11px 12px 12px;
+}
+
+/* Four mutually exclusive charge-state controls fit the Movement Step 2 row. */
+.charge-resolution-checks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.declare-resolve-charge-row.inCombat {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--line));
+  background: color-mix(in srgb, var(--accent-wash) 18%, var(--paper));
+}
+
+/* Carry a successful charge forward into Combat Step 1. */
+.combat-unit-name-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.combat-charged-chip {
+  flex: 0 0 auto;
+  font-size: calc(7.5px + var(--font-offset));
+}
+
+/* Keep Back/Next inside the card instead of stretching across the full panel. */
+.game-match-page .match-sticky-nav {
+  grid-template-columns: repeat(2, minmax(0, auto));
+  justify-content: center;
+  align-items: center;
+  padding-inline: clamp(12px, 2.4vw, 18px);
+}
+.game-match-page .match-sticky-nav > :is(.primary-button,.secondary-button) {
+  width: auto;
+  min-width: 88px;
+  max-width: min(180px, 42vw);
+  min-height: 38px;
+  padding-inline: 14px;
+  justify-self: center;
+}
+
+@media (max-width: 620px) {
+  .match-spell-choice-shell > .match-spell-choice-card .old-rule-summary { padding-right: 70px; }
+  .match-spell-choice-shell > .match-spell-select span { display: inline; }
+  .match-spell-tracking-footer { align-items: stretch; flex-direction: column; }
+  .match-spell-result-controls { display: grid; grid-template-columns: 1fr 1fr; }
+  .match-spell-result-controls label { justify-content: center; }
+  .charge-resolution-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .game-match-page .match-sticky-nav > :is(.primary-button,.secondary-button) {
+    min-width: 76px;
+    padding-inline: 10px;
+  }
+}
+
+/* spell generation placement and stable hierarchy. */
+.match-spell-choice-shell > .match-spell-choice-card .old-rule-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding-right: 92px;
+}
+.match-spell-choice-shell > .match-spell-choice-card .old-rule-title-row { order: 1; }
+.match-spell-choice-shell > .match-spell-choice-card .old-rule-pill-row { order: 2; margin-top: 2px; }
+.match-spell-choice-shell > .match-spell-select { top: 15px; }
+
+/* Ongoing Battle Conditions share one universal phase-top surface. */
+.ongoing-battle-conditions {
+  display: grid;
+  gap: 9px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 11px 12px;
+  box-sizing: border-box;
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
+  background: color-mix(in srgb, var(--accent-wash) 16%, var(--paper));
+}
+.ongoing-battle-conditions-heading { display:flex;align-items:end;justify-content:space-between;gap:10px;flex-wrap:wrap; }
+.ongoing-battle-conditions-heading .eyebrow { margin:0; }
+.ongoing-battle-conditions-heading small { color:var(--ink-soft); }
+.ongoing-battle-condition-list { display:grid;gap:6px; }
+.ongoing-condition-row { margin:0;background:var(--paper); }
+.ongoing-condition-row > p { margin:0;padding:9px 11px 2px;color:var(--ink-soft);line-height:1.45; }
+.ongoing-condition-row > a { display:inline-flex;margin:5px 11px 10px;font-weight:800;color:var(--accent-dark); }
+
+/* Limited-use items use a readable status block rather than a tiny pill. */
+.tracked-use-status {
+  display:inline-grid;
+  grid-template-columns:auto auto;
+  align-items:baseline;
+  gap:2px 7px;
+  margin-left:8px;
+  padding:6px 9px;
+  border:1px solid #d8d2c6;
+  border-radius:8px;
+  background:#f4f1e9;
+  color:#25231f;
+  vertical-align:middle;
+}
+.tracked-use-status strong { font-size:calc(11px + var(--font-offset));line-height:1; }
+.tracked-use-status small { font-size:calc(9.5px + var(--font-offset));font-weight:750;color:#6b665d; }
+.tracked-use-status.depleted { border-color:#c9a56f;background:#eee0c6;color:#6f4918; }
+.tracked-use-status.depleted small { color:inherit; }
+
+/* Total Power / Miscast resolution. */
+.match-phase-spell-entry { display:grid;align-self:start;gap:8px;min-width:0; }
+.match-phase-spell-entry.locked { opacity:.72; }
+.spell-power-controls { display:flex;align-items:center;gap:7px;flex-wrap:wrap; }
+.spell-power-controls > label {
+  display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:6px 9px;
+  border:1px solid var(--line);border-radius:9px;background:var(--paper);font-weight:800;cursor:pointer;
+}
+.spell-power-controls > label.selected { border-color:var(--accent);background:var(--accent-wash); }
+.spell-power-controls input { margin:0; }
+.wizard-casting-lock { display:inline-flex;align-items:baseline;gap:3px;padding:6px 9px;border:1px solid color-mix(in srgb,var(--danger) 38%,var(--line));border-radius:8px;background:color-mix(in srgb,var(--danger) 7%,var(--paper));color:var(--danger); }
+.wizard-casting-lock small { color:inherit;font-weight:650; }
+.miscast-resolution-panel { margin:0; }
+.miscast-result-grid { display:grid;gap:6px;padding:9px 10px; }
+.miscast-result-grid > label { display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:start;padding:9px;border:1px solid var(--line);border-radius:9px;background:var(--paper);cursor:pointer; }
+.miscast-result-grid > label.selected { border-color:var(--accent);background:var(--accent-wash); }
+.miscast-result-grid > label input { margin-top:2px; }
+.miscast-result-grid > label span { display:grid;gap:3px; }
+.miscast-result-grid > label small { color:var(--ink-soft);line-height:1.42; }
+.miscast-resolution-panel > a { display:inline-flex;margin:0 10px 10px;color:var(--accent-dark);font-weight:800; }
+.wizard-level-loss-panel { display:grid;gap:9px;margin:0 10px 10px;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--paper-2); }
+.wizard-level-loss-panel > label { display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:800; }
+.wizard-level-loss-panel input[type="number"] { width:70px;min-height:34px;border:1px solid var(--line-dark);border-radius:8px;background:var(--paper);color:var(--ink);padding:0 8px; }
+.wizard-forget-spell-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px; }
+.wizard-forget-spell-grid label { display:flex;align-items:center;gap:6px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--paper);cursor:pointer; }
+.wizard-forget-spell-grid label.selected { border-color:var(--accent);background:var(--accent-wash); }
+
+/* Shooting profiles precede modifiers, with a clear separation between the two groups. */
+.shooting-weapon-list { margin-top:8px; }
+.shooting-penalty-options { margin-top:10px;padding-top:10px;border-top:1px solid var(--line); }
+
+/* Winner resolution mirrors the lost-combat choice cards. */
+.winner-follow-up-panel { border:0;padding:0;margin:0;min-width:0; }
+.winner-follow-up-panel > legend { padding:0;margin:0 0 7px;font-weight:850;color:var(--ink); }
+.follow-up-outcome-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:7px; }
+.follow-up-outcome-card { min-height:100%; }
+.follow-up-outcome-card span { display:grid;gap:4px; }
+.follow-up-outcome-card small { color:var(--ink-soft);line-height:1.4; }
+
+/* Round & Score is part of the step itself, not a nested card. */
+.end-round-score-content { display:grid;gap:11px;padding:4px 0 0; }
+.end-round-score-content > .setup-section-heading { padding-inline:0; }
+.end-round-score-content > p { margin:0;color:var(--ink-soft); }
+
+@media(max-width:620px){
+  .match-spell-choice-shell > .match-spell-select { top:13px; }
+  .ongoing-battle-conditions-heading { align-items:flex-start;flex-direction:column;gap:3px; }
+  .tracked-use-status { display:grid;margin:6px 0 0;width:max-content;max-width:100%; }
+  .spell-power-controls > label { flex:1 1 auto;justify-content:center; }
+  .follow-up-outcome-grid { grid-template-columns:1fr; }
+}
+
+
+/* Combat Step 1 profile target excludes only the checkbox area. */
+.combat-fight-profile-area {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.combat-fight-profile-area:hover,
+.combat-fight-profile-area:focus-visible {
+  background: color-mix(in srgb, var(--accent-wash) 24%, transparent);
+  outline: none;
+}
+.combat-fight-profile-area strong,
+.combat-fight-profile-area small { color: inherit; }
+
+/* charge rows expose the actual roll chain without crowding the range. */
+.declare-resolve-charge-row > header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(160px, auto);
+  align-items: start;
+  gap: 10px 16px;
+}
+.required-charge-label {
+  display: block;
+  margin-top: 3px;
+  color: var(--accent);
+  font-weight: 900;
+  letter-spacing: .035em;
+}
+.charge-roll-sequence {
+  align-self: center;
+  justify-self: center;
+  color: var(--ink);
+  font-size: calc(10px + var(--font-offset));
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+}
+.declare-charge-range { min-width: 0; }
+
+/* Match snapshot model profiles include the quantity represented by each row. */
+.match-profile-model-count {
+  display: block;
+  margin: -7px 0 11px;
+  color: var(--ink-soft);
+  font-size: calc(10px + var(--font-offset));
+  font-weight: 800;
+  text-align: center;
+}
+
+/* End-of-round scoring owns a full-width responsive layout instead of inheriting
+   the generic two-button step grid. */
+.end-round-score-content {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 12px 16px 0;
+  overflow: hidden;
+}
+.end-round-score-board {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+}
+.end-round-score-board .game-score-side,
+.end-round-score-board .game-score-side > div { min-width: 0; }
+.end-round-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 12px 16px 16px;
+}
+.end-round-actions > button {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 8px;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+@media (max-width: 720px) {
+  .declare-resolve-charge-row > header {
+    grid-template-columns: minmax(0, 1fr) minmax(135px, auto);
+  }
+  .charge-roll-sequence {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: start;
+    white-space: normal;
+    text-align: left;
+  }
+  .end-round-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 460px) {
+  .declare-resolve-charge-row > header { grid-template-columns: 1fr; }
+  .charge-roll-sequence,
+  .declare-charge-range { grid-column: 1; justify-self: start; text-align: left; }
+  .end-round-score-board { grid-template-columns: 1fr; justify-items: stretch; }
+  .end-round-score-board .game-score-divider { display: none; }
 }

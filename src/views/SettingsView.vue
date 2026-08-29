@@ -15,6 +15,8 @@ import { useInstallApp } from '../services/installApp'
 import { importCustomDataJson } from '../services/customData'
 import { beginDropboxRosterCloudConnection, completeDropboxRosterCloudConnection, disconnectRosterCloud, ensureRosterCloudState, getRosterCloudConfig, updateRostersFromCloud, uploadRostersToCloud } from '../services/rosterCloud'
 import { OLDDEX_DISCORD_URL, shareOldDex } from '../services/siteShare'
+import { openOldDexIssueReport } from '../services/siteReport'
+import { OLDDEX_BUILD_LABEL } from '../version'
 
 const { darkMode, compactRows, fontSize, boldText, visualTheme, backgroundImage, bootAudioEnabled, reset } = useSettings()
 const updateState = ref<'idle' | 'running' | 'success' | 'error'>('idle')
@@ -140,7 +142,7 @@ onMounted(async () => {
       <div class="setting-row"><span><strong>Share Old.dex</strong><small>Share Old.dex using your device share sheet or copy the site link.</small></span><button class="secondary-button settings-compact-action" type="button" @click="shareSite">Share</button></div>
     </section></section>
 
-    <section class="settings-group" aria-label="Report bugs and issues"><div class="settings-group-heading"><p class="eyebrow settings-group-title">REPORT BUGS &amp; ISSUES</p></div><section class="settings-card"><div class="setting-row static-row support-placeholder-row"><span><strong>Bug &amp; issue reporting</strong><small>A direct Old.dex issue-reporting workflow will be added here in a later build.</small></span><span class="value-chip">COMING SOON</span></div></section></section>
+    <section class="settings-group" aria-label="Report bugs and issues"><div class="settings-group-heading"><p class="eyebrow settings-group-title">REPORT BUGS &amp; ISSUES</p></div><section class="settings-card"><div class="setting-row static-row"><span><strong>Bug &amp; issue reporting</strong><small>Open a GitHub issue prefilled with this Old.dex build, current page, browser, and recent local diagnostics.</small></span><button class="secondary-button settings-compact-action" type="button" @click="openOldDexIssueReport">Report</button></div></section></section>
 
     <section class="settings-group" aria-label="Display settings"><div class="settings-group-heading"><p class="eyebrow settings-group-title">DISPLAY</p></div><section class="settings-card">
       <label class="setting-row"><span><strong>Dark mode</strong><small>The same theme setting controlled by the light/dark button in the top-right header.</small></span><input v-model="darkMode" type="checkbox" /></label>
@@ -181,7 +183,7 @@ onMounted(async () => {
     </section></section>
 
     <section class="settings-group" aria-label="Changelog and updates"><div class="settings-group-heading"><p class="eyebrow settings-group-title">CHANGELOG &amp; UPDATES</p></div><section class="settings-card">
-      <div class="setting-row static-row"><span><strong>Site Changelog - Alpha 0.49</strong><small>Review changes, fixes, and feature updates included in the current Old.dex build.</small></span><RouterLink to="/changelog" class="secondary-button settings-compact-action">Open</RouterLink></div>
+      <div class="setting-row static-row"><span><strong>Site Changelog - {{ OLDDEX_BUILD_LABEL }}</strong><small>Review changes, fixes, and feature updates included in the current Old.dex build.</small></span><RouterLink to="/changelog" class="secondary-button settings-compact-action">Open</RouterLink></div>
     </section></section>
   </main>
 </template>

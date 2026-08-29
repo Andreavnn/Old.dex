@@ -35,7 +35,7 @@ test('limited use rules preserve their proper lifetime', () => {
 })
 
 test('charge range engine reads only active roster rules and selected magical items', () => {
-  const source = read('src/services/matchGuidance.ts')
+  const source = read('src/services/matchIntelligence.ts')
   assert.ok(source.includes('for (const rule of row.specialRules || [])'))
   assert.ok(source.includes('for (const item of row.magicItems || [])'))
   assert.equal(source.includes('optionalSelections'), false)
@@ -83,13 +83,13 @@ test('selected spell metadata is persisted before later subphase guidance is bui
 })
 
 test('Pill UI uses theme-independent semantic foreground and surfaces', () => {
-  const theme = read('src/styles/theme.css')
+  const theme = read('src/styles.css')
   assert.ok(theme.includes('.prototype-pill'))
   assert.ok(theme.includes('.profile-loadout-chip'))
   assert.ok(theme.includes('.old-rule-phase'))
-  assert.ok(theme.includes('background: #f4f1e9 !important'))
-  assert.ok(theme.includes('color: #25231f !important'))
-  assert.ok(theme.includes('background: #ece2f3 !important'))
+  assert.ok(theme.includes('background: #f4f1e9'))
+  assert.ok(theme.includes('color: #25231f'))
+  assert.ok(theme.includes('background: #ece2f3'))
   assert.equal(theme.includes('html[data-theme="dark"] :is([class$="-pill"]'), false)
 })
 
@@ -169,7 +169,7 @@ test('Combat Step 1 separates checkbox interaction from the full profile target 
 test('Combat joined-unit copy and match profile presentation use requested text', () => {
   const view = read('src/views/GameMatchView.vue')
   const profile = read('src/views/MatchUnitProfileView.vue')
-  const css = read('src/styles/match.css')
+  const css = read('src/styles.css')
   assert.ok(view.includes('Combat Results Tracked by Joined Unit - {{ joinedHostName(unit.instanceId) }}'))
   assert.ok(view.includes('>Joined to {{ joinedHostName'))
   assert.equal(profile.includes('item.points'), false)
@@ -221,7 +221,7 @@ test('Settings uses Access & Community and Brambleheart-style donation/changelog
   assert.ok(settings.includes('DONATION'))
   assert.ok(settings.includes('Recurring Support'))
   assert.ok(settings.includes('CHANGELOG &amp; UPDATES'))
-  assert.ok(settings.includes('Site Changelog - Alpha 0.49'))
+  assert.ok(settings.includes('OLDDEX_BUILD_LABEL'))
 })
 
 test('Roster transfer removes QR machinery while keeping the QR-shaped row icon as Share Code', () => {
@@ -251,11 +251,11 @@ test('Global page tools include Discord and Share between Report and Install', (
 
 test('Tips master control is a switch without changing individual tip checkboxes', () => {
   const view = read('src/views/GameMatchView.vue')
-  const css = read('src/styles/match.css')
+  const css = read('src/styles.css')
   assert.ok(view.includes('match-tip-switch-input'))
   assert.ok(css.includes('label.match-tip-master-toggle > input.match-tip-switch-input'))
-  assert.ok(css.includes('width: 38px !important'))
-  assert.ok(css.includes('height: 22px !important'))
+  assert.ok(css.includes('width: 38px'))
+  assert.ok(css.includes('height: 22px'))
 })
 
 test('Spell cards reuse canonical rule boxes instead of bespoke spell markup', () => {
@@ -289,7 +289,7 @@ test('magic item resolver isolates exact item sections and permits collection-on
 })
 
 test('match content uses a shared inner gutter instead of per-panel edge fixes', () => {
-  const css = read('src/styles/match.css')
+  const css = read('src/styles.css')
   assert.ok(css.includes('Shared inner gutter'))
   assert.ok(css.includes('padding-inline: clamp(12px, 2.4vw, 18px)'))
 })
@@ -343,7 +343,7 @@ test('Movement Step 2 includes mutually exclusive In Combat and Stay states', ()
 
 test('match Back and Next navigation uses compact bounded controls', () => {
   const view = read('src/views/GameMatchView.vue')
-  const css = read('src/styles/match.css')
+  const css = read('src/styles.css')
   assert.ok(view.includes("return 'Next'"))
   assert.ok(view.includes("return 'Start Battle'"))
   assert.ok(css.includes('.game-match-page .match-sticky-nav'))
@@ -385,7 +385,7 @@ test('scenario round defaults prefer a stated minimum', () => {
 })
 
 test('Setup spell select is lowered and spell type is ordered below the name', () => {
-  const css = read('src/styles/match.css')
+  const css = read('src/styles.css')
   assert.ok(css.includes('.match-spell-choice-shell > .match-spell-select { top: 15px; }'))
   assert.ok(css.includes('.old-rule-title-row { order: 1; }'))
   assert.ok(css.includes('.old-rule-pill-row { order: 2;'))
@@ -393,7 +393,7 @@ test('Setup spell select is lowered and spell type is ordered below the name', (
 
 test('limited-use actions use a readable remaining-use status block', () => {
   const view = read('src/views/GameMatchView.vue')
-  const css = read('src/styles/match.css')
+  const css = read('src/styles.css')
   assert.ok(view.includes('class="tracked-use-status"'))
   assert.ok(view.includes('ruleUseRemaining(rule) ?? rule.useLimit'))
   assert.ok(css.includes('.tracked-use-status'))
@@ -449,7 +449,7 @@ test('locked roster overview routes back to the Builder', () => {
 
 test('ongoing Battle Conditions sit below Tip panels and stay contained', () => {
   const view = read('src/views/GameMatchView.vue')
-  const css = read('src/styles/match.css')
+  const css = read('src/styles.css')
   const tip = view.indexOf('Tip — Start of Round')
   const ongoing = view.indexOf('OngoingBattleConditionsPanel', tip)
   assert.ok(tip >= 0 && ongoing > tip)
@@ -460,7 +460,7 @@ test('ongoing Battle Conditions sit below Tip panels and stay contained', () => 
 })
 
 test('Miscast expansion does not stretch neighboring spell columns', () => {
-  const css = read('src/styles/match.css')
+  const css = read('src/styles.css')
   assert.ok(css.includes('grid-auto-rows: max-content'))
   assert.ok(css.includes('align-items: start'))
   assert.ok(css.includes('.match-phase-spell-entry { display:grid;align-self:start;'))
@@ -468,7 +468,7 @@ test('Miscast expansion does not stretch neighboring spell columns', () => {
 
 test('Combat Step 1 profile target excludes the checkbox area', () => {
   const view = read('src/views/GameMatchView.vue')
-  const css = read('src/styles/match.css')
+  const css = read('src/styles.css')
   assert.ok(view.includes('<label class="turn-action-check combat-fight-check">'))
   assert.ok(view.includes('<RouterLink class="combat-fight-unit-copy combat-fight-profile-area"'))
   assert.ok(css.includes('.combat-fight-profile-area'))
@@ -478,7 +478,7 @@ test('requested labels and text-link alignment are applied', () => {
   const nav = read('src/components/PrimaryNav.vue')
   const header = read('src/components/AppHeader.vue')
   const settings = read('src/views/SettingsView.vue')
-  const theme = read('src/styles/theme.css')
+  const theme = read('src/styles.css')
   assert.ok(nav.includes('>Army Rosters</RouterLink>'))
   assert.ok(header.includes('aria-label="Old.dex Army Rosters"'))
   assert.ok(settings.includes('Adjust standard interface and rules-reader text.'))
@@ -509,13 +509,13 @@ test('Charge roll sequence exposes Swiftstride and Waaagh Banner dice in order',
   const swift = effects.chargeRangeContribution('Swiftstride', 'Swiftstride')
   const banner = effects.chargeRangeContribution('Waaagh! Banner', 'This unit increases its maximum possible charge range by 3" and adds +D3 to its Charge roll.')
   assert.equal(effects.formatChargeRollSequence([swift, banner].filter(Boolean)), 'Charge Roll > +D6 > +D3')
-  const guidance = read('src/services/matchGuidance.ts')
+  const guidance = read('src/services/matchIntelligence.ts')
   assert.ok(guidance.includes('chargeRollNote: formatChargeRollSequence(contributions)'))
 })
 
 test('required charge rows use orange emphasis and remove optional filler copy', () => {
   const view = read('src/views/GameMatchView.vue')
-  const css = read('src/styles/match.css')
+  const css = read('src/styles.css')
   assert.ok(view.includes('class="required-charge-label">MUST CHARGE IF POSSIBLE</small>'))
   assert.equal(view.includes('Declare this charge only if the unit is eligible and you choose to charge.'), false)
   assert.ok(css.includes('.required-charge-label'))
@@ -568,7 +568,7 @@ test('match model profiles display roster-derived model quantities including cha
 })
 
 test('End of Round score and four actions use dedicated responsive geometry', () => {
-  const css = read('src/styles/match.css')
+  const css = read('src/styles.css')
   assert.ok(css.includes('.end-round-score-board'))
   assert.ok(css.includes('grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);'))
   assert.ok(css.includes('.end-round-actions'))
@@ -577,14 +577,94 @@ test('End of Round score and four actions use dedicated responsive geometry', ()
   assert.equal(css.includes('end-round-score-board { grid-template-columns: 1fr !important'), false)
 })
 
-test('Alpha 0.49 release metadata is synchronized', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '0.49.0')
-  assert.ok(read('src/App.vue').includes('ALPHA BUILD 0.49'))
-  assert.ok(read('src/components/AppHeader.vue').includes('ALPHA BUILD 0.49'))
-  assert.ok(read('src/views/SettingsView.vue').includes('Site Changelog - Alpha 0.49'))
-  assert.ok(read('public/sw.js').includes('v049'))
-  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.49'"))
-  assert.ok(read('src/data/changelogLatest.ts').includes("version: '0.48'"))
+test('Dropbox Cloud Sync uses the shared HTTP boundary only', () => {
+  const cloud = read('src/services/rosterCloud.ts')
+  const http = read('src/services/http.ts')
+  assert.ok(cloud.includes("import { fetchWithTimeout } from './http'"))
+  assert.equal(/\bfetch\s*\(/.test(cloud), false)
+  assert.ok(cloud.includes('allowHttpError: true'))
+  assert.ok(http.includes('allowHttpError?: boolean'))
+})
+
+test('Match compatibility services remain thin facades', () => {
+  const guidance = read('src/services/matchGuidance.ts')
+  const profiles = read('src/services/matchRosterProfiles.ts')
+  const intelligence = read('src/services/matchIntelligence.ts')
+  const unitProfiles = read('src/services/matchUnitProfiles.ts')
+  assert.ok(guidance.includes("from './matchIntelligence'"))
+  assert.equal(guidance.includes('fetchRuleDocument'), false)
+  assert.ok(intelligence.includes('chargeRangeContribution'))
+  assert.ok(intelligence.includes('extractMatchUseLimit'))
+  assert.ok(profiles.includes("loadMatchUnitProfile as loadMatchRosterProfile"))
+  assert.equal(profiles.includes('loadMagicItemReference'), false)
+  assert.ok(unitProfiles.includes('selectedMagicProfileEffects'))
+  assert.ok(unitProfiles.includes('resolveArmourSave'))
+})
+
+test('runtime styles are consolidated and no broad Dark Mode pill override remains', () => {
+  const main = read('src/main.ts')
+  const css = read('src/styles.css')
+  assert.ok(main.includes("import './styles.css'"))
+  assert.equal(main.includes('styles/theme.css'), false)
+  assert.equal(main.includes('styles/match.css'), false)
+  assert.equal(css.includes('html[data-theme="dark"] :is([class$="-pill"]'), false)
+  assert.ok((css.match(/!important/g) || []).length < 100)
+})
+
+test('service worker precaches only real maintained core assets', () => {
+  const sw = read('public/sw.js')
+  assert.equal(sw.includes('/data/owb-rule-catalog.json'), false)
+  assert.ok(sw.includes("const CACHE_NAME = 'olddex-shell-v050-maintenance'"))
+})
+
+test('placeholder Army route and obsolete review infrastructure are removed', () => {
+  const router = read('src/router.ts')
+  const pkg = JSON.parse(read('package.json'))
+  assert.equal(router.includes("path: '/army/:armySlug',"), false)
+  assert.equal(pkg.scripts['build:review'], undefined)
+  assert.equal(pkg.scripts['verify:review'], undefined)
+})
+
+test('Report controls open the functional GitHub issue workflow', () => {
+  const report = read('src/services/siteReport.ts')
+  const app = read('src/App.vue')
+  const settings = read('src/views/SettingsView.vue')
+  assert.ok(report.includes('https://github.com/Andreavnn/Old.dex/issues/new'))
+  assert.ok(report.includes('recentDiagnostics().slice(0, 12)'))
+  assert.ok(app.includes('openOldDexIssueReport()'))
+  assert.ok(settings.includes('@click="openOldDexIssueReport"'))
+  assert.equal(settings.includes('COMING SOON'), false)
+})
+
+test('runtime and roster export versions are deliberately separate constants', () => {
+  const version = read('src/version.ts')
+  const saved = read('src/services/savedLists.ts')
+  assert.ok(version.includes("OLDDEX_VERSION = '0.50'"))
+  assert.ok(version.includes("OLDDEX_ROSTER_EXPORT_SCHEMA_VERSION = '0.65'"))
+  assert.ok(saved.includes('version: OLDDEX_ROSTER_EXPORT_SCHEMA_VERSION'))
+})
+
+test('canonical changelog includes the previously missing 0.43 and 0.44 releases', () => {
+  const changelog = read('src/data/changelog.ts')
+  const view = read('src/views/ChangelogView.vue')
+  assert.ok(changelog.indexOf('"version": "0.50"') < changelog.indexOf('"version": "0.49"'))
+  assert.ok(changelog.includes('"version": "0.44"'))
+  assert.ok(changelog.includes('"version": "0.43"'))
+  assert.equal(view.includes('changelogLatest'), false)
+})
+
+test('Alpha 0.50 maintenance metadata and canonical changelog are synchronized', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '0.50.0')
+  assert.ok(read('src/version.ts').includes("OLDDEX_VERSION = '0.50'"))
+  assert.ok(read('src/App.vue').includes('OLDDEX_BUILD_LABEL'))
+  assert.ok(read('src/components/AppHeader.vue').includes('OLDDEX_BUILD_LABEL'))
+  assert.ok(read('src/views/SettingsView.vue').includes('OLDDEX_BUILD_LABEL'))
+  assert.ok(read('public/sw.js').includes('v050'))
+  const changelog = read('src/data/changelog.ts')
+  assert.ok(changelog.includes('"version": "0.50"'))
+  assert.ok(changelog.includes('"version": "0.49"'))
+  assert.ok(changelog.includes('"version": "0.44"'))
+  assert.ok(changelog.includes('"version": "0.43"'))
 })
 
 let passed = 0
@@ -592,4 +672,4 @@ for (const [name, fn] of tests) {
   try { await fn(); passed += 1 }
   catch (error) { console.error(`FAIL: ${name}`); throw error }
 }
-console.log(`ODX 0.49 regressions passed: ${passed}/${tests.length}`)
+console.log(`ODX 0.50 regressions passed: ${passed}/${tests.length}`)

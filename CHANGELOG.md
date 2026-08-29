@@ -1,4 +1,111 @@
-# Alpha Build 0.42 — Persistent battle state, deployment sequence, and combat resolution
+# Old.dex Changelog
+
+Canonical release history mirrored from `src/data/changelog.ts`.
+
+## Alpha Build 0.50 — Repository deep clean, architecture compliance, and validation hardening
+
+- Moved every Dropbox request behind the shared HTTP timeout/error boundary and removed the remaining explicit any response parsing from Cloud Sync.
+- Removed the nonexistent bundled OWB catalog precache/fallback contract. OWB refresh remains authoritative and the last successful catalog remains persisted locally; service-worker core precache now contains only real assets.
+- Removed obsolete standalone-review scripts, the unused BootAudioSetting and SegmentTabs components, and the placeholder ArmyView route; direct unit views now fall back to Army Rosters.
+- Consolidated runtime CSS back into src/styles.css, removed the obsolete broad Dark Mode pill override, and expanded static analysis to measure the complete runtime stylesheet and validate service-worker core assets.
+- Added repository hygiene through .gitignore and strengthened static analysis against obsolete/dead runtime files and split stylesheet drift.
+- Replaced the placeholder Report control with a real GitHub issue workflow prefilled with build, page, browser, and recent local diagnostics.
+- Centralized the public runtime build number and documented the separate saved-roster export schema version so app-version and file-format version cannot be confused.
+- Reunified Alpha 0.43 through current release history into the canonical changelog and removed the recent-changelog sidecar.
+- Moved match charge/use-limit and magical-profile mechanics back into their canonical owning services so compatibility facades remain thin.
+- Extended maintenance regressions and repository validation for networking, service-worker assets, stylesheet consolidation, routing, changelog integrity, and dead-file cleanup.
+
+## Alpha Build 0.49 — Match deployment, charge, profile, shooting, and score stability
+
+- Corrected Deployment Step 2 so each War Machine roster entry keeps its own deployed/reserve state instead of one War Machine checkbox toggling every War Machine in the army.
+- Removed the Miscast table heading row from selectable outcomes by hardening the shared random-table parser to reject D6/2D6 Result header rows.
+- Renamed the voluntary Declare Charges state from Hold to Stay without changing the rules-defined Hold charge reaction elsewhere, highlighted MUST CHARGE IF POSSIBLE, removed filler charge copy, and added the live Charge Roll modifier chain such as Charge Roll > +D6 > +D3.
+- Deduplicated joined Character and host-unit charge/reaction rules by canonical visible rule identity so the same Special Rule is not repeated when both models have it.
+- Hardened match weapon hydration for source-linked and older roster snapshots so selected Warbows and other missile/melee upgrades are retained in Shooting and match unit profiles even when their source parent selection or historic count fields differ.
+- Match roster profiles now display the quantity represented by each profile row, including champion/special model counts and one mount per mounted model where appropriate.
+- Corrected canonical rider-versus-mount profile identity so profiles such as Boar Boy remain rider/unit profiles while War Boar remains a mount; rider-targeted persistent effects now apply to the correct profile.
+- Allowed failed/transient match profile hydration to retry instead of permanently caching an unavailable profile for the rest of the screen session.
+- Rebuilt End of Round score/action geometry with dedicated responsive columns so the score and four round controls no longer overlap.
+- Reviewed the Match source path against the canonical architecture and retained Warbow classification in the core missile-weapon vocabulary; the missing-shooter failure was traced to roster-selection hydration rather than weapon classification.
+- Bumped package, header, footer, Settings changelog label, Share Code metadata, and PWA cache metadata to Alpha Build 0.49.
+
+## Alpha Build 0.48 — Locked-roster routing and match layout corrections
+
+- Locked saved rosters now open directly in the Army Builder in locked/read-only state instead of routing through the separate roster overview page, including View actions reached from the Builder.
+- Moved Ongoing Battle Conditions immediately below the current Tip panel and corrected their width containment so the shared condition panel cannot overhang match-step edges.
+- Disconnected spell-column heights during Total Power and Miscast resolution so an expanded Miscast table no longer stretches neighboring spell entries.
+- Expanded Combat Step 1 profile navigation to the entire unit information area while keeping the completion checkbox as an independent click target.
+- Centered the Create Army Roster Cancel label and the Settings Changelog Open label inside their buttons.
+- Changed the Display Text Size detail to “Adjust standard interface and rules-reader text.”
+- Renamed the primary Army Lists navigation label to Army Rosters.
+- Retained the scenario-aware minimum-round default introduced in Alpha 0.47.
+- Bumped package, header, footer, Settings changelog label, Share Code metadata, and PWA cache metadata to Alpha Build 0.48.
+
+## Alpha Build 0.47 — Roster transfer consolidation, persistent magic state, and match presentation refinements
+
+- Consolidated My Rosters import into one word-based action with file upload or Share Code entry, consolidated export into one action with file download or Share Code, added a left-side roster filter, and removed the page-level Delete control.
+- Restored saved-roster actions in the requested order: View, Edit, Lock, Mark Enemy, Copy, Share, Delete. The enemy action uses the flag icon and is labeled Mark as Enemy Roster.
+- Moved each roster point total beside the roster name and removed the redundant VALID / Locked status copy from roster cards.
+- Made shared pill UI colors theme-independent so Dark Mode no longer recolors equipment, composition, rule, magic, and status pills.
+- Game Length now prefers the minimum round count stated by a selected scenario when the scenario provides a range or minimum and the user has not customized the round count.
+- Adjusted Setup spell-card layout so Select sits below the card accent edge and the spell type appears beneath the spell name.
+- Added a universal Ongoing Battle Conditions panel at the top of battle phases, replacing phase-specific Wilderness Terrain reminder duplication.
+- Redesigned limited-use action status as a larger text-size-aware remaining-use block rather than a miniature pill.
+- Added Total Power and Miscast tracking to castable spells. Total Power also marks Miscast, the source Miscast table is selectable inline, casting lockouts persist for the appropriate phase or turn, and source-defined Wizard Level loss can track forgotten known spells.
+- Moved Shooting weapon profiles above To Hit penalty controls and only expands mixed Ballistic Skill details when distinct BS values exist.
+- Reworked winning Combat Result follow-up choices into the same card treatment as losing outcomes and added explicit roll/test instructions.
+- Flattened End of Round Step 2 Round & Score Calculation into the step content instead of nesting it in a second panel.
+- Bumped package, header, footer, Settings changelog label, Share Code metadata, and PWA cache metadata to Alpha Build 0.47.
+
+## Alpha Build 0.46 — Canonical match spell cards, deployment gating, and combat-state tracking
+
+- Returned Setup spell choices to the canonical RuleAbilityCard presentation already used by Special Rules and Magical Items, adding only the match Select control rather than maintaining a separate spell-card layout.
+- Displayed castable spells in their correct phase and subphase with the same canonical rule box and added mutually exclusive Successful and Failed result tracking for each casting attempt.
+- Enforced Deployment Step 2 stage order instead of only sorting it visually: ordinary units resolve before War Machines, War Machines before Characters, and Scouts or special deployment last.
+- Restyled the Disruptive Weather Battle Condition as the same expandable rule-panel pattern used elsewhere while retaining its inline D6 table, recorded result, rules access, and required progression gate.
+- Corrected the Tips master flip switch specificity conflict so the control renders as a proper switch instead of inheriting generic checkbox dimensions.
+- Reduced and centered the Back and Next navigation controls so their labels cannot stretch beyond the match panel, while retaining Start Battle and Begin Round labels where useful.
+- Carried successful charge state into Combat Step 1 with a visible Charged marker, including joined Characters through their host unit.
+- Locked limited-use rule and item checkboxes as soon as their tracked uses are depleted.
+- Added In Combat to Movement Step 2 charge resolution. Hold and In Combat are mutually exclusive with charge actions, while charge actions lock both Hold and In Combat.
+- Rebuilt Army Roster entry actions into the compact square management-button pattern: Export, Lock, Enemy toggle, Copy, Share Code, and Delete where applicable.
+- Bumped package, header, footer, and PWA cache metadata to Alpha Build 0.46.
+
+## Alpha Build 0.45 — Settings cleanup, Share Codes, rule resolution, and match UI refinement
+
+- Reworked Settings rows to match the clearer Brambleheart presentation while preserving Old.dex Reset Local Data behavior, moved Site Changelog into Changelog & Updates, and removed underlines from download-style controls.
+- Renamed Install to Access & Community, added Discord and Share actions in Settings and the global footer, moved Launch Audio above Themes, and simplified Donation controls.
+- Replaced QR roster transfer with Old.dex Share Codes. QR generation, camera/image scanning, and QR-only dependencies are removed; the familiar QR-shaped roster-row icon now opens Share Code sharing instead.
+- Share Codes are staged locally for review on the short /lists/shared route, including legacy payload links which have their long hash removed from the address bar after receipt. Roster import/export remain compact file transfer actions and Custom Data import remains in Settings.
+- Hardened magic-item source resolution so exact item boundaries are respected on collection pages, non-weapon items no longer trigger unnecessary broad fallbacks, and collection-only items can still resolve when an individual route is missing.
+- Changed the match Tips master control to a flip switch while retaining individual Tip checkboxes.
+- Added a shared match-content gutter so text and controls no longer sit directly against panel borders across setup, deployment, phase, and combat surfaces.
+- Reduced Setup spell-card Select, metadata, rule-link, and body text sizes; moved type/signature pills below the spell name; and normalized spell icon sizing.
+- Restored Disruptive Weather as an always-visible required pre-deployment D6 table with inline rules access, saved result selection, and progression gating until a result is recorded.
+- Bumped package/header/footer/PWA metadata to Alpha Build 0.45 and extended permanent regressions for the new UI and rule-resolution behavior.
+
+## Alpha Build 0.44 — Dropbox roster sync, roster sharing, and match-flow corrections
+
+- Added optional Dropbox App Folder Cloud Sync using OAuth PKCE and explicit manual Update from Cloud / Upload Local actions while keeping local roster storage authoritative.
+- Introduced roster sharing with encoded links and QR transfer for read-only shared-roster review before adding a received roster locally; this QR transport was subsequently replaced by Share Codes in Alpha 0.45.
+- Removed Match Notes, restored Disruptive Weather as a required pre-deployment result, moved Wilderness Terrain to deployment/later-phase reminders, and corrected Chaos of War instructional text and timing.
+- Reworked spell setup and later phase routing so prepared spells can appear in the phase/subphase in which they are cast.
+- Added Shooting To Hit calculation beside Ballistic Skill with modifier tracking and mixed-BS expansion.
+- Corrected Combat joined-unit wording/click targets, removed magical-item costs from match profiles, and continued match-profile/pill presentation cleanup.
+- Added the initial cloud/share and match-flow regression coverage used by later maintenance builds.
+
+## Alpha Build 0.43 — Persistent match tracking, canonical spell presentation, and charge-source calculations
+
+- Rebuilt match tracking around persistent casualties, fleeing state, limited-use counters, charge history, combat history, and turn-specific shooting/rally state.
+- Made Setup Battle Conditions selection-only, moved Disruptive Weather resolution to Deployment, surfaced ongoing recorded results where their effects apply, and routed Chaos of War into Start of Turn from round two onward.
+- Replaced bespoke Setup spell markup with the shared Old.dex rule-card presentation and added a dedicated match-roster snapshot profile route so in-match profiles come from the roster selected when the match began.
+- Grouped Deployment visibly by normal units, War Machines, Characters, then Scouts/special deployment.
+- Added Leadership to required-charge unit rows, real Movement fallbacks in Remaining Moves, Ballistic Skill and selectable To Hit penalties in Shooting, and persistent Rally/flee handling.
+- Made Combat unit panels open the match snapshot profile, changed single-model status to Wounds Remaining, and retained combat/charge state across the round.
+- Rebuilt maximum charge declaration range from active named sources so Swiftstride, Waaagh! Banner and other stacked modifiers are displayed without changing the separate resolved Charge Move rules.
+- Removed the broad Dark Mode black-pill override and added permanent regressions for charge modifiers, limited-use tracking, match snapshots, spell presentation, and theme behavior.
+
+## Alpha Build 0.42 — Persistent battle state, deployment sequence, and combat resolution
 
 - Made destroyed-model and wound tracking persistent per roster entry rather than per turn, so accumulated losses carry across Friendly/Enemy turns and every later round until the match is reset.
 - Rebuilt random happenings as structured D6 tables and compile only the result actually rolled into match timing; assigned battle panels retain the full table with the active result highlighted.
@@ -12,7 +119,7 @@
 - Expanded core regression coverage for structured charge effects, Break Test bands, random-happening table preservation, roster-based Combat participation and persistent casualty state.
 - Bumped package/header/footer/PWA cache metadata to Alpha Build 0.42.
 
-# Alpha Build 0.41 — Turn ownership, ranged weapons, dispels, and charge reactions
+## Alpha Build 0.41 — Turn ownership, ranged weapons, dispels, and charge reactions
 
 - Enforced friendly/enemy turn ownership at the compiled match-intelligence boundary so an inactive roster contributes only explicit opponent-turn/reaction rules; own-turn rules no longer leak into the other side because their prose mentions the same phase or subphase.
 - Corrected Declare Charges & Charge Reactions wording so the source-book subphase name does not reclassify own-turn rules such as Impetuous as enemy-turn reactions; Counter Charge remains an explicit enemy-turn reaction.
@@ -26,42 +133,118 @@
 - Expanded core regressions for ranged-weapon semantics, own-turn charge-test timing and Shooting weapon integration.
 - Bumped package/header/footer/PWA cache metadata to Alpha Build 0.41.
 
-# Alpha Build 0.40 — Match workflow, scenario maps, charge state, and combat tracking
+## Alpha Build 0.40 — Match workflow, scenario maps, charge state, and combat tracking
 
-- Reworked match Tips into one canonical collapsible component with a per-match Tips visibility switch in the step heading; Tip panels now stay at the top while charge and Break Test instructions use normal procedure panels.
-- Reordered Setup so Scenario precedes Game Length, defaulted normal matches to four rounds unless a scenario says otherwise, and rebuilt spell generation as caster-grouped spell cards with selection checkboxes.
-- Centralized pitched-battle scenario paths/maps and display them in scenario rule pages, Setup/Overview and Deployment Order.
-- Removed the standalone First Turn step and moved first-turn resolution to the bottom of Deploy Armies.
-- Enlarged and theme-locked Friendly Turn / Enemy Turn controls and renamed Your Turn to Friendly Turn.
-- Added per-round consumable quantity tracking, cleaner Required Charge Test presentation, Hold/Successful charge state, charge-rule deduplication and broader maximum charge-range bonus detection.
-- Corrected Counter Charge to enemy-turn reaction timing and rebuilt Remaining Moves around Normal Move, March and Hold with displayed movement distances.
-- Simplified Choose & Fight Combat to successful charging units with profile links, added capped model/wound casualty steppers, and made joined Characters inherit their host unit's combat result while retaining separate wounds.
-- Formatted long battle/scenario rules into readable paragraphs, strengthened guidance deduplication, fixed note/end-step overflow, and added phase/step rail backdrops.
+- Reworked match Tips into one canonical collapsible component with a per-match Tips visibility switch in the step heading; Tip panels now stay at the top of their step while charge and Break Test instructions use normal procedure panels.
+- Reordered Setup so Scenario precedes Game Length, changed the default match length to four rounds unless the selected scenario states otherwise, and rebuilt spell generation as caster-grouped spell cards with selection checkboxes.
+- Centralized pitched-battle scenario paths and deployment maps, displaying the map on scenario rule pages, Setup/Overview and the always-open Deployment Order scenario panel.
+- Removed the standalone First Turn deployment step and moved first-turn resolution to the bottom of Deploy Armies after unit deployment and joined-character tracking.
+- Expanded and theme-locked Friendly Turn / Enemy Turn controls and renamed Your Turn to Friendly Turn throughout guided match play.
+- Added per-round consumable quantity display for match guidance, improved Required Charge Test rule/unit presentation, and increased Pass/Fail control readability.
+- Expanded Declare & Resolve Charges with Hold and Successful state, deduplicated per-unit charge rules, broadened detected maximum charge-range bonuses, and routed Counter Charge exclusively as an enemy-turn reaction.
+- Rebuilt Remaining Moves around Normal Move, March and Hold choices with calculated movement distances instead of a generic completion checkbox.
+- Simplified Choose & Fight Combat to profile links and successful chargers, added capped model/wound casualty steppers to Combat Result, and kept joined-character wounds separate while inheriting the host unit combat result and Break Test/follow-up outcome.
+- Formatted long battle/scenario rule bodies into readable paragraphs, strengthened canonical guidance deduplication, fixed note/end-step overflow and added a backdrop to phase/step navigation rails.
 
-# Alpha Build 0.39 — Core rebuild and canonical source semantics
+## Alpha Build 0.39 — Core rebuild: canonical source semantics, profiles, rules, and runtime cleanup
 
-- Established the canonical Old.dex core architecture and stopped using version-specific downstream patch layers as the normal repair path.
-- Rebuilt Old World Builder selection classification so source semantics and selection names determine weapons, shields, armour, mounts, roles and upgrades; rules URLs are documentation only and cannot turn Shield into a weapon.
-- Moved profile/save mechanics behind the canonical core profile engine. Armour replacement resolves before Shield, Armoured Hide and other persistent save modifiers.
-- Added a permanent Black Orc Bigboss regression: Full Plate Armour is 4+, Shield remains equipment, Shield never appears as a weapon, and selecting it resolves the eligible character profile to a 3+ Armour Save.
-- Removed superseded v0.33/v0.34 match-guidance services and the duplicate deployment/start-round/turn parser from gameSetup; compiled match intelligence is the sole match-guidance engine.
-- Renamed version-suffixed runtime services to canonical service boundaries and consolidated recent changelog/runtime imports.
-- Consolidated the v0.33-v0.38 stylesheet stack into the canonical stylesheet so later builds no longer depend on successive override files.
-- Centralized storage access behind the storage service and added architecture checks preventing direct storage/network bypasses, versioned runtime service files, and versioned runtime stylesheets.
-- Added docs/CORE_ARCHITECTURE.md and a 26-case core regression runner covering source classification, Shield/profile save math, match timing and layering invariants.
-- Bumped package/header/footer/PWA cache metadata to Alpha Build 0.39. This release is delivered as a full replacement-source package so obsolete files are actually removed.
+- Established a canonical core architecture and stopped treating version-specific downstream patches as the normal way to repair data/profile behavior.
+- Rebuilt Old World Builder selection classification so source semantics and the selection name determine whether something is a weapon, shield, armour, mount, role or upgrade; documentation URLs are references only and cannot reclassify a Shield as a weapon.
+- Moved canonical profile mechanics into the core profile engine behind a compatibility facade and centralized characteristic/save math. Armour replacement resolves before Shield, Armoured Hide and other persistent save modifiers.
+- Added the Black Orc Bigboss regression as a permanent core contract: Full Plate Armour remains 4+, Shield stays equipment rather than a weapon, and selecting Shield resolves the eligible character profile to a 3+ Armour Save.
+- Removed the superseded v0.33/v0.34 match-guidance services and the duplicate deployment/start-round/turn parser from gameSetup; compiled match intelligence is now the sole match-guidance engine.
+- Removed version-suffixed runtime service filenames for locks, match tracking, match unit profiles and magical-item references, updating views to use canonical service boundaries.
+- Consolidated the accumulated v0.33-v0.38 CSS override files into the canonical stylesheet and stopped loading successive version stylesheets at runtime.
+- Consolidated recent changelog entries into the canonical changelog data source so build history no longer requires a chain of version-specific runtime imports.
+- Added a core architecture contract and regression runner covering source classification, shield/profile save math, match timing invariants, and runtime-layering checks.
+- Bumped package/header/footer/PWA cache metadata to Alpha Build 0.39 and ships this release as a full replacement-source package so obsolete files are removed rather than left under the rebuilt core.
 
-# Alpha Build 0.38 — Canonical rule-content pipeline and shield save repair
+## Alpha Build 0.38 — Canonical rule-content pipeline and shield save repair
 
-- Rebuilt rule retrieval around canonical minimal rules-index pages, matching Old World Builder’s source-request pattern and preventing source-site navigation/update chrome from contaminating Old.dex rule text.
-- Centralized mechanical rule extraction across Rules, profiles, match intelligence and inline cards; broken-page messages and unrelated flavour no longer substitute for missing mechanics.
-- Added magical-item collection-page recovery for incomplete individual item entries, including weapon profile values, Notes and linked special rules.
-- Guaranteed Magical Attacks for magic weapons and added resolved Range, Strength, AP and Special Rules to expanded magical-item picker entries.
-- Repaired mundane and magical shield handling so selected shields reliably improve Armour Save on eligible model profiles.
-- Bundled Old World Builder’s current rule-index/synonym catalog into the app as a resilient local resolver, with live OWB refreshes retained when available.
-- Invalidated stale rule-content caches and bumped the app/PWA shell to Alpha Build 0.38.
+- Rebuilt the shared rules transport around the same minimal rules-index request used by Old World Builder. Old.dex now requests canonical tow.whfb.app rule pages with minimal=true before any page is cleaned, parsed or displayed, preventing source-site navigation, update metadata and error chrome from leaking into rule cards.
+- Reworked the central rule-text extractor so Rules, roster profiles, match intelligence and inline rule cards all reject source metadata, Table of Contents text, broken-page notices and navigation fragments instead of each feature maintaining a different permissive fallback.
+- Removed broad rule-card fallback scraping that could substitute flavour or unrelated nearby paragraphs when a canonical page did not expose mechanical text. Missing mechanical content now fails closed rather than displaying misleading source text as a rule.
+- Added a dedicated magical-item reference resolver. It reads the individual canonical item page first and, when that entry is incomplete, checks the appropriate common or army magic-item collection page and merges the richer weapon profile, Notes and linked special rules.
+- Guaranteed Magical Attacks on selected magic-weapon references and surfaced resolved Range, Strength, AP and Special Rules directly inside expanded magical-item picker entries.
+- Hardened magical shield detection so a selected magic shield improves the owning model armour save even if its external rule page is temporarily incomplete or unavailable.
+- Hardened mundane shield normalization from both the source name and Old World Builder canonical shield path. A selected shield is always treated as a unit-level equipment choice and applies its +1 armour-save improvement to eligible rider/unit profiles.
+- Bundled Old World Builder’s current rule-index export and synonym map with Old.dex, while retaining live OWB refreshes when available. Installed/offline sessions therefore keep the canonical name-to-rule resolver required for basic rule linking.
+- Invalidated the previous rule-content cache so stale full-page/source-chrome parses cannot survive the new canonical minimal-content pipeline.
+- Bumped the package, header, footer and PWA shell to Alpha Build 0.38.
 
-# Old.dex Changelog
+## Alpha Build 0.37 — Match rule fidelity, join restrictions, and battle-control polish
+
+- Kept generic pill UI on a fixed high-contrast light treatment when Dark Mode is active so pill labels remain readable and do not inherit dark-theme text/background combinations.
+- Tied the supplied ready_for_murderin_orc.mp3 directly to the installed-application launch scene. Every standalone app load that shows the launch scene now attempts the boot sound at the same time, while retaining the existing Settings audio switch and user-gesture fallback when autoplay is blocked.
+- Changed normal match length to four rounds. A selected scenario can still replace that value when its own rules provide an explicit game length; the generic six-round source fallback no longer overrides Old.dex’s normal four-round setup default.
+- Removed left/right subphase arrows when a phase has only one step and added rail padding/nowrap safeguards so the final visible phase label does not collide with the scroll edge.
+- Restricted Deployment character-joining choices by troop/mount class. Characters now fail closed when their selected mount or troop class is incompatible with the prospective host, and Chariot, War Machine, Behemoth and Swarm-style models are not offered as ordinary joined-unit targets.
+- Changed Step Notes to a single collapsible Note panel that is closed by default.
+- Rebuilt match rule-card text cleanup to remove source-page navigation, Table of Contents, update metadata and publication/page noise while retaining the complete cleaned mechanical rule text instead of only the one sentence that established timing.
+- Tightened Movement, Shooting and Combat timing inference so narrative words such as “march” no longer create tasks without an actual instruction, modifier or operational action. This removes magic-item/flavour false positives such as rules that merely describe warriors marching.
+- Deduplicated canonical rule cards by rule identity rather than by the exact extracted sentence. When a joined Character and its host both have the same Individual rule, Old.dex shows one rule with all affected models where appropriate.
+- Made Required Charge Test checkbox labels follow the global Text Size setting and increased spacing between affected-unit pills and rule-card dividers.
+- Changed Choose & Fight Combat so joined Characters remain separate roster entries rather than appearing nested under their host. Each unit name now links to the roster-equivalent unit profile while the inline expandable profile remains available for rolling at the table.
+- Changed Break Test and winner follow-up results from select menus to mutually exclusive checkbox choices. Losing/failed-break entries show only Break Test outcomes; Won Combat entries show only Follow Up / Pursuit choices.
+- Simplified empty friendly/enemy action states to the explicit “No actions.” message.
+- Bumped the package, header, footer and PWA shell to Alpha Build 0.37.
+
+## Alpha Build 0.36 — Sequential match resolution, joined characters, and combat tracking
+
+- Changed Start New Match battle-composition options to compact pill UI instead of expanded explanatory rows.
+- Moved available scenario/battle artwork into the bottom of the expandable Scenario Rules content on Setup, Overview, and Deployment Order so the same scenario reference pattern is used throughout pre-battle play.
+- Collapsed each Wizard or Priest into its own independent Setup Step 2 section, reducing clutter when a roster contains multiple casters.
+- Added match-only character attachment tracking during Deployment. Friendly Characters can be joined to a unit, appear inside that host during later match actions, and can leave the unit during Remaining Moves without changing the saved roster.
+- Combined Declare Charges and Charge Moves into one sequential Declare & Resolve Charges step. Each charge is declared, rolled, resolved, and marked complete before the next charge, with the unit’s relevant charge rules displayed directly in its entry.
+- Rebuilt Remaining Moves around unit state: units that declared a charge, resolved compulsory movement, remain joined to another unit, or are still held in Reserve are excluded. Eligible units are shown directly with optional completion tracking.
+- Added request-version guarding to asynchronous match guidance so a slow rule lookup from a previous phase or subphase cannot overwrite the currently selected step. This prevents Required Charge Test text such as Impetuous modifiers from leaking into Remaining Moves.
+- Reworked Choose & Fight Combat into expandable unit entries with in-place characteristic profiles and joined-character profiles for roll reference.
+- Expanded Calculate Combat Result with tracked destroyed-model counts, Banner/Champion/Musician loss checks when present, joined-character casualties, and optional Won Combat / Failed Break Test state.
+- Combined Break Test with Follow Up & Pursuit. Units flagged from Combat Result can record Give Ground, Fall Back in Good Order, Flee or destruction plus Follow Up, Pursue, Restrain, Overrun, or no follow-up before the next combat is resolved.
+- Replaced exposed horizontal match phase/subphase scrollbars with left and right arrow controls while retaining touch/trackpad scrolling internally.
+- Bumped the installed-app shell and package version to Alpha Build 0.36.
+
+## Alpha Build 0.35 — Compiled match intelligence and installed-app launch audio
+
+- Rebuilt match guidance around a central rule-intelligence compiler. Roster rules, magical items, scenario rules, battlefield effects, army/battle compositions and prepared magic are now interpreted once into explicit operational events before any match screen decides what to display.
+- Removed broad phase-name matching as the primary routing method. A rule is no longer repeated in a step merely because its text mentions that phase; explicit timing wins, operational mechanics refine broad phase wording, dependent continuation text stays with its triggering event, and ambiguous passive phase references fail closed instead of becoming tasks.
+- Made Old.dex order-of-work steps first-class timing targets even when the source book combines them differently. Impetuous and equivalent tests route to Required Charge Tests, while their Pass/Fail result is carried forward to the normal Declare Charges checklist as a MUST CHARGE IF POSSIBLE state.
+- Separated rules that create a Required Charge Test from rules that only modify one. Modifiers such as Warband/Quell-style effects can be shown with the test procedure without incorrectly causing every model that has the modifier to make a test.
+- Allowed one source rule to generate multiple match events only when it contains genuinely separate mechanics. Charge-range/Charge-roll modifiers can therefore appear with Charge Moves while an Impetuous grant from the same rule appears in Required Charge Tests, without duplicating unrelated rule text across the phase.
+- Rebuilt Deployment and Start of Round on the same compiled knowledge model so only deployment/reserve rules and actual Start of Round triggers are shown in those workflows. Friendly and imported enemy roster timing is interpreted relative to the owner of each rule.
+- Corrected maximum declaration range to Movement + 6 before explicit maximum-range bonuses; Swiftstride contributes its current +3 maximum-range increase and other detected maximum-range modifiers are added once.
+- Kept Wizard/Priest magic tied to its operational spell timing: Enchantment/Hex in Conjuration, Conveyance in Remaining Moves, Magic Missile/Magical Vortex in Special Shooting Actions and Assailment in Combat, with timing-text fallback for abilities that do not use those standard type labels.
+- Added an installed-application launch scene using the supplied Old.dex boot audio. Normal browser-tab launches remain silent, and Settings now includes an Installed app launch audio switch that can disable the sound.
+- Bumped the PWA shell cache and included the launch audio in the offline application core so installed Old.dex can use it without requiring a fresh network request at boot.
+
+## Alpha Build 0.34 — Match workflow corrections, charge tracking, and Legends of Legacy
+
+- Added lock and delete controls to open matches. Locked matches remain reviewable but cannot be edited until unlocked from Games.
+- Extended match-page bottom spacing and mobile safe-area handling so navigation and lifecycle controls remain fully inside the page instead of hanging over the footer.
+- Added a Held in Reserve control beside Deployed during deployment, with unavailable reserve choices visibly disabled when no reserve permission is detected.
+- Removed decorative item-count bubbles from match task-panel headings while retaining meaningful turn, phase, subphase and deployment progress information.
+- Reduced Start of Round to rules and actions that actually resolve there; round number, first player and passive battle-condition summaries remain available elsewhere rather than occupying the Start of Round task list.
+- Corrected the timing resolver so explicit named subphases take priority over what a rule does. Rallying Cry now resolves in Command as its rule states, rather than being moved to Rallying Fleeing Troops because it rallies a unit.
+- Strengthened Required Charge Test detection by supplementing roster special rules such as Impetuous and routing scenario text about testing whether a unit must charge into Required Charge Tests instead of Declare Charges.
+- Rebuilt Declare Charges as a simple unit checklist with maximum possible charge range, detected Swiftstride/range bonuses, required-charge status, and an in-phase charge procedure tip instead of expandable unit rule cards.
+- Added phase/subphase tips throughout Strategy, Movement, Shooting, Combat and End of Round, following the older Old.dex battle workflow pattern of showing the immediate procedure beside the actions to resolve.
+- Expanded phase-aware battle guidance so selected battlefield effects and Wizard spells are shown in the subphase where their text or spell type says they can be resolved.
+- Improved pill and chip contrast across themes by using black text for light pill-style UI surfaces by default.
+- Moved all Legacy PDF armies out of their official-book family groupings and into a dedicated Legends of Legacy army-rules category below Ravening Hordes.
+
+## Alpha Build 0.33 — Subphase routing, roster allowances, Legacy armies, and Combat tracking
+
+- Separated Create Army Roster choices into Official Armies and Legacy Armies, removed Renegade Crowns as an independent selector choice while preserving its data identity, and added a LEGACY pill to saved Legacy rosters.
+- Added an explicit approval control for otherwise-valid rosters that still have unused magical-item allowance points; approval is tied to the exact remaining allowance state and automatically expires when those allowances change.
+- Stopped unselected optional upgrades from creating magical-item allowance warnings, including potential Magic Standard allowances that do not exist until the relevant Standard Bearer or other granting option is actually selected.
+- Reworked profile-role handling around Unit Models, Champion, Special Model and Mount so unit-wide upgrades and persistent characteristic modifiers are applied to the models they actually affect rather than leaking to only a champion or to unrelated profiles.
+- Added the first generalized subphase timing resolver so explicit rule-text timing can be separated from broad phase wording; Alpha 0.34 further corrects precedence and Required Charge routing edge cases discovered during match testing.
+- Rebuilt in-match phase navigation around separate major-phase and numbered subphase rows, clearer current-step context, mobile horizontal scrolling and persistent Back/Next controls.
+- Moved battle scenario and other shared battle rules to the top of the current phase/subphase task stack and changed scenario/rule guidance to expandable inline rule panels.
+- Reworked Required Charge Test so special rules appear first, the Multiple Units wording is removed, and affected units with Pass/Fail controls are listed separately at the bottom.
+- Expanded Combat with available Assailment spells and their casters plus a per-unit completion checklist for Combat rolls.
+- Added a match-layout spacing pass for wrapped labels, rule cards, phase controls and mobile task panels.
+- Added the Olddex Games Workshop / BSData disclaimer to every application page except the splash screen.
 
 ## Alpha Build 0.32 — Roster-rule fixes, integrated custom units, and mobile polish
 
@@ -100,6 +283,7 @@
 - Reworked Setup Step 2 spell cards as collapsible panels containing spell-only details such as type, casting value, range and effect while retaining the lore reference link.
 - Expanded Overview with scenario-specific battlefield/deployment/first-turn details, an available scenario map, and the enabled composition options for both friendly and enemy rosters.
 - Cleaned Deployment guidance so units with no formation rules show no placeholder formation text, scenario deployment no longer repeats terrain setup, and the First Turn tip supplies the standard matched-play roll-off procedure when a scenario gives no different procedure.
+- Moved Your Turn / Enemy's Turn into compact centered controls beside the step counter, with friendly and enemy visual shading, and synchronized the initial turn view to the side selected during Deployment Step 3.
 - Added selected Wizard spells to the exact Your Turn subphases in which their spell type can be cast: Enchantment/Hex in Conjuration, Conveyance in Remaining Moves, Magic Missile/Magical Vortex in Special Shooting Actions, and Assailment in Combat.
 - Corrected upgrade-characteristic enrichment so roster-dependent upgrades only apply explicitly stated characteristic modifiers; Celestial Dragon Guard now applies only +1 WS and +1 Ld, and prerequisite-model rule pages can no longer leak unrelated profile values into upgrades.
 
@@ -112,7 +296,9 @@
 - Moved Start New Match Roster Check below Battle Composition, moved Game Length above Scenario in Setup Step 1, removed the Friendly Magic panel from that page, and surfaced scenario/deployment map artwork from the canonical scenario source when available.
 - Split Start of Round into Battle Effects followed by Player Effects so shared scenario/battlefield/composition effects resolve before friendly and enemy army/model effects.
 - Changed match lifecycle controls so pre-battle Setup/Overview/Deployment use Cancel Match, Start Over and Save to Ongoing, while post-deployment battles use Concede, Enemy Yielded, Draw and Save to Ongoing.
+- Expanded Enemy's Turn guidance with core friendly responses including Wizardly/Fated Dispel, charge reactions and defensive shooting actions.
 - Moved the running score controls out of the match header and into End of Round Step 2, where round scoring and next-turn/end-round routing are resolved together.
+- Tightened the manual repository-cleanup workflow around root generated artifacts only and explicitly documented protected source/configuration paths.
 
 ## Alpha Build 0.28 — Interaction standards and turn-context battle guidance
 

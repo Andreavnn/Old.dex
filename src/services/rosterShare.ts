@@ -1,3 +1,4 @@
+import { OLDDEX_VERSION } from '../version'
 import type { BuilderRosterSelection } from '../domain/rosterTypes'
 import { parseSavedArmyLists } from '../domain/schemas'
 import type { SavedArmyList } from './savedLists'
@@ -136,7 +137,7 @@ export function rosterShareCodeFromValue(value: string) {
 }
 
 export async function createRosterShareCode(row: SavedArmyList) {
-  const payload: SharePayload = { format: ROSTER_SHARE_FORMAT, version: ROSTER_SHARE_VERSION, appVersion: '0.49', roster: sharedData(row) }
+  const payload: SharePayload = { format: ROSTER_SHARE_FORMAT, version: ROSTER_SHARE_VERSION, appVersion: OLDDEX_VERSION, roster: sharedData(row) }
   const raw = new TextEncoder().encode(JSON.stringify(payload))
   const packed = await compress(raw)
   return `${ROSTER_SHARE_CODE_PREFIX}${packed.kind}.${bytesToBase64Url(packed.bytes)}`
