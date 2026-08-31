@@ -31,14 +31,7 @@ const shareCodePreview = computed(() => {
 })
 
 function refreshLists() { savedLists.value = getSavedArmyLists() }
-function rosterOpenRoute(list: SavedArmyList) { return list.locked ? savedArmyListRoute(list) : { name: 'list-view', params: { listId: list.id } } }
-onMounted(refreshLists)
-function rosterMatchesFilter(list: SavedArmyList) {
-  if (rosterFilter.value === 'all') return true
-  if (rosterFilter.value === 'locked') return Boolean(list.locked)
-  if (rosterFilter.value === 'legacy') return isLegacyArmy(list.army)
-  return rosterState(list) === rosterFilter.value
-}
+function rosterOpenRoute(list: SavedArmyList) { return { name: 'list-view', params: { listId: list.id } } }
 const friendlyLists = computed(() => savedLists.value.filter((list) => !list.enemyRoster && rosterMatchesFilter(list)))
 const enemyLists = computed(() => savedLists.value.filter((list) => list.enemyRoster && rosterMatchesFilter(list)))
 const exportRosterSelection = computed(() => savedLists.value.find((list) => list.id === exportRosterId.value) || savedLists.value[0] || null)

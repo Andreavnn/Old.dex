@@ -19,6 +19,7 @@ type MagicItemReferenceInput = {
   type: 'weapon' | 'armor' | 'talisman' | 'enchanted-item' | 'arcane-item' | 'banner'
   itemPath: string
   collectionPath?: string
+  collectionName?: string
 }
 
 type ParsedReference = { rules:string[];summary:string;fluff:string|undefined;bodyText:string;range?:string;strength?:string;ap?:string }
@@ -33,6 +34,17 @@ const mechanicalPattern = /\b(?:notes?|wearer|bearer|wielder|model|unit|characte
 const magicItemHeadingPattern = /\((?:Magic Weapon|Magic Armour|Magic Armor|Talisman|Enchanted Item|Arcane Item|Magic Standard|Magic Banner)\)\s*\d+\s*points?/i
 
 function compact(value: string) { return String(value || '').replace(/\u00a0/g, ' ').replace(/[’]/g, "'").replace(/\s+/g, ' ').trim() }
+
+function slug(value: string) { return String(value || '').toLowerCase().replace(/&/g, ' and ').replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') }
+function inferredCollectionPath(input: MagicItemReferenceInput) {
+  if (input.collectionPath) return input.collectionPath
+  const source = compact(input.collectionName || '')
+  if (!source) return ''
+  if (/Common Magic Items/i.test(source)) return '/magic-items/common-magic-items'
+  if (/\b(?:Magic Items|Items|Runes|Gifts|Icons|Virtues|Honours|Powers|Spites|Kindreds|Names|Traits|Incantations)\b/i.test(source)) return `/magic-items/${slug(source)}`
+  return ''
+}
+
 function normalizedItemName(value: string) {
   return compact(value).toLowerCase().replace(/\*/g, '').replace(/\([^)]*\)/g, ' ').replace(/\b(?:magic weapon|magic armour|magic armor|talisman|enchanted item|arcane item|magic standard|magic banner)\b/g, ' ').replace(/\b\d+\s*points?\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
 }
@@ -119,9 +131,10 @@ export async function loadMagicItemReference(input: MagicItemReferenceInput): Pr
   catch { /* Some valid items exist only on a collection page. */ }
   let resolved: ParsedReference = direct
   let usedCollectionFallback = false
-  if (input.collectionPath && scoreReference(direct) < minimumUsefulScore(input.type)) {
+  const collectionPath = inferredCollectionPath(input)
+  if (collectionPath && scoreReference(direct) < minimumUsefulScore(input.type)) {
     try {
-      const collectionDocument = await fetchRuleDocument(input.collectionPath)
+      const collectionDocument = await fetchRuleDocument(collectionPath)
       const collection = parseDocument(collectionDocument.html, input.sourceName || input.name, true)
       if (scoreReference(collection) > 0) { resolved = mergeReferences(direct, collection); usedCollectionFallback = scoreReference(collection) > scoreReference(direct) }
     } catch { /* Keep the direct entry when the collection source is unavailable. */ }

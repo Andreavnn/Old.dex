@@ -84,6 +84,7 @@ type CompiledKnowledge = {
   opponentEvents: CompiledRuleEvent[]
   battleEvents: CompiledRuleEvent[]
   opponentSpellSteps: Set<MatchActionStep>
+  opponentHasWizard: boolean
 }
 
 const ruleTextCache = new Map<string, Promise<string>>()
@@ -318,7 +319,7 @@ async function compilePotentialOpponentSpellSteps(game: SavedGame) {
       if (step) steps.add(step)
     }
   }))
-  return steps
+  return { steps, hasWizard: casters.some((caster) => caster.kind === 'Wizard') }
 }
 
 async function compileScenarioEvents(game: SavedGame) {
@@ -443,7 +444,7 @@ async function compileKnowledge(game: SavedGame): Promise<CompiledKnowledge> {
   const cached = knowledgeCache.get(key)
   if (cached) return cached
   const pending = (async () => {
-    const [player, opponent, spells, scenario, battlefield, composition, opponentSpellSteps] = await Promise.all([
+    const [player, opponent, spells, scenario, battlefield, composition, opponentSpellInfo] = await Promise.all([
       compileRosterEvents(gameRoster(game, 'player'), 'player'),
       compileRosterEvents(gameRoster(game, 'opponent'), 'opponent'),
       compileSpellEvents(game),
@@ -457,7 +458,8 @@ async function compileKnowledge(game: SavedGame): Promise<CompiledKnowledge> {
       playerEvents: groupCompiledEvents([...player, ...spells, ...composition.filter((row) => row.side === 'player')]),
       opponentEvents: groupCompiledEvents([...opponent, ...composition.filter((row) => row.side === 'opponent')]),
       battleEvents: groupCompiledEvents([...scenario, ...battlefield, ...composition.filter((row) => row.side === 'battle')]),
-      opponentSpellSteps,
+      opponentSpellSteps: opponentSpellInfo.steps,
+      opponentHasWizard: opponentSpellInfo.hasWizard,
     }
   })()
   knowledgeCache.set(key, pending)
@@ -512,7 +514,7 @@ async function chargeContributions(row: BuilderRosterSelection) {
     let text = item.name
     if (item.slug && !Number(item.maximumChargeRangeBonus || 0)) {
       try {
-        const reference = await loadMagicItemReference({ name: item.name, type: item.type, itemPath: `/magic-item/${item.slug}` })
+        const reference = await loadMagicItemReference({ name: item.name, type: item.type, itemPath: `/magic-item/${item.slug}`, collectionName: item.source })
         text = reference.bodyText || reference.summary || item.name
       } catch {
         text = item.name
@@ -609,7 +611,7 @@ export async function loadMatchTurnGuidance(game: SavedGame, stepId: string, vie
   const acceptedSteps: MatchActionStep[] = step === 'combat-result' ? ['combat-result', 'break-test', 'follow-up'] : [step]
   const sourceRows = [...knowledge.battleEvents, ...knowledge.playerEvents, ...knowledge.opponentEvents]
     .filter((row) => acceptedSteps.includes(row.step) && visibleForTurn(row, viewSide))
-  const rows = annotateUseLimits([...toGuidance(sourceRows), ...coreEnemyGuidance(step, viewSide, knowledge.opponentSpellSteps.has(step), Boolean((game.magicSetup || []).some((caster) => caster.kind === 'Wizard')))])
+  const rows = annotateUseLimits([...toGuidance(sourceRows), ...coreEnemyGuidance(step, viewSide, knowledge.opponentSpellSteps.has(step) || (knowledge.opponentHasWizard && ['conjuration','remaining-moves','special-shooting','fight'].includes(step)), Boolean((game.magicSetup || []).some((caster) => caster.kind === 'Wizard')))])
   const seen = new Set<string>()
   return rows.filter((row) => { const key = guidanceIdentity(row); if (seen.has(key)) return false; seen.add(key); return true })
 }

@@ -28,6 +28,8 @@ const emit = defineEmits<{
   result: [result: 'success' | 'fail' | '']
 }>()
 
+const spellNumber = computed(() => props.choice.signature ? '' : String(props.choice.id || '').match(/^(\d+)-/)?.[1] || '')
+
 const rule = computed(() => {
   const meta = [
     props.choice.castingValue ? `Casting Value ${props.choice.castingValue}` : '',
@@ -36,7 +38,7 @@ const rule = computed(() => {
   const summary = [meta ? `${meta}.` : '', props.choice.summary || ''].filter(Boolean).join(' ')
   const path = props.choice.path || '/the-lores-of-magic'
   return {
-    name: props.choice.name,
+    name: spellNumber.value ? `${spellNumber.value}. ${props.choice.name}` : props.choice.name,
     path,
     timing: props.choice.type || props.kindLabel,
     tone: 'magic',

@@ -1,34 +1,31 @@
-# Old.dex Alpha 0.50
+# Old.dex Alpha 0.51
 
-Alpha 0.50 is a no-feature maintenance release. It addresses the repository-wide technician audit after Alpha 0.49 and tightens the canonical architecture without changing the intended roster, rules, or match workflows.
+Alpha 0.51 expands the Match shell and rules-state tracking while keeping existing army-building and match workflows intact.
 
-## Architecture and validation
-- Routed Dropbox OAuth/API/content/revoke requests through the shared HTTP timeout/error boundary. Provider error bodies can still be inspected without bypassing Old.dex networking.
-- Returned `matchGuidance.ts` and `matchRosterProfiles.ts` to thin compatibility facades. Charge/use-limit mechanics now live in `matchIntelligence.ts`; magical profile effects live in `matchUnitProfiles.ts`.
-- Consolidated all runtime CSS into `src/styles.css`, removed the obsolete broad Dark Mode pill override, and reduced legacy `!important` usage from 186 runtime declarations to 81.
-- Expanded static analysis to check all runtime CSS, compatibility-facade ownership, service-worker precache assets, dead infrastructure, repository hygiene, network/storage boundaries, dependency cycles, and existing canonical semantics.
+## Navigation & pages
+- Added News before Army Rosters in the primary navigation.
+- Combined phase and subphase navigation into one expandable Match rail.
+- Added the General’s Bar with Reference Sheet, Battle Charts and Share placeholders, a functional Roster tool, and live Round Tracker.
+- Added the Match Roster page with full friendly roster/profile information and persistent models-destroyed / wounds-lost controls.
+- Removed duplicate small page-title labels from Army Rosters, Games and Settings.
+- Locked and unlocked roster View actions now use the same normal roster view.
 
-## Repository cleanup
-- Removed the obsolete standalone review/preview scripts and their package commands.
-- Removed the unused `BootAudioSetting.vue` and `SegmentTabs.vue` components plus the placeholder `ArmyView.vue` route/view.
-- Added `.gitignore` for dependencies, builds, Vercel state, local environment files, logs, editor files, generated previews, and ZIP artifacts.
-- Removed the nonexistent bundled OWB catalog from the PWA/core fallback contract. Live OWB refresh remains authoritative and the last successful catalog remains persisted locally for offline fallback after an online load.
+## Match rules & state
+- Added Change Roster controls for friendly/enemy Match snapshots.
+- Added friendly dispel guidance during enemy spell-capable subphases.
+- Added Stand & Shoot charge-reaction resolution using the friendly unit’s shooting profile.
+- Move or Shoot weapons lock and show Moved after actual movement in the current turn.
+- Added Impact Hits tags in Choose & Fight Combat.
+- Added Pursued Off-Table tracking and return during the controlling player’s next Compulsory Moves subphase.
+- Added We Aren’t Paid to Fight handling for War Machines that lose combat.
+- Limited-use actions visibly grey and remain locked once depleted.
+- Added Parry to qualifying Regular/Heavy Infantry rule/profile handling when using a hand weapon and shield.
 
-## Runtime maintenance
-- Replaced the placeholder Report control with a GitHub issue workflow prefilled with the current build, page, browser, and recent local diagnostics.
-- Centralized the Old.dex runtime build number in `src/version.ts`.
-- Documented the saved-roster export schema version as separate from the application build version; the existing `0.65` schema identifier is retained for compatibility.
-- Consolidated Alpha 0.43 onward back into the canonical changelog and removed the recent-changelog sidecar.
-- Updated the core architecture document to record the network, storage, style, versioning, PWA, and Match facade boundaries.
+## Magic
+- Numbered normal spells within each lore and centered Setup Select controls.
+- Added additional known-spell allowance for Learned Feng Shi Bo, Scrolls of Wei-jin, Spell Familiar, Silvery Wand and Tome of Furion.
+- Added Scrolls of Wei-jin per-turn casting-limit tracking against the Wizard’s current effective level.
+- Expanded magical-item collection fallback resolution and pass faction collection context through Builder and Match item loading.
 
-## Validation
-- Core regressions: 43/43 passed.
-- Match/maintenance regressions: 66/66 passed.
-- Static analysis: passed with 106 source files checked, 81 `!important` declarations, and zero style-version markers.
-- Strict TypeScript semantic checking of the changed non-Vue service/core files passed using the repository TypeScript version and audit-only framework declarations.
-- Full `vue-tsc`/Vite validation still requires installing the declared project dependencies; dependency installation is unavailable in the current audit environment.
-
-## External validation still required
-- A trustworthy `package-lock.json` could not be generated because the npm registry is unavailable in the audit environment. The direct dependency versions remain pinned exactly in `package.json`.
-- The full `vue-tsc` and Vite production build could not run without the project dependencies. `npm run check` now passes lint and all 109 regressions, then stops only because `vue-tsc` is not installed in this isolated environment.
-- The connected Vercel account exposes the Olddex team but no project through the connector, so production deployment/runtime logs could not be inspected as part of this maintenance pass.
+## Release
+- Updated package, runtime version, changelog and PWA cache metadata to Alpha Build 0.51.

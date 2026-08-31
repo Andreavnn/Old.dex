@@ -57,7 +57,7 @@ async function selectedMagicProfileEffects(rosterRow: BuilderRosterSelection) {
     let body = ''
     if (item.slug) {
       try {
-        const reference = await loadMagicItemReference({ name: item.name, type: item.type, itemPath: `/magic-item/${item.slug}` })
+        const reference = await loadMagicItemReference({ name: item.name, type: item.type, itemPath: `/magic-item/${item.slug}`, collectionName: item.source })
         body = `${reference.bodyText || ''} ${reference.summary || ''}`.replace(/\s+/g, ' ').trim()
       } catch {
         body = ''
@@ -224,7 +224,7 @@ async function selectedMagicWeapons(rosterRow: BuilderRosterSelection) {
   const rows: MatchWeaponSnapshot[] = []
   await Promise.allSettled((rosterRow.magicItems || []).filter((item) => item.type === 'weapon' && item.slug).map(async (item) => {
     try {
-      const reference = await loadMagicItemReference({ name: item.name, type: 'weapon', itemPath: `/magic-item/${item.slug}` })
+      const reference = await loadMagicItemReference({ name: item.name, type: 'weapon', itemPath: `/magic-item/${item.slug}`, collectionName: item.source })
       const range = String(reference.range || 'Combat')
       rows.push({
         id: `magic-${item.id}`,
@@ -344,17 +344,35 @@ export async function loadMatchUnitProfile(game: SavedGame, rosterRow: BuilderRo
   }).filter((entry) => Object.keys(entry.profile).length > 0 && entry.count > 0)
 
   const magicProfileEffects = await selectedMagicProfileEffects(rosterRow)
-  const resolvedRows = magicProfileEffects.length
-    ? rows.map((row) => ({ ...row, profile: applyMagicProfileEffects(row.name, row.profile, magicProfileEffects) }))
-    : rows
+  const troopTypeForParry = String(rosterRow.troopType || resolvedUnit.details.troopType || '')
+  const handWeaponForParry = Boolean(resolvedUnit.assumesHandWeapon || resolvedUnit.weapons.some((weapon) => /^hand weapons?$/i.test(String(weapon.sourceName || weapon.name)) && (weapon.default || weapon.locked || weapon.alwaysIncluded)))
+  const resolvedRows = rows.map((row) => {
+    let profile = magicProfileEffects.length ? applyMagicProfileEffects(row.name, row.profile, magicProfileEffects) : row.profile
+    const magicShield = magicProfileEffects.some((effect) => effect.shield && magicEffectApplies(effect, row.name))
+    if (magicShield && handWeaponForParry && /\b(?:Regular|Heavy) Infantry\b/i.test(troopTypeForParry) && profileRoleForName(resolvedUnit, row.name) !== 'mount') {
+      const match = String(profile.Sv || '').match(/([2-6])\+/)
+      if (match && Number(match[1]) > 3) profile = { ...profile, Sv: `${Math.max(3, Number(match[1]) - 1)}+` }
+    }
+    return { ...row, profile }
+  })
   const weapons = [...selectedWeapons(resolvedUnit, rosterRow), ...(await selectedMagicWeapons(rosterRow))]
+
+  const troopType = String(rosterRow.troopType || resolvedUnit.details.troopType || '')
+  const parryRule = /\b(?:Regular|Heavy) Infantry\b/i.test(troopType)
+    ? [{ label: 'Parry', path: '/troop-types-in-detail/parry' }]
+    : []
+  const mergedRules = [...new Map([
+    ...(rosterRow.specialRules || []).map((rule) => [String(rule.label || '').toLowerCase(), { ...rule }] as const),
+    ...rules.map((rule) => [String(rule.sourceName || rule.name).toLowerCase(), { label: rule.name, path: rule.path }] as const),
+    ...parryRule.map((rule) => [rule.label.toLowerCase(), rule] as const),
+  ]).values()]
 
   return {
     name: rosterRow.name,
-    troopType: String(rosterRow.troopType || resolvedUnit.details.troopType || ''),
+    troopType,
     rows: resolvedRows,
     equipment: [...new Set([...(rosterRow.includedEquipment || []), ...(rosterRow.optionalSelections || [])])],
-    rules: (rosterRow.specialRules || []).map((rule) => ({ ...rule })),
+    rules: mergedRules,
     weapons,
   }
 }

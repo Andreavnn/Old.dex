@@ -98,6 +98,16 @@ export function applyProfileEffects(input: ProfileEffectInput) {
   for (const [key, value] of Object.entries(input.magicOverride || {})) if (value !== undefined) profile[key as ProfileKey] = String(value)
   const totalSaveModifier = saveModifier + Math.max(0, Number(input.magicSaveModifier) || 0)
   if (totalSaveModifier > 0) profile.Sv = improveSaveBy(profile.Sv, totalSaveModifier)
+  // Parry is a troop-type rule for Regular and Heavy Infantry. When the model
+  // is fighting with its hand weapon and shield, improve armour by one to a
+  // maximum of 3+. This is derived from the canonical loadout so older roster
+  // snapshots do not need to have stored a synthetic Parry rule pill.
+  if (role !== 'mount' && /\b(?:Regular|Heavy) Infantry\b/i.test(input.unit.details.troopType || '')) {
+    const hasShield = applicableEquipment.some(isShieldOption)
+    const hasHandWeapon = Boolean(input.unit.assumesHandWeapon || input.unit.weapons.some((weapon) => /^hand weapons?$/i.test(String(weapon.sourceName || weapon.name)) && (weapon.default || weapon.locked || weapon.alwaysIncluded)))
+    const save = String(profile.Sv || '').match(/([2-6])\+/)
+    if (hasShield && hasHandWeapon && save && Number(save[1]) > 3) profile.Sv = `${Math.max(3, Number(save[1]) - 1)}+`
+  }
   const hide = armouredHideBonus(input.unit, input.activeRules, input.profileName); if (hide > 0) profile.Sv = improveSaveBy(profile.Sv, hide)
   const ruleWard = wardSaveFromRules(input.unit, input.activeRules, input.profileName); if (ruleWard && (!profile.Ward || profile.Ward === '—')) profile.Ward = ruleWard
   const ruleRegeneration = regenerationSave(input.unit, input.activeRules, input.profileName); if (ruleRegeneration !== '—') profile.Rn = ruleRegeneration

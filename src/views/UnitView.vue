@@ -727,8 +727,9 @@ const activeSpecialRules = computed(() => {
   const unit = prototypeUnit.value
   if (!unit) return []
   const sourceRules = unit.specialRules.filter((rule) => (!rule.requiresSelection || selectionHas(rule.requiresSelection)) && (!rule.requiresAnySelection?.length || rule.requiresAnySelection.some(selectionHas)))
+  const troopTypeRules: PrototypeUnit['specialRules'] = /\b(?:Regular|Heavy) Infantry\b/i.test(unit.details.troopType || '') ? [{ name: 'Parry', sourceName: 'Parry', path: '/troop-types-in-detail/parry', timing: 'Combat', tone: 'combat', summary: 'Whilst engaged in close combat, a model equipped with and choosing a hand weapon and shield improves its armour value by 1, to a maximum of 3+.', keywords: [] }] : []
   const seen = new Set<string>()
-  return [...sourceRules, ...selectedLoreRules.value].filter((rule) => {
+  return [...sourceRules, ...troopTypeRules, ...selectedLoreRules.value].filter((rule) => {
     const key = `${ruleDisplayName(canonicalRuleName(rule)).toLowerCase()}:${rule.path || ''}`
     if (seen.has(key)) return false
     seen.add(key)
@@ -1020,6 +1021,7 @@ async function loadMagicItemDetail(item: MagicItem) {
       type: item.type,
       itemPath: `/magic-item/${item.slug}`,
       collectionPath: item.collectionPath,
+      collectionName: item.source,
     })
     const detail: MagicItemDetail = {
       summary: reference.summary,

@@ -1,5 +1,5 @@
 /** Single runtime source for the public Old.dex application build number. */
-export const OLDDEX_VERSION = '0.50' as const
+export const OLDDEX_VERSION = '0.51' as const
 export const OLDDEX_BUILD_LABEL = `Alpha Build ${OLDDEX_VERSION}` as const
 
 /**

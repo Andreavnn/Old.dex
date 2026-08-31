@@ -7,6 +7,26 @@ export type ChangelogEntry = {
 // Canonical runtime history mirrored in /CHANGELOG.md. Keep both sources synchronized.
 export const changelogEntries: ChangelogEntry[] = [
   {
+    "version": "0.51",
+    "title": "Unified Match navigation, General tools, roster state, and rules tracking",
+    "notes": [
+      "Added News before Army Rosters in the primary navigation and removed the duplicate small page-title labels from Army Rosters, Games, and Settings.",
+      "Combined the Match phase and subphase rails into one expandable navigation bar and added the General’s Bar with Reference Sheet, Battle Charts, Roster, Share placeholders and a live Round Tracker.",
+      "Added a functional Match Roster page built from the friendly roster snapshot. It exposes full roster/profile information and persistent models-destroyed or wounds-lost controls that feed the same match state used by phase tracking.",
+      "Added Change Roster controls to Battle Overview/Setup so friendly or enemy snapshots can be replaced from saved rosters while pruning stale friendly tracking state.",
+      "Added friendly dispel guidance during enemy spell-capable subphases, including Wizardly Dispel and the existing once-per-round Fated Dispel tracking.",
+      "Added Stand & Shoot resolution to enemy charge reactions with the friendly unit’s missile weapons, BS, To Hit and selectable modifiers.",
+      "Move or Shoot weapons now lock and display Moved in Shooting when the model/unit has actually moved earlier in the current turn.",
+      "Combat now tags Impact Hits, supports Pursued Off-Table state with return during the controlling player’s next Compulsory Moves subphase, and exposes We Aren’t Paid to Fight for War Machines that lose combat.",
+      "Added the Parry troop-type rule to qualifying Regular/Heavy Infantry rule lists and armour-save calculation when using a hand weapon and shield, including magical-shield match fallback handling.",
+      "Spell setup now numbers normal lore spells, centers Select controls, and accounts for known one-extra-spell items such as Learned Feng Shi Bo, Scrolls of Wei-jin, Spell Familiar, Silvery Wand and Tome of Furion.",
+      "Scrolls of Wei-jin casting limits are tracked across the turn using the Wizard’s current effective level, including level loss from Miscasts.",
+      "Expanded magical-item collection fallbacks so faction collections can recover rule text when an individual item page is incomplete, and passed collection context through Builder/Match item loaders.",
+      "Locked and unlocked saved-roster View actions now use the same normal roster-view route.",
+      "Bumped package, runtime version, changelog and PWA cache metadata to Alpha Build 0.51."
+    ]
+  },
+  {
     "version": "0.50",
     "title": "Repository deep clean, architecture compliance, and validation hardening",
     "notes": [

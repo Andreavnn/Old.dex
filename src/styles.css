@@ -5016,3 +5016,108 @@ label.match-tip-master-toggle > input.match-tip-switch-input:checked::after {
   .end-round-score-board { grid-template-columns: 1fr; justify-items: stretch; }
   .end-round-score-board .game-score-divider { display: none; }
 }
+
+/* Alpha 0.51 — unified Match navigation and General's Bar. */
+.primary-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.primary-nav a { white-space: normal; text-align: center; line-height: 1.1; }
+.home-page > .page-title-block > .eyebrow,
+.games-page > .page-title-block > .eyebrow,
+.settings-page > .page-title-block > .eyebrow { display: none; }
+
+.combined-phase-tabs { display: flex; align-items: center; gap: 6px; min-width: max-content; }
+.combined-phase-tabs .phase-parent-tab,
+.combined-phase-tabs .phase-inline-step {
+  min-height: 38px; border: 1px solid transparent; border-radius: 9px; padding: 7px 11px;
+  background: transparent; color: var(--ink); font: inherit; font-weight: 800; cursor: pointer; white-space: nowrap;
+}
+.combined-phase-tabs .phase-parent-tab.active { background: var(--paper); border-color: var(--line-dark); }
+.combined-phase-tabs .phase-inline-step { background: var(--paper-2); border-color: var(--line); font-size: calc(10px + var(--font-offset)); }
+.combined-phase-tabs .phase-inline-step.active { background: var(--accent-wash); border-color: var(--accent); }
+.phase-subphase-separator { color: var(--ink-soft); font-weight: 900; }
+.match-general-bar {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; align-items: stretch; gap: 6px;
+  width: 100%; min-width: 0; padding: 7px; margin-top: 8px;
+}
+.match-general-tool {
+  display: flex; align-items: center; justify-content: center; min-height: 38px; min-width: 0; padding: 7px 8px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--paper-2); color: var(--ink); text-decoration: none;
+  font: inherit; font-size: calc(10px + var(--font-offset)); font-weight: 800; text-align: center;
+}
+.match-general-tool.active { border-color: var(--accent); background: var(--accent-wash); }
+.match-general-tool:disabled { opacity: .55; cursor: not-allowed; }
+.match-round-tracker { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 72px; padding: 5px 10px; border: 1px solid var(--line-dark); border-radius: 9px; background: var(--paper); }
+.match-round-tracker small { color: var(--ink-soft); text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
+.match-round-tracker strong { color: var(--ink); }
+
+/* Keep the Tips switch in the heading's upper-right and turn controls at its lower-right. */
+.game-step-heading-tools { align-self: stretch; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.game-step-heading-tools .compact-turn-context { margin-top: auto; }
+
+/* Match spell selection stays centered and clear of the rule-card accent bar. */
+.match-spell-choice-shell > .match-spell-select { top: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.match-spell-choice-shell > .match-spell-select span { text-align: center; }
+
+/* Friendly match roster catch-all. */
+.match-roster-page { max-width: 980px; }
+.match-roster-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding: 18px 20px; margin-top: 10px; }
+.match-roster-heading h1 { margin: 3px 0; }
+.match-roster-category { overflow: hidden; margin-top: 12px; padding: 0; }
+.match-roster-category > header { display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; background: var(--paper-2); border-bottom: 1px solid var(--line); }
+.match-roster-category > header h2 { margin: 0; font-size: calc(16px + var(--font-offset)); }
+.match-roster-unit { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.match-roster-unit:last-child { border-bottom: 0; }
+.match-roster-unit-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.match-roster-unit-heading a { color: var(--ink); font-size: calc(17px + var(--font-offset)); }
+.match-roster-loadout,.match-roster-rules { margin: 6px 0; }
+.match-roster-rules a { margin-right: 8px; }
+.match-roster-profile-stack { display: grid; gap: 7px; margin-top: 9px; }
+.match-roster-profile-row { display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: 10px; align-items: center; }
+.match-roster-model-name { display: flex; gap: 7px; align-items: baseline; }
+.match-roster-stat-grid { display: flex; gap: 4px; flex-wrap: wrap; }
+.match-roster-stat-grid > span { display: grid; grid-template-columns: 18px auto; grid-template-rows: auto auto; align-items: center; gap: 0 4px; min-width: 54px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 7px; }
+.match-roster-stat-grid svg,.match-roster-stat-grid img { width: 16px; height: 16px; grid-row: 1 / 3; }
+.match-roster-stat-grid small { color: var(--ink-soft); font-size: 8px; }
+.match-roster-loss-control { display: flex; align-items: center; justify-content: flex-end; gap: 7px; margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--line); }
+.match-roster-loss-control > span { margin-right: auto; display: flex; flex-direction: column; }
+.match-roster-loss-control button { width: 30px; height: 30px; border: 1px solid var(--line-dark); border-radius: 7px; background: var(--paper); color: var(--ink); }
+.match-roster-loss-control.depleted { opacity: .72; }
+
+/* Roster selection modal used by Battle Overview. */
+.match-modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.55); }
+.match-roster-change-modal { width: min(560px, 100%); padding: 20px; }
+.match-roster-change-modal label { display: grid; gap: 6px; margin: 14px 0; }
+.match-roster-change-modal select { width: 100%; min-height: 42px; }
+.match-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.inline-link-button { appearance: none; border: 0; padding: 0; background: transparent; color: var(--accent-dark); font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+
+/* Shooting and charge-reaction state. */
+.shooting-unit-row.locked,.shooting-weapon-row.locked { opacity: .56; }
+.shooting-moved-label { color: var(--danger); font-weight: 900; text-transform: uppercase; letter-spacing: .05em; }
+.stand-shoot-resolution { display: grid; gap: 10px; margin-top: 10px; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper-2); }
+.stand-shoot-resolution .shooting-bs-summary { justify-content: flex-start; }
+
+/* Combat state extensions. */
+.combat-unit-name-line { gap: 8px; row-gap: 8px; }
+.combat-impact-chip { background: var(--accent-wash); border-color: var(--accent); }
+.match-snapshot-profile-page .profile-loadout-chips,
+.match-snapshot-profile-page .old-rule-keywords,
+.combat-fight-profile-area .joined-character-pills { gap: 8px; row-gap: 8px; }
+.pursued-off-table-card,.war-machine-abandon-card { margin-top: 9px; }
+.turn-action-row.depleted { opacity: .52; }
+.turn-action-row.depleted .turn-action-check { cursor: not-allowed; }
+.turn-action-row.depleted .tracked-use-status { filter: grayscale(1); }
+
+/* News page. */
+.news-latest-card { padding: 20px; }
+.news-latest-card ul { display: grid; gap: 7px; padding-left: 20px; }
+
+@media (max-width: 720px) {
+  .match-general-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .match-round-tracker { grid-column: 1 / -1; flex-direction: row; gap: 8px; }
+  .match-roster-profile-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .primary-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 3px; }
+  .primary-nav a { padding-inline: 2px; font-size: calc(9px + var(--font-offset)); }
+  .match-roster-heading { flex-direction: column; }
+}

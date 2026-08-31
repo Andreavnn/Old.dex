@@ -2,6 +2,17 @@
 
 Canonical release history mirrored from `src/data/changelog.ts`.
 
+## Alpha Build 0.51 — Unified Match navigation, General tools, roster state, and rules tracking
+
+- Added News before Army Rosters in the primary navigation and removed duplicate small page-title labels from Army Rosters, Games, and Settings.
+- Combined Match phase/subphase navigation and added the General’s Bar with a live Round Tracker and functional Roster tool.
+- Added persistent Match Roster wounds/models-destroyed tracking against the same match state used by phase tools.
+- Added roster switching, enemy-turn dispel guidance, Stand & Shoot resolution, Move or Shoot locking, Impact Hits, Pursued Off-Table and We Aren’t Paid to Fight tracking.
+- Added Parry to qualifying Regular/Heavy Infantry rules and armour calculation.
+- Added numbered spell generation, additional-spell item allowances, Scrolls of Wei-jin turn casting limits, and stronger magical-item collection fallbacks.
+- Locked and unlocked roster View actions now use the same roster view.
+- Updated Alpha Build metadata to 0.51.
+
 ## Alpha Build 0.50 — Repository deep clean, architecture compliance, and validation hardening
 
 - Moved every Dropbox request behind the shared HTTP timeout/error boundary and removed the remaining explicit any response parsing from Cloud Sync.

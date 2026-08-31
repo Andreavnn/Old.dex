@@ -43,7 +43,7 @@ test('charge range engine reads only active roster rules and selected magical it
 
 test('match tracking persists fleeing, rule uses and cross-turn history', () => {
   const source = read('src/services/matchTracking.ts')
-  assert.ok(source.includes('version: 4'))
+  assert.ok(source.includes('version: 5'))
   assert.ok(source.includes('fleeing?: boolean'))
   assert.ok(source.includes('ruleUses: Record<string, Record<string, number>>'))
   assert.ok(source.includes('chargeHistory: MatchHistoryRow[]'))
@@ -438,13 +438,11 @@ test('End of Round score is flattened into the step content', () => {
   assert.equal(view.includes('class="end-round-score-panel card-inset"'), false)
 })
 
-test('locked roster overview routes back to the Builder', () => {
+test('locked and unlocked roster View actions use the same normal roster view', () => {
   const router = read('src/router.ts')
   const home = read('src/views/HomeView.vue')
-  assert.ok(router.includes("to.name === 'list-view'"))
-  assert.ok(router.includes('if (list?.locked) return savedArmyListRoute(list)'))
-  assert.ok(home.includes('function rosterOpenRoute(list: SavedArmyList)'))
-  assert.ok(home.includes('list.locked ? savedArmyListRoute(list)'))
+  assert.equal(router.includes("if (list?.locked) return savedArmyListRoute(list)"), false)
+  assert.ok(home.includes("function rosterOpenRoute(list: SavedArmyList) { return { name: 'list-view'"))
 })
 
 test('ongoing Battle Conditions sit below Tip panels and stay contained', () => {
@@ -614,7 +612,7 @@ test('runtime styles are consolidated and no broad Dark Mode pill override remai
 test('service worker precaches only real maintained core assets', () => {
   const sw = read('public/sw.js')
   assert.equal(sw.includes('/data/owb-rule-catalog.json'), false)
-  assert.ok(sw.includes("const CACHE_NAME = 'olddex-shell-v050-maintenance'"))
+  assert.ok(sw.includes("const CACHE_NAME = 'olddex-shell-v051-match-general-tools'"))
 })
 
 test('placeholder Army route and obsolete review infrastructure are removed', () => {
@@ -639,7 +637,7 @@ test('Report controls open the functional GitHub issue workflow', () => {
 test('runtime and roster export versions are deliberately separate constants', () => {
   const version = read('src/version.ts')
   const saved = read('src/services/savedLists.ts')
-  assert.ok(version.includes("OLDDEX_VERSION = '0.50'"))
+  assert.ok(version.includes("OLDDEX_VERSION = '0.51'"))
   assert.ok(version.includes("OLDDEX_ROSTER_EXPORT_SCHEMA_VERSION = '0.65'"))
   assert.ok(saved.includes('version: OLDDEX_ROSTER_EXPORT_SCHEMA_VERSION'))
 })
@@ -647,24 +645,180 @@ test('runtime and roster export versions are deliberately separate constants', (
 test('canonical changelog includes the previously missing 0.43 and 0.44 releases', () => {
   const changelog = read('src/data/changelog.ts')
   const view = read('src/views/ChangelogView.vue')
-  assert.ok(changelog.indexOf('"version": "0.50"') < changelog.indexOf('"version": "0.49"'))
+  assert.ok(changelog.indexOf('"version": "0.51"') < changelog.indexOf('"version": "0.50"'))
   assert.ok(changelog.includes('"version": "0.44"'))
   assert.ok(changelog.includes('"version": "0.43"'))
   assert.equal(view.includes('changelogLatest'), false)
 })
 
-test('Alpha 0.50 maintenance metadata and canonical changelog are synchronized', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '0.50.0')
-  assert.ok(read('src/version.ts').includes("OLDDEX_VERSION = '0.50'"))
+test('Alpha 0.51 metadata and canonical changelog are synchronized', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '0.51.0')
+  assert.ok(read('src/version.ts').includes("OLDDEX_VERSION = '0.51'"))
   assert.ok(read('src/App.vue').includes('OLDDEX_BUILD_LABEL'))
   assert.ok(read('src/components/AppHeader.vue').includes('OLDDEX_BUILD_LABEL'))
   assert.ok(read('src/views/SettingsView.vue').includes('OLDDEX_BUILD_LABEL'))
-  assert.ok(read('public/sw.js').includes('v050'))
+  assert.ok(read('public/sw.js').includes('v051'))
   const changelog = read('src/data/changelog.ts')
+  assert.ok(changelog.includes('"version": "0.51"'))
   assert.ok(changelog.includes('"version": "0.50"'))
   assert.ok(changelog.includes('"version": "0.49"'))
   assert.ok(changelog.includes('"version": "0.44"'))
   assert.ok(changelog.includes('"version": "0.43"'))
+})
+
+
+test('primary navigation adds News before Army Rosters', () => {
+  const nav = read('src/components/PrimaryNav.vue')
+  assert.ok(nav.indexOf('to="/news"') < nav.indexOf('to="/lists"'))
+  assert.ok(nav.includes('>News</RouterLink>'))
+})
+
+test('duplicate small page-title labels are suppressed on top-level pages', () => {
+  const css = read('src/styles.css')
+  assert.ok(css.includes('.home-page > .page-title-block > .eyebrow'))
+  assert.ok(css.includes('.games-page > .page-title-block > .eyebrow'))
+  assert.ok(css.includes('.settings-page > .page-title-block > .eyebrow'))
+})
+
+test('Match combines phase and subphase navigation and mounts the Generals Bar', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const general = read('src/components/MatchGeneralBar.vue')
+  assert.ok(view.includes('combined-phase-tabs'))
+  assert.ok(view.includes('phase-subphase-separator'))
+  assert.ok(view.includes('<MatchGeneralBar :game="game" />'))
+  assert.equal(view.includes('ref="stepTabsRef"'), false)
+  assert.ok(general.includes('Reference Sheet'))
+  assert.ok(general.includes('Battle Charts'))
+  assert.ok(general.includes('Round'))
+})
+
+test('Match roster page uses the saved snapshot and persistent match state', () => {
+  const router = read('src/router.ts')
+  const view = read('src/views/MatchRosterView.vue')
+  assert.ok(router.includes("name: 'game-roster'"))
+  assert.ok(view.includes('game.value?.playerRoster?.length'))
+  assert.ok(view.includes('loadMatchTracking'))
+  assert.ok(view.includes('saveMatchTracking'))
+  assert.ok(view.includes('Models destroyed'))
+  assert.ok(view.includes('Wounds lost'))
+  assert.ok(view.includes('isGameLocked(game.value.id)'))
+  assert.equal(view.includes('Export'), false)
+  assert.equal(view.includes('Edit'), false)
+})
+
+test('Battle Overview can replace friendly and enemy roster snapshots', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('(Change Roster)'))
+  assert.ok(view.includes("openRosterChange('player')"))
+  assert.ok(view.includes("openRosterChange('opponent')"))
+  assert.ok(view.includes('async function applyRosterChange()'))
+  assert.ok(view.includes('pruneTrackingForFriendlyRoster'))
+})
+
+test('enemy spell-capable steps add friendly dispel guidance', () => {
+  const intelligence = read('src/services/matchIntelligence.ts')
+  assert.ok(intelligence.includes('opponentHasWizard: boolean'))
+  assert.ok(intelligence.includes("label: 'Wizardly Dispel'"))
+  assert.ok(intelligence.includes("label: 'Fated Dispel'"))
+  assert.ok(intelligence.includes("['conjuration','remaining-moves','special-shooting','fight']"))
+})
+
+test('enemy charge reactions expose Stand and Shoot resolution', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('<span>Stand &amp; Shoot</span>'))
+  assert.ok(view.includes('stand-shoot-resolution'))
+  assert.ok(view.includes('missileWeaponsForUnit(unit.instanceId)'))
+  assert.ok(view.includes('Stand &amp; Shoot −1'))
+})
+
+test('Move or Shoot weapons lock after actual movement', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('function weaponHasMoveOrShoot'))
+  assert.ok(view.includes('function unitMovedThisTurn'))
+  assert.ok(view.includes('shootingWeaponLocked'))
+  assert.ok(view.includes('class="shooting-moved-label">Moved'))
+})
+
+test('Parry is derived for qualifying infantry and applied to armour', () => {
+  const engine = read('src/core/profileEngine.ts')
+  const unitView = read('src/views/UnitView.vue')
+  const profile = read('src/services/matchUnitProfiles.ts')
+  assert.ok(engine.includes('Regular|Heavy') && engine.includes('hasShield') && engine.includes('hasHandWeapon'))
+  assert.ok(engine.includes('Math.max(3'))
+  assert.ok(unitView.includes("name: 'Parry'"))
+  assert.ok(profile.includes("label: 'Parry'"))
+})
+
+test('Combat tracks Impact Hits Pursued Off-Table and War Machine abandonment', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const tracking = read('src/services/matchTracking.ts')
+  assert.ok(view.includes('>Impact Hits</span>'))
+  assert.ok(view.includes('Pursued Off-Table'))
+  assert.ok(view.includes('next Compulsory Moves subphase'))
+  assert.ok(view.includes("We Aren't Paid to Fight"))
+  assert.ok(tracking.includes('pursuedOffTable?: boolean'))
+  assert.ok(tracking.includes('warMachineAbandoned?: boolean'))
+})
+
+test('depleted limited-use actions remain visibly disabled', () => {
+  const view = read('src/views/GameMatchView.vue')
+  const css = read('src/styles.css')
+  assert.ok(view.includes('depleted: Boolean(rule.useLimit && ruleUseRemaining(rule) === 0)'))
+  assert.ok(css.includes('.turn-action-row.depleted'))
+  assert.ok(view.includes('const exhausted = rule.useLimit && ruleUseRemaining(rule) === 0'))
+})
+
+test('Setup spell cards number lore spells and center Select controls', () => {
+  const card = read('src/components/MatchSpellChoiceCard.vue')
+  const css = read('src/styles.css')
+  assert.ok(card.includes('spellNumber'))
+  assert.ok(card.includes('`${spellNumber.value}. ${props.choice.name}`'))
+  assert.ok(css.includes('.match-spell-choice-shell > .match-spell-select'))
+  assert.ok(css.includes('justify-content: center'))
+})
+
+test('known extra-spell items increase Setup selection capacity', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('Learned Feng Shi Bo'))
+  assert.ok(view.includes('Scrolls of Wei-jin'))
+  assert.ok(view.includes('Spell Familiar'))
+  assert.ok(view.includes('Silvery Wand'))
+  assert.ok(view.includes('Tome of Furion'))
+  assert.ok(view.includes('matchMagicSelectionLimit'))
+})
+
+test('Scrolls of Wei-jin limits casting attempts to current Wizard Level per turn', () => {
+  const view = read('src/views/GameMatchView.vue')
+  assert.ok(view.includes('casterSpellCastLimitByLevel'))
+  assert.ok(view.includes('wizardCompletedCastCount'))
+  assert.ok(view.includes('wizardEffectiveLevel(caster)'))
+  assert.ok(view.includes('Spell casting limit reached for this turn'))
+})
+
+test('magical item references can infer faction collection fallbacks', () => {
+  const magic = read('src/services/magicItemReference.ts')
+  const unit = read('src/views/UnitView.vue')
+  const match = read('src/services/matchUnitProfiles.ts')
+  assert.ok(magic.includes('collectionName?: string'))
+  assert.ok(magic.includes('inferredCollectionPath'))
+  assert.ok(magic.includes("replace(/&/g, ' and ')"))
+  assert.ok(unit.includes('collectionName: item.source'))
+  assert.ok(match.includes('collectionName: item.source'))
+})
+
+test('Tips turn controls and profile pills use the 0.51 layout rules', () => {
+  const css = read('src/styles.css')
+  assert.ok(css.includes('.game-step-heading-tools'))
+  assert.ok(css.includes('.game-step-heading-tools .compact-turn-context'))
+  assert.ok(css.includes('.match-snapshot-profile-page .profile-loadout-chips'))
+})
+
+test('News route and page are wired into the application', () => {
+  const router = read('src/router.ts')
+  const news = read('src/views/NewsView.vue')
+  assert.ok(router.includes("path: '/news'"))
+  assert.ok(news.includes('<h1>News</h1>'))
+  assert.ok(news.includes('Open Changelog'))
 })
 
 let passed = 0
@@ -672,4 +826,4 @@ for (const [name, fn] of tests) {
   try { await fn(); passed += 1 }
   catch (error) { console.error(`FAIL: ${name}`); throw error }
 }
-console.log(`ODX 0.50 regressions passed: ${passed}/${tests.length}`)
+console.log(`ODX 0.51 regressions passed: ${passed}/${tests.length}`)

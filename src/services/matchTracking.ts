@@ -15,6 +15,7 @@ export type MatchTurnUnitState = {
   combatLostBy?: number
   breakResult?: string
   followUpResult?: string
+  pursuedOffTable?: boolean
   shootingPenaltyIds?: string[]
   rallyResult?: 'pass' | 'fail' | ''
 }
@@ -26,6 +27,9 @@ export type MatchPersistentUnitState = {
   musicianLost?: boolean
   fleeing?: boolean
   fleeingSinceRound?: number
+  pursuedOffTable?: boolean
+  pursuedOffTableSinceRound?: number
+  warMachineAbandoned?: boolean
 }
 
 export type MatchHistoryRow = {
@@ -59,7 +63,7 @@ export type MatchWizardTurnState = {
 }
 
 export type MatchTrackingState = {
-  version: 4
+  version: 5
   joinedCharacters: Record<string, string>
   turns: Record<string, Record<string, MatchTurnUnitState>>
   units: Record<string, MatchPersistentUnitState>
@@ -86,7 +90,7 @@ type LegacyTurnUnitState = Omit<MatchTurnUnitState, 'combatDisposition'> & {
 }
 
 function emptyState(): MatchTrackingState {
-  return { version: 4, joinedCharacters: {}, turns: {}, units: {}, ruleUses: {}, chargeHistory: [], combatHistory: [], spellCasts: {}, wizards: {}, wizardTurns: {} }
+  return { version: 5, joinedCharacters: {}, turns: {}, units: {}, ruleUses: {}, chargeHistory: [], combatHistory: [], spellCasts: {}, wizards: {}, wizardTurns: {} }
 }
 
 function normalizeHistory(value: unknown): MatchHistoryRow[] {
@@ -125,6 +129,9 @@ function normalizeState(value: unknown): MatchTrackingState {
         musicianLost: Boolean(source.musicianLost),
         fleeing: Boolean(source.fleeing),
         fleeingSinceRound: Math.max(0, Math.floor(Number(source.fleeingSinceRound || 0))) || undefined,
+        pursuedOffTable: Boolean(source.pursuedOffTable),
+        pursuedOffTableSinceRound: Math.max(0, Math.floor(Number(source.pursuedOffTableSinceRound || 0))) || undefined,
+        warMachineAbandoned: Boolean(source.warMachineAbandoned),
       }
     }
   }
@@ -155,6 +162,7 @@ function normalizeState(value: unknown): MatchTrackingState {
           combatLostBy: Math.max(0, Math.floor(Number(source.combatLostBy || 0))),
           breakResult: typeof source.breakResult === 'string' ? source.breakResult : '',
           followUpResult: typeof source.followUpResult === 'string' ? source.followUpResult : '',
+          pursuedOffTable: Boolean(source.pursuedOffTable),
           shootingPenaltyIds: Array.isArray(source.shootingPenaltyIds) ? [...new Set(source.shootingPenaltyIds.map(String).filter(Boolean))] : [],
           rallyResult: source.rallyResult === 'pass' || source.rallyResult === 'fail' ? source.rallyResult : '',
         }
@@ -226,7 +234,7 @@ function normalizeState(value: unknown): MatchTrackingState {
   }
 
   return {
-    version: 4,
+    version: 5,
     joinedCharacters,
     turns,
     units,
