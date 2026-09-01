@@ -16,7 +16,7 @@ const rosterRow = computed(() => {
   const id = String(route.params.instanceId || '')
   const snapshot = current.playerRoster?.find((row) => row.instanceId === id)
   if (snapshot) return snapshot
-  return getSavedArmyList(current.playerListId)?.roster.find((row) => row.instanceId === id) || null
+  return getSavedArmyList(current.playerListId)?.roster?.find((row) => row.instanceId === id) || null
 })
 const profile = ref<MatchUnitProfileSnapshot | null>(null)
 const loading = ref(true)

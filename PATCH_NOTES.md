@@ -1,31 +1,23 @@
-# Old.dex Alpha 0.51
+# Old.dex Alpha 0.52
 
-Alpha 0.51 expands the Match shell and rules-state tracking while keeping existing army-building and match workflows intact.
+Alpha 0.52 completes the Match reference/export tools, improves round scoring and deployment ordering, and repairs imported-roster display.
 
-## Navigation & pages
-- Added News before Army Rosters in the primary navigation.
-- Combined phase and subphase navigation into one expandable Match rail.
-- Added the General’s Bar with Reference Sheet, Battle Charts and Share placeholders, a functional Roster tool, and live Round Tracker.
-- Added the Match Roster page with full friendly roster/profile information and persistent models-destroyed / wounds-lost controls.
-- Removed duplicate small page-title labels from Army Rosters, Games and Settings.
-- Locked and unlocked roster View actions now use the same normal roster view.
+## Settings & rosters
+- Reordered Display and Data & Content settings into the requested sequence.
+- Fixed Army Rosters failing to display saved/imported rosters after opening the page.
 
-## Match rules & state
-- Added Change Roster controls for friendly/enemy Match snapshots.
-- Added friendly dispel guidance during enemy spell-capable subphases.
-- Added Stand & Shoot charge-reaction resolution using the friendly unit’s shooting profile.
-- Move or Shoot weapons lock and show Moved after actual movement in the current turn.
-- Added Impact Hits tags in Choose & Fight Combat.
-- Added Pursued Off-Table tracking and return during the controlling player’s next Compulsory Moves subphase.
-- Added We Aren’t Paid to Fight handling for War Machines that lose combat.
-- Limited-use actions visibly grey and remain locked once depleted.
-- Added Parry to qualifying Regular/Heavy Infantry rule/profile handling when using a hand weapon and shield.
+## Match tools
+- Added working Battle Charts and Reference Sheet pages to the General's Bar.
+- Embedded the supplied 20-page reference sheet with spell pages 21–24 excluded.
+- Replaced Share with Export and added complete match JSON and compressed Match Share Code options.
+- Added a visible Back to Match control to Match Roster.
+- Added per-round score inputs and persistent running totals for both players.
 
-## Magic
-- Numbered normal spells within each lore and centered Setup Select controls.
-- Added additional known-spell allowance for Learned Feng Shi Bo, Scrolls of Wei-jin, Spell Familiar, Silvery Wand and Tome of Furion.
-- Added Scrolls of Wei-jin per-turn casting-limit tracking against the Wizard’s current effective level.
-- Expanded magical-item collection fallback resolution and pass faction collection context through Builder and Match item loading.
+## Match flow
+- Hardened unit-type-based Deployment ordering, including imported/older War Machine keyword fallbacks.
+- Removed Total Power and Charge Declared controls and renamed Successful to Successful Charge.
+- Moved Pursued Off-Table into the winner follow-up grid and removed its redundant note.
 
-## Release
-- Updated package, runtime version, changelog and PWA cache metadata to Alpha Build 0.51.
+## Credits & release
+- Added Jay's Wargaming to Special Thanks.
+- Updated package, runtime version, changelog and PWA cache metadata to Alpha Build 0.52.

@@ -66,6 +66,7 @@ function continueToOldDex() {
           <a class="welcome-thanks-plain" href="https://www.whfb.app/" target="_blank" rel="noopener noreferrer">Warhammer Fantasy Online Rules Index Project</a>
           <span class="welcome-thanks-plain">Nico Thiebes</span>
           <span>Sig.dex</span>
+          <span>Jay's Wargaming</span>
           <span>Other Contributing Supporters</span>
         </div>
       </section>

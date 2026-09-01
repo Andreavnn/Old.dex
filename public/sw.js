@@ -1,4 +1,4 @@
-const CACHE_NAME = 'olddex-shell-v051-match-general-tools'
+const CACHE_NAME = 'olddex-shell-v052-match-reference-tools'
 const CORE = ['/', '/manifest.webmanifest', '/icons/favicon-64.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/audio/ready_for_murderin_orc.mp3']
 
 self.addEventListener('install', (event) => {

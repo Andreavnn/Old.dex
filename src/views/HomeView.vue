@@ -20,6 +20,7 @@ const shareCode = ref('')
 const shareShortUrl = ref('')
 const shareMessage = ref('')
 const shareBusy = ref(false)
+const nativeSharingAvailable = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 const rosterFilterOpen = ref(false)
 const rosterFilter = ref<'all' | 'valid' | 'warning' | 'invalid' | 'locked' | 'legacy'>('all')
 const exportRosterDialogOpen = ref(false)
@@ -71,6 +72,12 @@ function optionLabel(id: string) { return compositionOptions.find((option) => op
 function actualPoints(list: SavedArmyList) { return list.actualPoints ?? (list.roster || []).reduce((sum, row) => sum + row.totalPoints, 0) }
 function openMagicAllowancePoints(list: SavedArmyList) { return rosterOpenMagicAllowances(list.roster || []).reduce((sum, row) => sum + row.remaining, 0) }
 function rosterState(list: SavedArmyList) { const actual = actualPoints(list); if (list.validationStatus === 'invalid') return 'invalid'; if (actual > list.points && !((list.options || []).includes('over-under') && actual <= list.points + 10)) return 'invalid'; if (openMagicAllowancePoints(list) > 0 && !isMagicAllowanceApproved(list.id, list.roster || [])) return 'warning'; return actual > 0 ? 'valid' : 'warning' }
+function rosterMatchesFilter(list: SavedArmyList) {
+  if (rosterFilter.value === 'all') return true
+  if (rosterFilter.value === 'locked') return Boolean(list.locked)
+  if (rosterFilter.value === 'legacy') return isLegacyArmy(list.army)
+  return rosterState(list) === rosterFilter.value
+}
 function exportList(list: SavedArmyList) { exportSavedArmyList(list) }
 async function openShare(list: SavedArmyList) {
   shareRoster.value = list; shareCode.value = ''; shareShortUrl.value = ''; shareMessage.value = ''; shareBusy.value = true
@@ -89,6 +96,7 @@ async function nativeShareRoster() {
   try { await navigator.share({ title: `${shareRoster.value.name} — Old.dex`, text: `Old.dex army roster: ${shareRoster.value.name}\nShare Code: ${shareCode.value}`, url: shareShortUrl.value }) }
   catch { /* User cancellation is not an error state. */ }
 }
+onMounted(refreshLists)
 </script>
 
 <template>
@@ -148,7 +156,7 @@ async function nativeShareRoster() {
 
     <div v-if="exportRosterDialogOpen" class="roster-share-backdrop" role="presentation" @click.self="closeExportRoster"><section class="roster-share-modal card-surface" role="dialog" aria-modal="true" aria-labelledby="roster-export-title"><header><div><p class="eyebrow">EXPORT ROSTER</p><h2 id="roster-export-title">Export Roster</h2></div><button type="button" class="icon-button" aria-label="Close roster export" @click="closeExportRoster">×</button></header><label class="field-label">Roster<select v-model="exportRosterId" class="field-control"><option v-for="list in savedLists" :key="`export-${list.id}`" :value="list.id">{{ list.name }} — {{ actualPoints(list) }} / {{ list.points }} pts</option></select></label><div class="roster-transfer-options"><button type="button" class="secondary-button" :disabled="!exportRosterSelection" @click="exportSelectedRosterFile">Download File</button><button type="button" class="primary-button" :disabled="!exportRosterSelection" @click="shareSelectedRosterCode">Share Code</button></div></section></div>
 
-    <div v-if="shareRoster" class="roster-share-backdrop" role="presentation" @click.self="closeShare"><section class="roster-share-modal card-surface" role="dialog" aria-modal="true" aria-labelledby="roster-share-title"><header><div><p class="eyebrow">SHARE ARMY ROSTER</p><h2 id="roster-share-title">{{ shareRoster.name }}</h2></div><button type="button" class="icon-button" aria-label="Close roster share" :disabled="shareBusy" @click="closeShare">×</button></header><p>Send the Share Code. The receiver opens the short Old.dex share page, pastes the code, and reviews the roster before adding it locally.</p><p v-if="shareBusy">Preparing Share Code…</p><div v-if="shareShortUrl" class="share-code-short-url"><span>Share page</span><code>{{ shareShortUrl }}</code></div><div v-if="shareCode" class="share-code-preview"><span>Share Code</span><code>{{ shareCodePreview }}</code><small>The full code is copied or sent; the URL itself stays short.</small></div><details v-if="shareCode" class="share-code-full"><summary>Show full Share Code</summary><textarea class="roster-share-link" readonly :value="shareCode" rows="5"></textarea></details><div class="roster-share-actions"><button type="button" class="primary-button" :disabled="!shareCode" @click="copyShareCode">Copy Share Code</button><button v-if="typeof navigator !== 'undefined' && 'share' in navigator" type="button" class="secondary-button" :disabled="!shareCode || !shareShortUrl" @click="nativeShareRoster">Share</button></div><p v-if="shareMessage" class="list-import-message" role="status">{{ shareMessage }}</p></section></div>
+    <div v-if="shareRoster" class="roster-share-backdrop" role="presentation" @click.self="closeShare"><section class="roster-share-modal card-surface" role="dialog" aria-modal="true" aria-labelledby="roster-share-title"><header><div><p class="eyebrow">SHARE ARMY ROSTER</p><h2 id="roster-share-title">{{ shareRoster.name }}</h2></div><button type="button" class="icon-button" aria-label="Close roster share" :disabled="shareBusy" @click="closeShare">×</button></header><p>Send the Share Code. The receiver opens the short Old.dex share page, pastes the code, and reviews the roster before adding it locally.</p><p v-if="shareBusy">Preparing Share Code…</p><div v-if="shareShortUrl" class="share-code-short-url"><span>Share page</span><code>{{ shareShortUrl }}</code></div><div v-if="shareCode" class="share-code-preview"><span>Share Code</span><code>{{ shareCodePreview }}</code><small>The full code is copied or sent; the URL itself stays short.</small></div><details v-if="shareCode" class="share-code-full"><summary>Show full Share Code</summary><textarea class="roster-share-link" readonly :value="shareCode" rows="5"></textarea></details><div class="roster-share-actions"><button type="button" class="primary-button" :disabled="!shareCode" @click="copyShareCode">Copy Share Code</button><button v-if="nativeSharingAvailable" type="button" class="secondary-button" :disabled="!shareCode || !shareShortUrl" @click="nativeShareRoster">Share</button></div><p v-if="shareMessage" class="list-import-message" role="status">{{ shareMessage }}</p></section></div>
   </main>
 </template>
 

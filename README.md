@@ -2,7 +2,7 @@
 
 **Old.dex** is an unofficial companion web app for **Warhammer: The Old World** focused on army building, rules reference, roster validation, and guided match play.
 
-Current public version: **Alpha Build 0.51**
+Current public version: **Alpha Build 0.52**
 
 ## What Old.dex Does
 
@@ -26,7 +26,7 @@ Old.dex combines several tools into one browser-based application:
 - Install as a Progressive Web App on supported desktop and mobile browsers.
 
 
-Alpha Build 0.51 unifies Match phase/subphase navigation, adds the General’s Bar and persistent Match Roster view, expands charge/shooting/combat tracking, and hardens magic, Parry, roster-switching, and magical-item rule handling.
+Alpha Build 0.52 completes the Match General tools with Battle Charts, an embedded reference sheet, match JSON/Share Code export, per-round score inputs, corrected deployment ordering, and roster-import display recovery.
 
 ## Current Alpha Focus
 

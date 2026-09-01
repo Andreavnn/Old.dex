@@ -7,6 +7,22 @@ export type ChangelogEntry = {
 // Canonical runtime history mirrored in /CHANGELOG.md. Keep both sources synchronized.
 export const changelogEntries: ChangelogEntry[] = [
   {
+    "version": "0.52",
+    "title": "Match references, export, score entry, and roster recovery",
+    "notes": [
+      "Reordered Display and Data & Content settings into their requested menu sequence.",
+      "Added working Match Reference Sheet and Battle Charts pages to the General's Bar; the supplied PDF is embedded without spell pages 21-24.",
+      "Replaced the Match Share placeholder with Export options for a complete JSON snapshot or compressed Match Share Code.",
+      "Added a clear Back to Match control on Match Roster.",
+      "Hardened Deployment Step 2 ordering so War Machine troop types are recognized from canonical troop type data and imported-roster keyword fallbacks.",
+      "Removed the Total Power casting control, removed Charge Declared, and renamed Successful to Successful Charge.",
+      "Moved Pursued Off-Table into the follow-up result grid and removed the redundant additional-result sentence.",
+      "Added per-player round score inputs with persistent running totals.",
+      "Fixed Army Rosters failing to display saved/imported rosters by loading storage when the page mounts.",
+      "Added Jay's Wargaming to Special Thanks and updated build/cache metadata to Alpha Build 0.52."
+    ]
+  },
+  {
     "version": "0.51",
     "title": "Unified Match navigation, General tools, roster state, and rules tracking",
     "notes": [

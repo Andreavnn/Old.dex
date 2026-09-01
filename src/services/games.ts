@@ -135,6 +135,7 @@ export type SavedGame = {
   chargeTests?: Record<string, GameChargeTestResult>
   playerScore: number
   opponentScore: number
+  roundScores?: Record<string, { player: number; opponent: number }>
   createdAt: string
   updatedAt: string
   completedAt?: string
@@ -192,6 +193,7 @@ function parseGames(value: unknown): SavedGame[] {
       chargeTests: { ...(row.chargeTests || {}) },
       playerScore: Math.max(0, Number(row.playerScore || 0)),
       opponentScore: Math.max(0, Number(row.opponentScore || 0)),
+      roundScores: Object.fromEntries(Object.entries(row.roundScores || {}).map(([key, value]) => [key, { player: Math.max(0, Number(value?.player || 0)), opponent: Math.max(0, Number(value?.opponent || 0)) }])),
       firstPlayerConfirmed: typeof row.firstPlayerConfirmed === 'boolean' ? row.firstPlayerConfirmed : true,
       playerPoints: savedGameSidePoints(row, 'player'),
       opponentPoints: savedGameSidePoints(row, 'opponent'),
@@ -301,6 +303,7 @@ export function createSavedGame(input: {
     chargeTests: {},
     playerScore: 0,
     opponentScore: 0,
+    roundScores: {},
     createdAt: now,
     updatedAt: now,
   }
@@ -351,6 +354,7 @@ export function resetSavedGame(id: string) {
     chargeTests: {},
     playerScore: 0,
     opponentScore: 0,
+    roundScores: {},
     magicSetup: [],
   })
 }

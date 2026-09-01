@@ -7,6 +7,8 @@ import GameCreateView from './views/GameCreateView.vue'
 import GameMatchView from './views/GameMatchView.vue'
 import MatchUnitProfileView from './views/MatchUnitProfileView.vue'
 import MatchRosterView from './views/MatchRosterView.vue'
+import MatchBattleChartsView from './views/MatchBattleChartsView.vue'
+import MatchReferenceSheetView from './views/MatchReferenceSheetView.vue'
 import UnitView from './views/UnitView.vue'
 import SettingsView from './views/SettingsView.vue'
 import CreateListView from './views/CreateListView.vue'
@@ -36,6 +38,8 @@ const router = createRouter({
     { path: '/games', name: 'games', component: GamesView },
     { path: '/games/new', name: 'game-create', component: GameCreateView },
     { path: '/games/:gameId/roster', name: 'game-roster', component: MatchRosterView },
+    { path: '/games/:gameId/battle-charts', name: 'game-battle-charts', component: MatchBattleChartsView },
+    { path: '/games/:gameId/reference-sheet', name: 'game-reference-sheet', component: MatchReferenceSheetView },
     { path: '/games/:gameId/unit/:instanceId', name: 'game-unit-profile', component: MatchUnitProfileView },
     { path: '/games/:gameId', name: 'game-match', component: GameMatchView },
     { path: '/army/:armySlug/unit/:unitSlug', name: 'unit', component: UnitView },

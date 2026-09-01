@@ -5121,3 +5121,38 @@ label.match-tip-master-toggle > input.match-tip-switch-input:checked::after {
   .primary-nav a { padding-inline: 2px; font-size: calc(9px + var(--font-offset)); }
   .match-roster-heading { flex-direction: column; }
 }
+
+/* Match exports, reference tools, and score-entry refinements. */
+.match-export-modal { width: min(620px, 100%); }
+.match-export-options { margin: 16px 0; }
+.follow-up-outcome-grid .pursued-off-table-card { margin-top: 0; }
+.match-roster-heading-actions { display: grid; justify-items: end; gap: 10px; }
+.match-roster-heading-actions > strong { font-size: calc(20px + var(--font-offset)); }
+.match-tool-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 10px; padding: 18px 20px; }
+.match-tool-page-heading h1 { margin: 3px 0; }
+.match-tool-page-heading p:last-child { margin-bottom: 0; }
+.match-tool-heading-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.battle-chart-card { overflow: hidden; margin-top: 12px; padding: 0; }
+.battle-chart-card > header { padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+.battle-chart-card h2 { margin: 0 0 4px; }
+.battle-chart-card p { margin: 0; color: var(--ink-soft); }
+.battle-chart-scroll { overflow-x: auto; padding: 12px; }
+.battle-chart-scroll table { width: 100%; min-width: 720px; border-collapse: collapse; text-align: center; }
+.battle-chart-scroll.compact-chart table { min-width: 650px; }
+.battle-chart-scroll th,.battle-chart-scroll td { border: 1px solid var(--line); padding: 8px; white-space: nowrap; }
+.battle-chart-scroll thead th,.battle-chart-scroll tbody th { background: var(--paper-2); color: var(--ink); font-weight: 900; }
+.battle-chart-scroll td { background: color-mix(in srgb, var(--paper) 94%, transparent); font-weight: 800; }
+.match-pdf-panel { overflow: hidden; margin-top: 12px; padding: 0; }
+.match-pdf-panel iframe { display: block; width: 100%; height: min(78vh, 1080px); min-height: 640px; border: 0; background: #fff; }
+.match-pdf-panel > p { margin: 0; padding: 12px 16px; border-top: 1px solid var(--line); }
+.end-round-score-board .game-score-side { align-content: center; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper-2); }
+.end-round-score-board .game-score-side > span { color: var(--ink-soft); font-weight: 800; }
+.end-round-score-board .game-score-side > input { width: min(160px, 100%); min-height: 44px; border: 1px solid var(--line-dark); border-radius: 8px; padding: 7px 9px; background: var(--paper); color: var(--ink); font: inherit; font-size: calc(18px + var(--font-offset)); font-weight: 900; text-align: center; }
+.end-round-score-board .game-score-side > strong { font-size: calc(14px + var(--font-offset)); }
+
+@media (max-width: 720px) {
+  .match-tool-page-heading { align-items: stretch; flex-direction: column; }
+  .match-tool-heading-actions { justify-content: flex-start; }
+  .match-roster-heading-actions { justify-items: start; }
+  .match-pdf-panel iframe { min-height: 72vh; }
+}

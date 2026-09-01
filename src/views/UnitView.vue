@@ -10,7 +10,6 @@ import { loadLiveUnitProfileProgressively } from '../data/liveBuilderUnits'
 import { loadArmyData } from '../services/armyData'
 import { fetchRuleDocument } from '../services/ruleContent'
 import { loadMagicItemReference } from '../services/magicItemReference'
-import { extractMechanicalRuleText } from '../services/ruleText'
 import { findBuilderRosterSelection, loadBuilderRoster, updateBuilderRosterSelection, type BuilderRosterMagicItem } from '../services/builderRoster'
 import { isFavoriteUnit, setFavoriteUnit } from '../services/favorites'
 import { getSavedArmyList } from '../services/savedLists'
@@ -279,7 +278,7 @@ async function resetSelections() {
     for (const entry of saved.magicItems) {
       const ownerId = entry.ownerId || 'unit'
       const match = magicItems.value.find((item) => item.ownerId === ownerId && (item.baseId === (entry.baseId || entry.id) || (item.name === entry.name && item.type === entry.type && item.source === entry.source)))
-      const item: MagicItem = match || { ...entry, baseId: entry.baseId || entry.id, ownerId, ownerLabel: entry.ownerLabel || prettyUnitName.value, poolMaxPoints: entry.poolMaxPoints || prototypeUnit.value?.magicAllowance?.maxPoints || entry.points, id: `${ownerId}::${entry.baseId || entry.id}` }
+      const item: MagicItem = match || { ...entry, sourceName: entry.name, baseId: entry.baseId || entry.id, ownerId, ownerLabel: entry.ownerLabel || prettyUnitName.value, poolMaxPoints: entry.poolMaxPoints || prototypeUnit.value?.magicAllowance?.maxPoints || entry.points, id: `${ownerId}::${entry.baseId || entry.id}` }
       merged.set(item.id, item)
       selectedMagicCounts.value.set(item.id, Math.max(1, Number(entry.count) || 1))
       await loadMagicItemDetail(item)
@@ -357,7 +356,6 @@ const pointBreakdown = computed(() => prototypeUnit.value ? unitSelectionPointBr
   magicalMaelstrom: magicalMaelstromEnabled.value,
 }) : { basePoints: 0, weaponPoints: 0, equipmentPoints: 0, magicPoints: 0, optionPoints: 0, totalPoints: 0 })
 const baseUnitPoints = computed(() => pointBreakdown.value.basePoints)
-const optionPoints = computed(() => pointBreakdown.value.optionPoints)
 const totalPoints = computed(() => pointBreakdown.value.totalPoints)
 const selectedMagicWeapons = computed(() => selectedMagicEntries.value.filter(({ item }) => item.type === 'weapon'))
 

@@ -2,6 +2,19 @@
 
 Canonical release history mirrored from `src/data/changelog.ts`.
 
+## Alpha Build 0.52 — Match references, export, score entry, and roster recovery
+
+- Reordered Display and Data & Content settings into their requested menu sequence.
+- Added working Match Reference Sheet and Battle Charts pages to the General's Bar; the supplied PDF is embedded without spell pages 21–24.
+- Replaced the Match Share placeholder with Export options for a complete `.json` snapshot or compressed Match Share Code.
+- Added a clear Back to Match control on Match Roster.
+- Hardened Deployment Step 2 ordering so War Machine troop types are recognized from canonical troop type data and imported-roster keyword fallbacks.
+- Removed the Total Power casting control, removed Charge Declared, and renamed Successful to Successful Charge.
+- Moved Pursued Off-Table into the follow-up result grid and removed the redundant additional-result sentence.
+- Added per-player round score inputs with persistent running totals.
+- Fixed Army Rosters failing to display saved/imported rosters by loading storage when the page mounts.
+- Added Jay's Wargaming to Special Thanks and updated build/cache metadata to Alpha Build 0.52.
+
 ## Alpha Build 0.51 — Unified Match navigation, General tools, roster state, and rules tracking
 
 - Added News before Army Rosters in the primary navigation and removed duplicate small page-title labels from Army Rosters, Games, and Settings.

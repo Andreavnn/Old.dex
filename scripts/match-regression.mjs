@@ -315,6 +315,16 @@ test('Deployment Step 2 enforces group order instead of only sorting rows', () =
   assert.ok(view.includes(':disabled="isReadOnly || deploymentRowLocked(row)'))
 })
 
+test('Deployment order respects canonical and imported unit-type data', async () => {
+  const deployment = await import(pathToFileURL(resolve(root, 'src/core/deploymentOrder.ts')).href)
+  const ordinary = { category: 'Rare', troopType: 'Monstrous Infantry', keywords: [], specialRules: [] }
+  const machine = { category: 'Rare', troopType: 'War Machine', keywords: [], specialRules: [] }
+  const importedMachine = { category: 'Rare', troopType: '', keywords: [{ label: 'War Machine', path: '' }], specialRules: [] }
+  const character = { category: 'Characters', troopType: 'Regular Infantry', keywords: [], specialRules: [] }
+  const scout = { category: 'Core', troopType: 'Regular Infantry', keywords: [], specialRules: [{ label: 'Scouts', path: '' }] }
+  assert.deepEqual([ordinary, machine, importedMachine, character, scout].map(deployment.deploymentSequenceRank), [0, 1, 1, 2, 3])
+})
+
 test('successful chargers are marked Charged in Combat Step 1', () => {
   const view = read('src/views/GameMatchView.vue')
   assert.ok(view.includes('function unitChargedThisTurn(instanceId: string)'))
@@ -337,7 +347,8 @@ test('Movement Step 2 includes mutually exclusive In Combat and Stay states', ()
   assert.ok(view.includes('function setChargeInCombat'))
   assert.ok(view.includes('<span>In Combat</span>'))
   assert.ok(view.includes('<span>Stay</span>'))
-  assert.ok(view.includes("chargeInCombat(rule.unitRefs?.[0]?.instanceId || '') || chargeDeclared"))
+  assert.ok(view.includes('<span>Successful Charge</span>'))
+  assert.equal(view.includes('<span>Charge declared</span>'), false)
   assert.ok(view.includes("chargeHeld(rule.unitRefs?.[0]?.instanceId || '') || chargeInCombat"))
 })
 
@@ -400,12 +411,12 @@ test('limited-use actions use a readable remaining-use status block', () => {
   assert.ok(css.includes('font-size:calc(11px + var(--font-offset))'))
 })
 
-test('Total Power implies Miscast and source miscast outcomes can stop later casting', () => {
+test('Miscast resolution remains available without a Total Power option', () => {
   const view = read('src/views/GameMatchView.vue')
   const tracking = read('src/services/matchTracking.ts')
-  assert.ok(view.includes('<span>Total Power</span>'))
+  assert.equal(view.includes('<span>Total Power</span>'), false)
   assert.ok(view.includes('<span>Miscast</span>'))
-  assert.ok(view.includes("totalPower: checked, miscast: checked ? true"))
+  assert.equal(view.includes('setSpellTotalPower'), false)
   assert.ok(view.includes("loadRandomHappeningTable('/magic/miscast-table')"))
   assert.ok(view.includes('miscastCastingStop'))
   assert.ok(view.includes('wizardCannotCast'))
@@ -436,6 +447,10 @@ test('End of Round score is flattened into the step content', () => {
   const view = read('src/views/GameMatchView.vue')
   assert.ok(view.includes('class="end-round-score-content"'))
   assert.equal(view.includes('class="end-round-score-panel card-inset"'), false)
+  assert.ok(view.includes("roundScore('player')"))
+  assert.ok(view.includes("roundScore('opponent')"))
+  assert.ok(view.includes('Running total: {{ game.playerScore }}'))
+  assert.ok(view.includes('Running total: {{ game.opponentScore }}'))
 })
 
 test('locked and unlocked roster View actions use the same normal roster view', () => {
@@ -485,16 +500,25 @@ test('requested labels and text-link alignment are applied', () => {
   assert.ok(theme.includes('justify-content: center'))
 })
 
+test('Settings Display and Data menus use the requested item order', () => {
+  const settings = read('src/views/SettingsView.vue')
+  const display = ['Launch Audio', 'Dark Mode', 'Compact Rows', 'Bold Text', 'Text Size', 'Themes', 'Background', 'Reset Local Settings']
+  const data = ['Roster Data', 'Custom Data', 'Cloud Sync', 'Reset Local Data', 'Rule Content', 'Army Data']
+  for (let index = 1; index < display.length; index++) assert.ok(settings.indexOf(`<strong>${display[index - 1]}</strong>`) < settings.indexOf(`<strong>${display[index]}</strong>`))
+  for (let index = 1; index < data.length; index++) assert.ok(settings.indexOf(`<strong>${data[index - 1]}</strong>`) < settings.indexOf(`<strong>${data[index]}</strong>`))
+})
+
 
 
 test('War Machines retain independent deployment state inside their shared stage', () => {
   const view = read('src/views/GameMatchView.vue')
+  const deployment = read('src/core/deploymentOrder.ts')
   const start = view.indexOf('function toggleDeployedUnit')
   const end = view.indexOf('function handleDeployedUnit', start)
   const block = view.slice(start, end)
   assert.ok(block.includes('const ids = [instanceId]'))
   assert.equal(block.includes("playerRoster.value.filter((entry) => isWarMachine(entry)"), false)
-  assert.ok(view.includes('WAR MACHINE · TRACK THIS UNIT SEPARATELY'))
+  assert.ok(deployment.includes('WAR MACHINE · TRACK THIS UNIT SEPARATELY'))
 })
 
 test('Miscast parsing rejects the source table heading row', () => {
@@ -612,7 +636,7 @@ test('runtime styles are consolidated and no broad Dark Mode pill override remai
 test('service worker precaches only real maintained core assets', () => {
   const sw = read('public/sw.js')
   assert.equal(sw.includes('/data/owb-rule-catalog.json'), false)
-  assert.ok(sw.includes("const CACHE_NAME = 'olddex-shell-v051-match-general-tools'"))
+  assert.ok(sw.includes("const CACHE_NAME = 'olddex-shell-v052-match-reference-tools'"))
 })
 
 test('placeholder Army route and obsolete review infrastructure are removed', () => {
@@ -637,7 +661,7 @@ test('Report controls open the functional GitHub issue workflow', () => {
 test('runtime and roster export versions are deliberately separate constants', () => {
   const version = read('src/version.ts')
   const saved = read('src/services/savedLists.ts')
-  assert.ok(version.includes("OLDDEX_VERSION = '0.51'"))
+  assert.ok(version.includes("OLDDEX_VERSION = '0.52'"))
   assert.ok(version.includes("OLDDEX_ROSTER_EXPORT_SCHEMA_VERSION = '0.65'"))
   assert.ok(saved.includes('version: OLDDEX_ROSTER_EXPORT_SCHEMA_VERSION'))
 })
@@ -645,20 +669,21 @@ test('runtime and roster export versions are deliberately separate constants', (
 test('canonical changelog includes the previously missing 0.43 and 0.44 releases', () => {
   const changelog = read('src/data/changelog.ts')
   const view = read('src/views/ChangelogView.vue')
-  assert.ok(changelog.indexOf('"version": "0.51"') < changelog.indexOf('"version": "0.50"'))
+  assert.ok(changelog.indexOf('"version": "0.52"') < changelog.indexOf('"version": "0.51"'))
   assert.ok(changelog.includes('"version": "0.44"'))
   assert.ok(changelog.includes('"version": "0.43"'))
   assert.equal(view.includes('changelogLatest'), false)
 })
 
-test('Alpha 0.51 metadata and canonical changelog are synchronized', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '0.51.0')
-  assert.ok(read('src/version.ts').includes("OLDDEX_VERSION = '0.51'"))
+test('Alpha 0.52 metadata and canonical changelog are synchronized', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '0.52.0')
+  assert.ok(read('src/version.ts').includes("OLDDEX_VERSION = '0.52'"))
   assert.ok(read('src/App.vue').includes('OLDDEX_BUILD_LABEL'))
   assert.ok(read('src/components/AppHeader.vue').includes('OLDDEX_BUILD_LABEL'))
   assert.ok(read('src/views/SettingsView.vue').includes('OLDDEX_BUILD_LABEL'))
-  assert.ok(read('public/sw.js').includes('v051'))
+  assert.ok(read('public/sw.js').includes('v052'))
   const changelog = read('src/data/changelog.ts')
+  assert.ok(changelog.includes('"version": "0.52"'))
   assert.ok(changelog.includes('"version": "0.51"'))
   assert.ok(changelog.includes('"version": "0.50"'))
   assert.ok(changelog.includes('"version": "0.49"'))
@@ -689,6 +714,9 @@ test('Match combines phase and subphase navigation and mounts the Generals Bar',
   assert.equal(view.includes('ref="stepTabsRef"'), false)
   assert.ok(general.includes('Reference Sheet'))
   assert.ok(general.includes('Battle Charts'))
+  assert.ok(general.includes('>Export</button>'))
+  assert.ok(general.includes('Download .json'))
+  assert.ok(general.includes('Share Code'))
   assert.ok(general.includes('Round'))
 })
 
@@ -702,6 +730,7 @@ test('Match roster page uses the saved snapshot and persistent match state', () 
   assert.ok(view.includes('Models destroyed'))
   assert.ok(view.includes('Wounds lost'))
   assert.ok(view.includes('isGameLocked(game.value.id)'))
+  assert.ok(view.includes('Back to Match'))
   assert.equal(view.includes('Export'), false)
   assert.equal(view.includes('Edit'), false)
 })
@@ -755,6 +784,7 @@ test('Combat tracks Impact Hits Pursued Off-Table and War Machine abandonment', 
   assert.ok(view.includes('>Impact Hits</span>'))
   assert.ok(view.includes('Pursued Off-Table'))
   assert.ok(view.includes('next Compulsory Moves subphase'))
+  assert.equal(view.includes('May be recorded in addition to the selected pursuit/overrun result.'), false)
   assert.ok(view.includes("We Aren't Paid to Fight"))
   assert.ok(tracking.includes('pursuedOffTable?: boolean'))
   assert.ok(tracking.includes('warMachineAbandoned?: boolean'))
@@ -792,7 +822,7 @@ test('Scrolls of Wei-jin limits casting attempts to current Wizard Level per tur
   assert.ok(view.includes('casterSpellCastLimitByLevel'))
   assert.ok(view.includes('wizardCompletedCastCount'))
   assert.ok(view.includes('wizardEffectiveLevel(caster)'))
-  assert.ok(view.includes('Spell casting limit reached for this turn'))
+  assert.ok(view.includes('Cannot cast again this turn — spell casting limit reached'))
 })
 
 test('magical item references can infer faction collection fallbacks', () => {
@@ -806,11 +836,33 @@ test('magical item references can infer faction collection fallbacks', () => {
   assert.ok(match.includes('collectionName: item.source'))
 })
 
-test('Tips turn controls and profile pills use the 0.51 layout rules', () => {
+test('Tips turn controls and profile pills retain the current layout rules', () => {
   const css = read('src/styles.css')
   assert.ok(css.includes('.game-step-heading-tools'))
   assert.ok(css.includes('.game-step-heading-tools .compact-turn-context'))
   assert.ok(css.includes('.match-snapshot-profile-page .profile-loadout-chips'))
+})
+
+test('Match reference pages and the edited PDF are routed from the Generals Bar', () => {
+  const router = read('src/router.ts')
+  const general = read('src/components/MatchGeneralBar.vue')
+  const charts = read('src/views/MatchBattleChartsView.vue')
+  const reference = read('src/views/MatchReferenceSheetView.vue')
+  assert.ok(router.includes("name: 'game-battle-charts'"))
+  assert.ok(router.includes("name: 'game-reference-sheet'"))
+  assert.ok(general.includes('/battle-charts'))
+  assert.ok(general.includes('/reference-sheet'))
+  assert.ok(charts.includes('Weapon Skill - To Hit'))
+  assert.ok(charts.includes('Ballistic Skill - To Hit'))
+  assert.ok(charts.includes('Strength vs Toughness - To Wound'))
+  assert.ok(reference.includes('/reference/old-world-reference-sheet.pdf'))
+})
+
+test('Army Rosters loads saved imports on mount and Special Thanks credits Jay', () => {
+  const home = read('src/views/HomeView.vue')
+  const welcome = read('src/views/WelcomeView.vue')
+  assert.ok(home.includes('onMounted(refreshLists)'))
+  assert.ok(welcome.indexOf("Jay's Wargaming") < welcome.indexOf('Other Contributing Supporters'))
 })
 
 test('News route and page are wired into the application', () => {
@@ -826,4 +878,4 @@ for (const [name, fn] of tests) {
   try { await fn(); passed += 1 }
   catch (error) { console.error(`FAIL: ${name}`); throw error }
 }
-console.log(`ODX 0.51 regressions passed: ${passed}/${tests.length}`)
+console.log(`ODX 0.52 regressions passed: ${passed}/${tests.length}`)

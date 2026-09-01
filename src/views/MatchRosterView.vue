@@ -71,14 +71,14 @@ onMounted(async () => {
       <MatchGeneralBar :game="game" active="roster" />
       <header class="match-roster-heading card-surface">
         <div><p class="eyebrow">MATCH ROSTER</p><h1>{{ game.playerListName }}</h1><p>{{ game.playerArmyName }} · {{ game.playerCompositionName || 'Army Roster' }}</p></div>
-        <strong>{{ points }} pts</strong>
+        <div class="match-roster-heading-actions"><strong>{{ points }} pts</strong><RouterLink class="secondary-button" :to="`/games/${game.id}`">Back to Match</RouterLink></div>
       </header>
       <p v-if="loading" class="setup-inline-status card-surface">Building the match roster from the saved battle snapshot…</p>
       <section v-for="group in categories" :key="group.category" class="match-roster-category card-surface">
         <header><h2>{{ group.category }}</h2><strong>{{ group.rows.reduce((sum, row) => sum + Number(row.totalPoints || 0), 0) }} pts</strong></header>
         <article v-for="row in group.rows" :key="row.instanceId" class="match-roster-unit">
           <div class="match-roster-unit-heading">
-            <RouterLink :to="profileRoute(row)"><strong>{{ row.modelCount > 1 ? `${row.modelCount} ` : '' }}{{ row.name }}</strong></RouterLink>
+            <RouterLink :to="profileRoute(row)"><strong>{{ Number(row.modelCount || 1) > 1 ? `${row.modelCount} ` : '' }}{{ row.name }}</strong></RouterLink>
             <strong>{{ row.totalPoints }} pts</strong>
           </div>
           <p class="match-roster-loadout">{{ [...(row.includedEquipment || []), ...(row.optionalSelections || [])].join(' · ') || 'No additional equipment recorded.' }}</p>
