@@ -147,3 +147,180 @@ onMounted(() => {
     </footer>
   </div>
 </template>
+
+<style>
+/* Match layout polish, chart navigation, and popup refinements. */
+.app-shell button { text-align: center; }
+.app-shell :is(.secondary-button,.primary-button,.danger-button,.match-general-tool,.match-tab-scroll-arrow,.games-search-toggle,.game-row-action,.saved-list-action-button,.saved-list-icon-action,.builder-mini-action) {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.app-shell a:is(.secondary-button,.primary-button,.danger-button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.app-shell .game-match-page :is(
+  .game-length-card,
+  .condition-resolution-panel,
+  .battle-step-tip,
+  .scenario-priority-panel,
+  .game-tip-card,
+  .overview-battlefield-panel,
+  .overview-composition-options,
+  .overview-magic-panel,
+  .deployment-guidance-panel,
+  .deployment-order-panel,
+  .deployment-first-turn-window,
+  .game-first-turn-window,
+  .start-round-rule-panel,
+  .turn-guidance-panel,
+  .match-procedure-panel,
+  .deployment-roster-panel,
+  .end-round-score-content
+) {
+  padding-left: clamp(14px, 2.6vw, 18px);
+  padding-right: clamp(14px, 2.6vw, 18px);
+}
+.app-shell .game-match-page :is(.game-length-card,.condition-resolution-panel,.battle-step-tip,.scenario-priority-panel) > :first-child {
+  margin-top: 0;
+}
+.app-shell :is(.game-length-card,.condition-resolution-panel) > :is(h2,h3,p,.eyebrow) {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.app-shell .combined-phase-tabs .phase-parent-tab,
+.app-shell .combined-phase-tabs .phase-inline-step,
+.app-shell .combined-phase-tabs .phase-parent-tab:visited,
+.app-shell .combined-phase-tabs .phase-inline-step:visited {
+  color: var(--ink);
+  -webkit-text-fill-color: var(--ink);
+  opacity: 1;
+}
+.app-shell .combined-phase-tabs :is(.phase-parent-tab,.phase-inline-step).active {
+  color: var(--ink);
+  -webkit-text-fill-color: var(--ink);
+}
+.app-shell .combined-phase-tabs :is(.phase-parent-tab,.phase-inline-step):disabled {
+  color: var(--ink-soft);
+  -webkit-text-fill-color: var(--ink-soft);
+  opacity: .65;
+}
+
+.app-shell .battle-chart-arrow-shell {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  align-items: stretch;
+  gap: 7px;
+  padding: 12px;
+}
+.app-shell .battle-chart-arrow {
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  border: 1px solid var(--line-dark);
+  border-radius: 9px;
+  background: var(--paper-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+.app-shell .battle-chart-arrow:hover {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+.app-shell .battle-chart-arrow svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.app-shell .battle-chart-arrow-shell .battle-chart-scroll { padding: 0; }
+.app-shell .ballistic-chart-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+}
+.app-shell .ballistic-chart-scroll::-webkit-scrollbar { display: none; }
+
+.match-export-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, .58);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+.match-export-backdrop .match-export-modal {
+  width: min(620px, calc(100vw - 40px));
+  max-height: min(88dvh, 760px);
+  overflow: auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+.match-export-backdrop .match-export-modal > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.match-export-backdrop .match-export-modal h2 { margin: 0; }
+.match-export-backdrop .match-export-options { margin: 16px 0; }
+.match-export-backdrop :is(.secondary-button,.primary-button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.app-shell .match-roster-heading { align-items: stretch; }
+.app-shell .match-roster-heading > div:first-child { min-width: 0; }
+.app-shell .match-roster-heading-actions {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: max-content;
+}
+.app-shell .match-roster-heading-actions .secondary-button { margin-top: auto; }
+.app-shell .match-roster-heading-actions > strong { align-self: flex-end; }
+
+@media (max-width: 720px) {
+  .app-shell .battle-chart-arrow-shell {
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    gap: 5px;
+    padding: 9px;
+  }
+  .app-shell .battle-chart-arrow { min-width: 36px; }
+  .match-export-backdrop { padding: 10px; }
+  .match-export-backdrop .match-export-modal {
+    width: min(620px, calc(100vw - 20px));
+    max-height: calc(100dvh - 20px);
+    padding: 16px;
+  }
+}
+@media (max-width: 520px) {
+  .app-shell .match-roster-heading {
+    flex-direction: row;
+    align-items: stretch;
+  }
+  .app-shell .match-roster-heading-actions { min-width: 118px; }
+  .app-shell .match-roster-heading-actions .secondary-button {
+    white-space: normal;
+    line-height: 1.2;
+    padding-inline: 10px;
+  }
+}
+</style>
